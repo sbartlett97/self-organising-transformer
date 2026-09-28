@@ -47,7 +47,7 @@ class TrainConfig:
     log_every: int = 25
     grad_clip: float = 1.0
     arch_reg: float = 0.015
-    target_cost: float = 0.45
+    target_cost: float = 0.14
     lagrangian_lr: float = 0.01
     gate_warmup_steps: int = 1000
     gate_init_logit: float = -1.0
@@ -305,7 +305,7 @@ def parse_args() -> TrainConfig:
     p.add_argument("--save_every", type=int, default=1000)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--arch_reg", type=float, default=0.015)
-    p.add_argument("--target_cost", type=float, default=0.45)
+    p.add_argument("--target_cost", type=float, default=0.14)
     p.add_argument("--lagrangian_lr", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", default="auto")

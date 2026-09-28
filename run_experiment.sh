@@ -31,7 +31,7 @@ fi
 python train.py --model_type sot --output_dir outputs/sot \
   --seq_len "$SEQ" --batch_size "$BATCH" --grad_accum "$ACCUM" \
   --max_steps "$STEPS" --max_layers 12 --d_model 384 --max_heads 6 --max_ffn_dim 1536 --ffn_groups 64 \
-  --gate_init_logit -1.0 --arch_reg 0.015 --target_cost 0.45 --lagrangian_lr 0.01 --seed "$SEED"
+  --gate_init_logit -1.0 --arch_reg 0.015 --target_cost 0.14 --lagrangian_lr 0.01 --seed "$SEED"
 
 # Physically compact the discovered architecture.
 python materialize.py outputs/sot/final --threshold 0.5 --output_dir outputs/sot_compact
