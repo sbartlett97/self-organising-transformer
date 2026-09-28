@@ -101,7 +101,12 @@ def pick_device(name: str) -> torch.device:
     return torch.device("cpu")
 
 
-def tokenise_split(ds, tokenizer, text_column: str) -> List[int]:
+def tokenise_split(ds, tokenizer, text_column: str, max_docs: int | None = None) -> List[int]:
+    if max_docs is not None and max_docs < len(ds):
+        # Tokenizing is a single-threaded Python loop over the whole split; for a short
+        # diagnostic run that only needs a few million tokens, capping the document count
+        # avoids paying for a full pass over a multi-million-row corpus every invocation.
+        ds = ds.select(range(max_docs))
     out: List[int] = []
     eos = tokenizer.eos_token_id
     for row in tqdm(ds, desc="tokenizing", unit="doc"):
@@ -119,7 +124,7 @@ def load_tokens(cfg: TrainConfig, tokenizer):
         raw = load_dataset(cfg.dataset_name, cfg.dataset_config)
     else:
         raw = load_dataset(cfg.dataset_name)
-    train_tokens = tokenise_split(raw["train"], tokenizer, cfg.text_column)
+    train_tokens = tokenise_split(raw["train"], tokenizer, cfg.text_column, cfg.max_train_docs)
     val_split = "validation" if "validation" in raw else "train"
     if val_split == "train":
         # Deterministic small holdout from the tail if no validation split exists.
@@ -290,6 +295,7 @@ def parse_args() -> TrainConfig:
     p.add_argument("--model_type", choices=["sot", "dense"], default="sot")
     p.add_argument("--output_dir", default="./outputs/sot")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
+    p.add_argument("--max_train_docs", type=int, default=None, help="Cap on train-split documents to tokenize, for fast diagnostic runs")
     p.add_argument("--tokenizer_name", default="gpt2")
     p.add_argument("--seq_len", type=int, default=256)
     p.add_argument("--batch_size", type=int, default=16)
