@@ -283,3 +283,23 @@ warn loudly (not just print an empty list silently) when a threshold
 produces zero active layers, so this can't happen unnoticed on a real run
 again. Flagging as a required follow-up before trusting any *other* seed's
 materialize/retrain step to just work with `--threshold 0.5`.
+
+### Third bug: fp16 dtype mismatch crashing dense-mode evaluation on CUDA
+
+All 3 dense evaluations (`dense`, `dense_8l`, `dense_half_ffn`) crashed
+immediately on launch: `RuntimeError: expected mat1 and mat2 to have the
+same dtype, but got: float != c10::Half`. `_gates()`'s `architecture_mode
+== "dense"` branch built its gate tensors via `torch.ones(...)`/
+`torch.zeros(...)` with no `dtype=`, always float32 regardless of the
+model's actual parameter dtype. `evaluate.py` loads models in fp16 on CUDA
+(`torch_dtype=torch.float16`), so `y * head_gate` in
+`CausalSelfAttention.forward` upcasts the fp16 activation back to float32,
+which then hits the fp16-weighted `self.out` linear layer. SOT-mode gates
+were unaffected (derived from the model's own already-correctly-dtyped
+parameters via sigmoid); `CompactTransformer` has no gating at all, so
+`sot_compact`/`discovered_retrained` were unaffected too — only the three
+dense conditions crashed. Never caught locally because every prior test ran
+on CPU/MPS, where `evaluate.py`'s fp16 cast doesn't apply — this was the
+first time this code path had actually run on a CUDA GPU. Fixed by deriving
+gate dtype from `self.embed.weight.dtype`; verified with a `.half()`
+forward pass that previously crashed, then confirmed on the pod.
