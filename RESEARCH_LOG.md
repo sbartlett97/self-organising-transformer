@@ -8,15 +8,20 @@ for the full phased research programme.
 
 ## Current status
 
-- **Phase**: Phase 1 (differentiable structural selection) — **first
-  full-scale matrix complete**, seed 42. All 6 conditions (dense, dense_8l,
-  dense_half_ffn, sot, sot_compact, discovered_retrained) trained
-  (10,000 steps, full corpus) and evaluated (perplexity + hellaswag/
-  arc_easy/piqa/winogrande) on RunPod (A100, CA-MTL-3). Full results and
-  scoring against README's six interpretation criteria in the 2026-09-29
-  entry below. **4 of 6 criteria clear pass, 1 not yet testable (needs more
-  seeds), 1 nuanced** (see below — not a failure, but not a clean pass
-  either). Total cost: ~$13.33 of the $55 budget.
+- **Phase**: Phase 1 (differentiable structural selection) — **seed 42
+  full-scale matrix complete**; **seed 123 launched** (same pod/volume,
+  `sot-run-seed123`, outputs under `/workspace/outputs_seed123`) to start
+  addressing the one untested criterion (seed stability). Seed 42: all 6
+  conditions (dense, dense_8l, dense_half_ffn, sot, sot_compact,
+  discovered_retrained) trained (10,000 steps, full corpus) and evaluated
+  (perplexity + hellaswag/arc_easy/piqa/winogrande) on RunPod (A100,
+  CA-MTL-3). Full results and scoring against README's six interpretation
+  criteria in the 2026-09-29 entry below. **4 of 6 criteria clear pass, 1
+  not yet testable (needs more seeds), 1 nuanced** (see below — not a
+  failure, but not a clean pass either). Total cost for seed 42: $18.39 of
+  the $55 budget (incl. one wasted ~30min detour and ~3h of idle billing
+  while awaiting termination confirmation — both avoidable, noted for next
+  time: terminate/reuse a pod immediately rather than leaving it idle).
 - **Headline result**: SOT (109.63 ppl) beats the matched dense baseline
   (116.72 ppl) outright, at 87% lower architectural cost (0.128 vs. 1.0).
   Fresh retrain of the discovered 7-layer architecture recovers to 115.13
