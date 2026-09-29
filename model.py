@@ -160,10 +160,11 @@ class SelfOrganizingTransformer(PreTrainedModel):
     def _gates(self):
         if self.config.architecture_mode == "dense":
             device = self.embed.weight.device
-            layer = torch.ones(len(self.blocks), device=device)
-            heads = torch.ones((len(self.blocks), self.config.max_heads), device=device)
-            groups = torch.ones((len(self.blocks), self.config.ffn_groups), device=device)
-            skips = torch.zeros((len(self.blocks), self.config.skip_span), device=device) if self.config.skip_span > 0 else torch.empty((len(self.blocks), 0), device=device)
+            dtype = self.embed.weight.dtype
+            layer = torch.ones(len(self.blocks), device=device, dtype=dtype)
+            heads = torch.ones((len(self.blocks), self.config.max_heads), device=device, dtype=dtype)
+            groups = torch.ones((len(self.blocks), self.config.ffn_groups), device=device, dtype=dtype)
+            skips = torch.zeros((len(self.blocks), self.config.skip_span), device=device, dtype=dtype) if self.config.skip_span > 0 else torch.empty((len(self.blocks), 0), device=device, dtype=dtype)
             return layer, heads, groups, skips
         layer = torch.sigmoid(torch.stack([b.layer_logit for b in self.blocks]))
         heads = torch.stack([torch.sigmoid(b.attn.head_logits) for b in self.blocks])
