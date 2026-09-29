@@ -12,6 +12,7 @@ class CompactConfig(PretrainedConfig):
     model_type = "self_organizing_transformer_compact"
     def __init__(self, vocab_size=50257, max_position_embeddings=256, d_model=384, layers=None, dropout=0.0, skip_span=0, **kwargs):
         super().__init__(**kwargs)
+        self.tie_word_embeddings=True
         self.vocab_size=vocab_size
         self.max_position_embeddings=max_position_embeddings
         self.d_model=d_model
@@ -71,6 +72,14 @@ class CompactTransformer(PreTrainedModel):
         self.lm_head=nn.Linear(config.d_model,config.vocab_size,bias=False)
         self.lm_head.weight=self.embed.weight
         self.post_init()
+    def get_input_embeddings(self):
+        return self.embed
+    def set_input_embeddings(self, value):
+        self.embed = value
+    def get_output_embeddings(self):
+        return self.lm_head
+    def set_output_embeddings(self, value):
+        self.lm_head = value
     def forward(self,input_ids,labels=None,**kwargs):
         t=input_ids.shape[1]
         pos=torch.arange(t,device=input_ids.device).unsqueeze(0)
