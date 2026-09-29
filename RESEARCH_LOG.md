@@ -9,9 +9,15 @@ for the full phased research programme.
 ## Current status
 
 - **Phase**: Phase 1 (differentiable structural selection) — **seed 42
-  full-scale matrix complete**; **seed 123 launched** (same pod/volume,
-  `sot-run-seed123`, outputs under `/workspace/outputs_seed123`) to start
-  addressing the one untested criterion (seed stability). Seed 42: all 6
+  full-scale matrix complete**; **seed 123 and seed 7 both running in
+  parallel** (two separate pods, `sot-run-seed123` and `sot-run-seed7`,
+  sharing the same network volume `d167myxctn` — confirmed a volume mounts
+  to multiple pods concurrently without issue — outputs under
+  `/workspace/outputs_seed123` and `/workspace/outputs_seed7`) to reach
+  README's stated minimum of 3 seeds for the stability criterion.
+  Parallelizing seed 7 rather than waiting for seed 123's pod to free up:
+  same total cost either way (same total GPU-hours), but ~4-5h less
+  wall-clock. Combined burn rate while both run: $3.193/hr. Seed 42: all 6
   conditions (dense, dense_8l, dense_half_ffn, sot, sot_compact,
   discovered_retrained) trained (10,000 steps, full corpus) and evaluated
   (perplexity + hellaswag/arc_easy/piqa/winogrande) on RunPod (A100,
