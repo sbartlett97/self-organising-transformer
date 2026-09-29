@@ -8,13 +8,16 @@ for the full phased research programme.
 
 ## Current status
 
-- **Phase**: Phase 1 (differentiable structural selection) — pre-experiment-matrix.
-  No `run_experiment.sh` conditions have been run at full scale/full corpus yet;
-  everything so far is diagnostic (capped corpus, single seed, exploratory step
-  counts).
+- **Phase**: Phase 1 (differentiable structural selection) — full-scale matrix
+  in progress. All 4 primary conditions (dense, dense_8l, dense_half_ffn, sot)
+  finished a full 10,000-step / full-corpus run, seed 42, on RunPod (A100,
+  CA-MTL-3). Sequential phase (materialize → retrain_compact → evaluate) now
+  running on the same pod.
 - **Codebase**: pipeline bugs from the initial commit are fixed (see 2026-09-28
-  entry). `evaluate.py`, `compact_model.py`, `model.py`, `train.py` all patched
-  and verified against real runs.
+  entries). `evaluate.py`, `compact_model.py`, `model.py`, `train.py` all
+  patched and verified against real runs, including a tied-weights-on-load
+  bug caught mid-run on real infrastructure (see below) — fix committed and
+  redeployed before any evaluation was run against it.
 - **Key hyperparameter finding**: `target_cost=0.45` (the shipped default) is
   unreachable — the natural unconstrained equilibrium cost for the default
   config on TinyStories is **~0.186**, so the Lagrangian budget term never
@@ -175,3 +178,61 @@ These are two independent levers worth testing separately, not assumed to
 compound. Not scheduled yet — lower priority than finishing the Phase 1
 matrix on TinyStories first, per README's own staged generalisation-dataset
 plan.
+
+---
+
+## 2026-09-29 — First full-scale run (RunPod, seed 42) and a tied-weights bug
+
+### Infrastructure
+
+Ran the parallel phase of the experiment matrix on a single RunPod A100 80GB
+PCIe pod (CA-MTL-3), all 4 conditions (`dense`, `dense_8l`, `dense_half_ffn`,
+`sot`) as concurrent background processes sharing one GPU rather than 4
+separate pods — the model is tiny (48M params, <1GB VRAM) relative to an
+80GB card, so this was both cheaper and sidestepped a live GPU stock
+shortage (RTX 4090/L4 secure-cloud stock went from available to exhausted
+within minutes of checking; A100 was the only tier with real stock and
+network-volume support in a usable data center). Full corpus, no
+`--max_train_docs` cap, `max_steps=10000`, seed 42, matching
+`run_experiment.sh` defaults exactly. Total cost for the 4-condition
+parallel phase: **$8.94** (~5.5h wall clock on one $1.599/hr pod).
+
+### Bug: `lm_head.weight` silently randomized on every `from_pretrained` call
+
+Running `materialize.py` against the real `sot/final` checkpoint surfaced a
+transformers load report: `lm_head.weight | MISSING ... newly initialized`.
+Root cause: `_tied_weights_keys` (added 2026-09-28 to fix the save crash)
+isn't sufficient on its own on this transformers version —
+`get_expanded_tied_weights_keys()` gates entirely on
+`getattr(config, "tie_word_embeddings", False)`, and neither `SOTConfig` nor
+`CompactConfig` ever set that attribute, so it silently defaulted to `False`
+and the tie-on-load mechanism no-opped completely, every time, for every
+checkpoint ever loaded via `from_pretrained`.
+
+Impact assessment: `materialize.py`'s output was *not* corrupted —
+`build_from_sot()` never reads the loaded `lm_head.weight`, only
+`embed.weight` (which loaded correctly, being actually present in the
+checkpoint), and re-ties `compact.lm_head.weight = compact.embed.weight`
+explicitly itself. But `evaluate.py` loads checkpoints directly via
+`from_pretrained` and runs inference straight through whatever `lm_head`
+comes out — every perplexity and lm-eval benchmark number computed against
+any checkpoint so far would have gone through a random, untrained output
+projection. Caught before any `evaluate.py` run, so no results were actually
+produced with the bug present.
+
+Fix: explicitly set `self.tie_word_embeddings = True` in both config
+`__init__`s, plus `get_input_embeddings`/`set_input_embeddings`/
+`get_output_embeddings`/`set_output_embeddings` on both model classes (the
+first fix alone — the embeddings accessors — did *not* resolve it; the
+`tie_word_embeddings` config flag was the actual gate). Verified locally
+with a save/load roundtrip carrying a marker value through `embed.weight`:
+`lm_head.weight` now ties correctly (same object, same values, marker
+preserved) instead of reporting `MISSING`. Verified again for
+`CompactTransformer`. Redeployed to the pod and re-ran `materialize.py`
+before proceeding — confirmed clean, no warning, `tied ok: True`.
+
+### Status at time of writing
+
+Sequential phase (`materialize.py` → `retrain_compact.py` → `evaluate.py`
+on all 6 checkpoints) in progress on the same pod. Will append results once
+complete.
