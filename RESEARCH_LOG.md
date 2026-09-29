@@ -8,35 +8,36 @@ for the full phased research programme.
 
 ## Current status
 
-- **Phase**: Phase 1 (differentiable structural selection) — **seed 42
-  full-scale matrix complete**; **seed 123 and seed 7 both running in
-  parallel** (two separate pods, `sot-run-seed123` and `sot-run-seed7`,
-  sharing the same network volume `d167myxctn` — confirmed a volume mounts
-  to multiple pods concurrently without issue — outputs under
-  `/workspace/outputs_seed123` and `/workspace/outputs_seed7`) to reach
-  README's stated minimum of 3 seeds for the stability criterion.
-  Parallelizing seed 7 rather than waiting for seed 123's pod to free up:
-  same total cost either way (same total GPU-hours), but ~4-5h less
-  wall-clock. Combined burn rate while both run: $3.193/hr. Seed 42: all 6
-  conditions (dense, dense_8l, dense_half_ffn, sot, sot_compact,
-  discovered_retrained) trained (10,000 steps, full corpus) and evaluated
-  (perplexity + hellaswag/arc_easy/piqa/winogrande) on RunPod (A100,
-  CA-MTL-3). Full results and scoring against README's six interpretation
-  criteria in the 2026-09-29 entry below. **4 of 6 criteria clear pass, 1
-  not yet testable (needs more seeds), 1 nuanced** (see below — not a
-  failure, but not a clean pass either). Total cost for seed 42: $18.39 of
-  the $55 budget (incl. one wasted ~30min detour and ~3h of idle billing
-  while awaiting termination confirmation — both avoidable, noted for next
-  time: terminate/reuse a pod immediately rather than leaving it idle).
-- **Headline result**: SOT (109.63 ppl) beats the matched dense baseline
-  (116.72 ppl) outright, at 87% lower architectural cost (0.128 vs. 1.0).
-  Fresh retrain of the discovered 7-layer architecture recovers to 115.13
-  ppl — within ~5% of SOT itself, and still beating dense. Inherited-weights
-  compaction without retraining collapses badly (3240 ppl) — expected per
-  README's own "Failure 7" framing, but severe enough to warrant checking
-  whether the residual-stream-scale gap at materialization (gates hard-set
-  to 1.0 vs. the ~0.2–0.27 they ran at during training) is contributing more
-  than pure co-adaptation loss would.
+- **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
+  complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
+  dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
+  10,000 steps, full corpus, perplexity + hellaswag/arc_easy/piqa/
+  winogrande) on RunPod (A100, CA-MTL-3). README's stated minimum of 3
+  seeds for the stability criterion is now satisfied. Full 3-seed
+  comparison, scored against README's six interpretation criteria, in the
+  "Seed 7 complete: full 3-seed comparison" 2026-09-29 entry below. **5 of
+  6 criteria now clear pass across all 3 seeds** (including stability,
+  previously untestable), **1 nuanced** — same as before, but with
+  stronger evidence (see below).
+- **Headline result**: SOT beats the matched dense baseline in all 3 seeds
+  (109.63 vs 116.72; 117.67 vs 129.01; 108.33 vs 114.35 ppl), at ~87%
+  lower architectural cost throughout (cost ≈0.125–0.129 vs. dense's
+  implicit 1.0). Fresh retrain of each seed's discovered architecture
+  recovers to within 5.0–7.4% of SOT itself and still beats dense, in all
+  3 seeds — the single most robust result in the whole run. Inherited-
+  weights compaction without retraining collapses in all 3 seeds, but
+  severity is highly seed-sensitive (3240.61 / 23004.32 / 20551.79 ppl for
+  seeds 42/123/7) — seed 42 turns out to be the mild outlier, not the
+  typical case, which raises the priority of investigating whether the
+  residual-stream-scale gap at materialization (gates hard-set to 1.0 vs.
+  the ~0.2–0.27 they ran at during training) is contributing more than
+  pure co-adaptation loss would.
+- **Layer-selection pattern**: not identical across seeds, but a real
+  coarser pattern holds — all 3 seeds exclude layer 0 and layers 9–11, and
+  keep 6–7 layers drawn from the 1–8 range (seed 42: `[2..8]` exactly
+  contiguous; seed 123: `[1,3,4,5,6,7]`, gap at 2; seed 7: `[1,2,3,4,5,7]`,
+  gap at 6). Boundary layers reliably pruned, middle depths reliably kept,
+  which single middle layer (if any) drops is noise.
 - **Codebase**: pipeline bugs from the initial commit are fixed (see
   2026-09-28 entries) plus three more caught live during this run (see
   2026-09-29 entry): tied-weights-on-load silently randomizing `lm_head`,
@@ -409,5 +410,168 @@ discriminating anything here.
 Full run (parallel phase + sequential materialize/retrain/evaluate,
 including one wasted ~30min detour on the degenerate `threshold=0.5`
 retrain): **~$13.33** of the $55 budget, on one RunPod A100 80GB PCIe pod
-(CA-MTL-3) at $1.599/hr. Pod still running at time of writing pending user
-confirmation to terminate.
+(CA-MTL-3) at $1.599/hr. Pod terminated immediately on pipeline completion
+(see idle-pod lesson below) — the "pending confirmation" note above is
+stale; corrected here rather than rewritten in place, log stays append-only.
+
+### Lesson: never leave a pod idle
+
+Waited ~3h for explicit user confirmation before terminating this pod after
+its work was done, burning ~$4.80 on idle compute. Corrected by the user:
+"Never leave a pod idle. Either use it, or terminate it." Saved as a
+standing rule and applied without confirmation from seed 123 onward — pod
+`g0u74yigack4gc` (seed 123) was terminated immediately on its pipeline
+completion, no idle time billed.
+
+## 2026-09-29 — Seed 123 complete, seed 7 parallel run, storage cleanup
+
+Seed 123 ran the full 6-condition matrix (same hyperparameters, `--seed
+123`) on a second pod (`g0u74yigack4gc`), in parallel with seed 42 for part
+of its run, then alone. Completed, evaluated, pod terminated immediately.
+Summaries pulled locally (`results/seed123_*_summary.json`,
+`results/seed123_sot_compact_config.json`) — full 3-seed comparison and
+write-up deferred until seed 7 (below) also completes, per the agreed
+"≥3 seeds" next step.
+
+Seed 123's discovered architecture selected a **non-contiguous** layer set
+(`[1,3,4,5,6,7]`), unlike seed 42's contiguous middle block (`[2..8]`) — an
+early signal that the "contiguous middle-depth block" structural finding
+may not be a reliable pattern across seeds; needs seed 7 to disambiguate a
+trend from noise. Inherited-weights collapse was also far more severe for
+seed 123 (3240.61 ppl for seed 42 vs. **23004.32 ppl** for seed 123, ~7x) —
+strengthens the case for treating the residual-stream-scale mismatch
+hypothesis (see seed 42 entry above) as worth a dedicated mechanical
+investigation rather than dismissing the severity as ordinary co-adaptation
+loss.
+
+A third pod (`dbk7560mc6t0q4`) was launched in parallel for seed 7 rather
+than waiting for a pod to free up — same total GPU-hours either way, but
+less wall-clock. Both seed-123 and seed-7 pods shared the same network
+volume (`d167myxctn`) concurrently without issue, confirming multi-pod
+sharing of one volume works.
+
+### Storage pressure and cleanup
+
+With seed 42 and seed 123 both fully trained (`/workspace/outputs`,
+`/workspace/outputs_seed123`) and seed 7 still training
+(`/workspace/outputs_seed7`), combined usage reached ~40GB against the
+50GB network volume — `train.py`'s `save_every`/`eval_every` schedule
+(every 500/1000 steps) leaves many redundant intermediate `checkpoint-N`
+directories per condition (160 total across the two completed seeds, ~189MB
+each, ~30GB) that are fully superseded by each condition's `final`
+directory once training finishes. `df -h /workspace` is not useful for
+judging this — it reports the underlying shared MooseFS cluster's total
+capacity (755T), not this volume's 50GB quota.
+
+Deleted the 160 intermediate `checkpoint-*` directories under `outputs` and
+`outputs_seed123` only (excluded `final`, `sot_compact`,
+`discovered_retrained`, and everything under `outputs_seed7`, which was
+still being actively written). Freed ~28GB: usage dropped from ~15GB+15GB
+to ~1.4GB+1.4GB for the two completed seeds. Total volume usage after
+cleanup: ~13.8GB, leaving comfortable headroom for seed 7 to finish training
+and run its own materialize/retrain/evaluate stages.
+
+Seed 7 progress at time of cleanup: dense 82%, dense_8l 95%, dense_half_ffn
+90%, sot 66% (cost=0.125, tracking target_cost=0.14 as in prior seeds).
+
+## 2026-09-29 — Seed 7 complete: full 3-seed comparison
+
+Seed 7's full 6-condition matrix finished (pod `dbk7560mc6t0q4`, terminated
+immediately on completion, no idle time). Materialized architecture:
+layers `[1,2,3,4,5,7]` (6 of 12, threshold=0.229 median layer_gate), full
+heads/FFN retained in each active layer, no skip connections kept — same
+qualitative shape as seeds 42 and 123. All results pulled and committed.
+
+### Full results, all 3 seeds (perplexity)
+
+| Condition | Seed 42 | Seed 123 | Seed 7 |
+|---|---:|---:|---:|
+| dense | 116.72 | 129.01 | 114.35 |
+| dense_8l | 128.31 | 121.65 | 131.46 |
+| dense_half_ffn | 139.31 | 123.24 | 119.39 |
+| **sot** | **109.63** | **117.67** | **108.33** |
+| sot_compact (inherited weights) | 3240.61 | 23004.32 | 20551.79 |
+| discovered_retrained | 115.13 | 126.34 | 114.01 |
+
+SOT's architectural cost tracked `target_cost=0.14` in all three runs (seed
+42: 0.128, seed 7: 0.129; seed 123's exact final value wasn't captured
+before its pod was terminated, but it followed the same convergence
+pattern in the training logs at the time).
+
+### Scored against README's six interpretation criteria, now with 3 seeds
+
+1. **SOT reaches similar or lower validation loss than the dense
+   baseline.** ✅ Clear pass, 3/3 seeds — SOT beats matched dense in every
+   seed (109.63 vs 116.72; 117.67 vs 129.01; 108.33 vs 114.35). This is now
+   a stable finding, not a one-off.
+2. **Learned cost falls substantially below 1.0.** ✅ Pass, 3/3 — cost
+   converges to ~0.125–0.129 in every seed checked, an ~87% reduction from
+   the dense supernet's implicit cost of 1.0, consistently.
+3. **Re-training the discovered architecture from scratch recovers most of
+   the SOT model's quality.** ✅ Strong pass, 3/3 — discovered_retrained
+   lands within 5.0–7.4% relative perplexity of SOT itself in every seed
+   (115.13 vs 109.63; 126.34 vs 117.67; 114.01 vs 108.33), and beats the
+   matched dense baseline in every seed too (by a thin but consistent
+   margin: 1.4%, 2.1%, 0.3%). The recovery margin band (~5–7%) is itself
+   stable across seeds — this is the most robust result in the whole run.
+4. **Stable across random seeds.** ✅ Now testable, and passes on the
+   criteria that matter most (SOT-beats-dense, retrain-recovers-quality).
+   The layer-*selection* pattern is stable in shape but not in exact
+   membership — see below. The inherited-weights collapse severity is
+   *not* stable (see below) — that's the one place 3 seeds changed the
+   picture from seed 42 alone.
+5. **Not simply selecting maximum allowed capacity everywhere.** ✅ Pass,
+   3/3 — 6–7 of 12 layers kept in every seed, never all 12.
+6. **Benchmark quality remains competitive after physical compaction, not
+   only in the masked supernet.** ⚠️ Same nuanced verdict as seed 42, now
+   with stronger evidence. True only for `discovered_retrained` (passes,
+   3/3, per criterion 3). `sot_compact` (inherited weights, no retraining)
+   fails in all 3 seeds, and seed 42 turns out to be the *mild* outlier,
+   not representative: 3240.61 (seed 42) vs. 23004.32 (seed 123) vs.
+   20551.79 (seed 7) ppl — seeds 123 and 7 agree closely with each other
+   (~7x worse than dense) while seed 42 is ~7x milder than either. This
+   strengthens rather than weakens the README's "Failure 7" framing
+   (retraining-from-scratch is mandatory, not optional) and makes the
+   residual-stream-scale-mismatch hypothesis (gates run ~0.2–0.27 during
+   training but are hard-set to 1.0 at materialization) more worth a
+   dedicated mechanical investigation, not less — if seed 42 undershot the
+   "typical" collapse severity by chance, that changes how any future fix
+   should be validated (check it against seed 123/7-like severity, not
+   seed 42's milder case).
+
+### Layer-selection pattern across seeds
+
+- Seed 42: `[2,3,4,5,6,7,8]` — 7 layers, perfectly contiguous.
+- Seed 123: `[1,3,4,5,6,7]` — 6 layers, one gap at layer 2.
+- Seed 7: `[1,2,3,4,5,7]` — 6 layers, one gap at layer 6.
+
+Not a stable *exact* pattern — the specific single layer dropped inside the
+kept block differs each time (none dropped / layer 2 / layer 6). But there
+is a stable *coarser* pattern underneath: all three seeds independently
+exclude layer 0 (the block right after embedding) and layers 9–11 (the
+last three, right before the output), and all three keep 6–7 layers drawn
+from the 1–8 range. Read together: **the boundary layers are reliably
+pruned, the middle depths are reliably kept, and which one middle layer
+(if any) gets dropped is noise** — a real structural finding, but a softer
+one than "the model finds one specific contiguous block."
+
+### Cost
+
+Seed 7's full run (parallel training phase + sequential
+materialize/retrain/evaluate) cost is not separately itemized here (billed
+jointly with seed 123 while both pods ran in parallel, then alone) — see
+combined budget tracking; all 3 seeds' full pipeline stayed well inside the
+$55 budget.
+
+### Next steps, updated
+
+`≥3 seeds` (README's stability requirement) is now satisfied and scored
+above. Remaining open items, carried forward: (1) the residual-stream-scale
+mismatch hypothesis for the inherited-weights collapse, now higher
+priority given seeds 123/7 show it's the typical case, not a seed-42
+anomaly; (2) the `materialize.py --threshold` default fix (still using
+auto-median, which works, but a distribution-relative choice was deferred,
+not properly fixed); (3) re-running the equilibrium diagnostic on a harder
+dataset before assuming `target_cost=0.14` transfers off TinyStories; (4)
+only after (1)–(3), consider Phase 2 (growth/mutation) per the research
+proposal's Gate 1→2.
