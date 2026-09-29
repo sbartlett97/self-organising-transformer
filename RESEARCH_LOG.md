@@ -236,3 +236,50 @@ before proceeding — confirmed clean, no warning, `tied ok: True`.
 Sequential phase (`materialize.py` → `retrain_compact.py` → `evaluate.py`
 on all 6 checkpoints) in progress on the same pod. Will append results once
 complete.
+
+### Second bug/finding: `--threshold 0.5` (the documented default) produces a zero-layer model
+
+`retrain_compact.py` was launched successfully against the (tie-fixed)
+`sot_compact` checkpoint, tokenized, and started training — but loss sat at
+~4.3–4.4 nats at 63% through training, far above where every other
+condition in this run landed (~1.5–1.7 by a similar point). Checked
+`materialize.py`'s own printed layer list: `[]`. Zero layers.
+
+Root cause, confirmed against the real `sot/final` architecture.json: every
+`layer`/`head`/`skip` gate in this run sits in `[0.095, 0.364]` —
+`layer` 0.200–0.270 (mean 0.226), `head` 0.181–0.364 (mean 0.282), `skip`
+0.095–0.160 (mean 0.121). `ffn` is the only family anywhere near the
+`threshold=0.5` default (0.718–0.781). This isn't a one-off — it's
+structural. `gate_init_logit=-1.0` means `layer`/`head`/`skip` gates start
+at `sigmoid(-1)=0.269` and the sparsity regularizer only ever pushes them
+*down* from there; they were never going to cross `0.5` regardless of what
+the run discovered. `export_architecture(threshold)`'s documented default
+(and `materialize.py`'s CLI default, and README's own worked example) is
+`0.5` — meaning **the "most important control in the pipeline" (fresh
+retrain of the discovered architecture) is broken out of the box for any
+run using the shipped `gate_init_logit`**, not just this one. `retrain_compact.py`
+had been training a degenerate embed→lm_head-only stub (no transformer
+blocks at all) — its loss floor (~4.3–4.4) is consistent with a model that
+can only learn unigram statistics, which matches what was observed.
+
+Immediate fix (this run only, not a code change): re-ran `materialize.py`
+with `--threshold 0.22` — picked because it sits at the mean/median of this
+run's `layer` gate distribution, giving a real split rather than an
+arbitrary cutoff. Produced 7 active layers (original indices 2–8 — the
+same middle-depth block the unconstrained/constrained diagnostic comparison
+on 2026-09-28 already identified as preferentially *retained* under budget
+pressure), 6 of the 7 at full 6/6 heads (one at 4/6), full FFN width on all,
+no skip connections (max skip gate 0.160, below any threshold that keeps
+layers non-empty). Genuinely non-degenerate; `retrain_compact.py` restarted
+against it.
+
+**Not yet fixed in code** — `0.22` was derived from this specific run's
+gate distribution and there's no guarantee it transfers to a different seed
+or a different `target_cost`. This needs the same treatment `target_cost`
+got: either (a) `materialize.py` should default to a distribution-relative
+threshold (e.g. per-family median/percentile) instead of a fixed absolute
+value, or (b) at minimum, `export_architecture()`/`materialize.py` should
+warn loudly (not just print an empty list silently) when a threshold
+produces zero active layers, so this can't happen unnoticed on a real run
+again. Flagging as a required follow-up before trusting any *other* seed's
+materialize/retrain step to just work with `--threshold 0.5`.
