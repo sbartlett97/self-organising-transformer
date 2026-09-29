@@ -575,3 +575,75 @@ not properly fixed); (3) re-running the equilibrium diagnostic on a harder
 dataset before assuming `target_cost=0.14` transfers off TinyStories; (4)
 only after (1)–(3), consider Phase 2 (growth/mutation) per the research
 proposal's Gate 1→2.
+
+## 2026-09-29 — Residual-stream-scale mismatch confirmed and fixed (bug, not co-adaptation)
+
+Investigated item (1) above. **This was a real bug, not the intended
+NAS-style "hard-binarize the kept units" design** the 2026-09-28 advisor
+review had assumed — that read doesn't survive closer inspection.
+"Binarize which units are structurally present" and "discard the learned
+*magnitude* of the units you kept" are different claims; only the first is
+required by NAS-style materialization, and `build_from_sot` was doing both.
+
+### The mechanism
+
+During SOT training, every active unit's contribution to the residual
+stream is scaled down before being added: attention's per-head gate and
+FFN's per-group gate multiply their respective outputs *before* the
+`out`/`down` projection, and the whole block's output (attention's and
+FFN's) is *again* scaled by that block's `layer_gate` before the residual
+add (`model.py`'s `forward`, `x = residual + layer_gates[i] * y`). Real
+seed gate values for kept layers ran ~0.2–0.3 (never near 1.0, even for
+units well above the selection threshold). `build_from_sot` selected the
+right heads/groups/layers to keep, but copied their `out.weight`/
+`down.weight` slices at raw, unscaled magnitude — i.e. every kept unit's
+contribution was silently restored to ~3-5x its trained magnitude at
+materialization. `CompactBlock.forward` has no gate mechanism at all, so
+there's nothing downstream that could compensate.
+
+### Verifying it mechanically (zero-cost, no cloud spend)
+
+Built a local exactness test (small random `SOTConfig` model, hand-set
+gate logits to realistic values, no training needed): compared the
+*current* `build_from_sot`'s compact-model forward pass against the
+correct reference (the same SOT model, forward-run with the exact gates
+hard-zeroed wherever the compact model drops a unit — "masked-SOT", not
+raw SOT, since raw SOT also includes every below-threshold
+layer/head/group and the skip terms the compact model has none of).
+
+- Current `build_from_sot` (no gate-magnitude folding): **19.2% relative
+  L2 error** in output logits vs. masked-SOT reference. A real, large
+  divergence — confirms the hypothesis mechanically, not just by inspection.
+- Fix (fold `head_gate * layer_gate` into `out.weight`'s input columns,
+  `group_gate * layer_gate` into `down.weight`'s input columns — both
+  gates land on a bias-free `Linear`'s input, so this is an exact,
+  provable transform, not an approximation): **5e-8 relative error**
+  (floating-point noise) against the same reference.
+
+Applied the fix to `compact_model.py`'s `build_from_sot` (11 lines
+changed) and re-verified against the actual production code, not just the
+scratch duplicate — same 5e-8 result.
+
+### What this does and doesn't establish yet
+
+The exactness test proves the *mechanism* is real and the *fix* is
+correct. It does **not** yet tell us how much of the 108→20,551 ppl gap
+(seed 7's sot vs. sot_compact) this explains, because masked-SOT (the
+correct reference) is not the same thing as "no collapse" — masked-SOT
+still drops 5–6 of 12 layers entirely, and that pruning costs something
+real regardless of the magnitude bug (this is exactly why
+`discovered_retrained` needs retraining to recover, not just correct
+copying). Re-running `materialize.py`+`evaluate.py` (fix applied, no
+retraining needed) against the surviving `sot/final` checkpoints for all
+3 seeds is the next step to answer: does the corrected `sot_compact`
+perplexity land close to `sot` (bug was ~all of it), close to the old
+20,551-ish number (bug was negligible), or somewhere between (bug and
+pruning both contribute, now separable)? That's genuinely new information
+either way — not proposed yet, needs a cheap pod re-provisioned against
+the network volume (checkpoints for all 3 seeds' `sot/final` survived the
+earlier storage cleanup).
+
+`discovered_retrained`'s existing numbers (all 3 seeds) are **unaffected**
+by this fix — fresh weights trained from scratch on the same architecture
+don't depend on what `sot_compact`'s inherited copy looked like. The
+3-seed headline results above stand as written.

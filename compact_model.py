@@ -109,7 +109,7 @@ def build_from_sot(sot_model,threshold=0.5):
             legal=[d for d in range(1,sot_model.config.max_heads+1) if sot_model.config.d_model%d==0]
             h=min(legal,key=lambda d: abs(d-h))
             g=max(1,len(item['ffn_groups']))
-            layers.append({'original_index':item['index'],'heads':h,'head_dim':sot_model.config.d_model//sot_model.config.max_heads,'ffn_dim':g*arch['ffn_group_size'],'skip_from':item['skip_from']})
+            layers.append({'original_index':item['index'],'heads':h,'head_dim':sot_model.config.d_model//sot_model.config.max_heads,'ffn_dim':g*arch['ffn_group_size'],'skip_from':item['skip_from'],'layer_gate':item['layer_gate']})
     # A skip source that was itself pruned inactive can never appear in `previous` at forward time;
     # drop those edges now so the stored spec matches what forward() will actually find.
     active_indices={l['original_index'] for l in layers}
@@ -123,14 +123,19 @@ def build_from_sot(sot_model,threshold=0.5):
             src=sot_model.blocks[spec['original_index']]
             dst=compact.blocks[new_i]
             dst.ln1.weight.copy_(src.ln1.weight); dst.ln2.weight.copy_(src.ln2.weight)
-            old_h=sot_model.config.max_heads; hd=src.attn.head_dim; keep_heads=spec['heads']
+            old_h=sot_model.config.max_heads; hd=src.attn.head_dim; keep_heads=spec['heads']; layer_gate=spec['layer_gate']
             # Use the highest-gated selected heads from the source block.
             gate=torch.sigmoid(src.attn.head_logits)
             chosen=torch.argsort(gate,descending=True)[:keep_heads].sort().values.tolist()
             qkv=src.attn.qkv.weight.view(3,old_h,hd,sot_model.config.d_model)
             dst.attn.qkv.weight.copy_(qkv[:,chosen].reshape(3*keep_heads*hd,sot_model.config.d_model))
+            # head_gate and layer_gate scale y before the out-projection during SOT's forward
+            # (attn's per-head gate, then the block-level layer_gate on attn's whole output) --
+            # fold both into out.weight's input columns so the compact model reproduces that
+            # scaled contribution exactly, instead of silently reinstating it to full (gate=1) weight.
             outw=src.attn.out.weight.view(sot_model.config.d_model,old_h,hd)
-            dst.attn.out.weight.copy_(outw[:,chosen].reshape(sot_model.config.d_model,keep_heads*hd))
+            chosen_head_gate=gate[chosen]*layer_gate
+            dst.attn.out.weight.copy_((outw[:,chosen]*chosen_head_gate.view(1,-1,1)).reshape(sot_model.config.d_model,keep_heads*hd))
             groups=spec['ffn_dim']//arch['ffn_group_size']
             gsig=torch.sigmoid(src.ffn.group_logits)
             chosen_g=torch.argsort(gsig,descending=True)[:groups].sort().values.tolist()
@@ -138,8 +143,10 @@ def build_from_sot(sot_model,threshold=0.5):
             for gi in chosen_g: rows.extend(range(gi*gs,(gi+1)*gs))
             up=src.ffn.up.weight.view(2,arch['max_ffn_dim'] if 'max_ffn_dim' in arch else sot_model.config.max_ffn_dim,sot_model.config.d_model)
             dst.ffn.up.weight.copy_(up[:,rows].reshape(2*len(rows),sot_model.config.d_model))
+            # same fold for the ffn group_gate * layer_gate scaling on down-projection's input.
             down=src.ffn.down.weight[:,rows]
-            dst.ffn.down.weight.copy_(down)
+            per_row_group_gate=gsig[chosen_g].repeat_interleave(gs)*layer_gate
+            dst.ffn.down.weight.copy_(down*per_row_group_gate.view(1,-1))
             dst.attn.drop.p=src.attn.resid_dropout.p; dst.ffn.drop.p=src.ffn.dropout.p
         compact.ln_f.weight.copy_(sot_model.ln_f.weight); compact.lm_head.weight=compact.embed.weight
     return compact
