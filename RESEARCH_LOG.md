@@ -8,54 +8,66 @@ for the full phased research programme.
 
 ## Current status
 
-- **Phase**: Phase 1 (differentiable structural selection) — full-scale matrix
-  in progress. All 4 primary conditions (dense, dense_8l, dense_half_ffn, sot)
-  finished a full 10,000-step / full-corpus run, seed 42, on RunPod (A100,
-  CA-MTL-3). Sequential phase (materialize → retrain_compact → evaluate) now
-  running on the same pod.
-- **Codebase**: pipeline bugs from the initial commit are fixed (see 2026-09-28
-  entries). `evaluate.py`, `compact_model.py`, `model.py`, `train.py` all
-  patched and verified against real runs, including a tied-weights-on-load
-  bug caught mid-run on real infrastructure (see below) — fix committed and
-  redeployed before any evaluation was run against it.
-- **Key hyperparameter finding**: `target_cost=0.45` (the shipped default) is
-  unreachable — the natural unconstrained equilibrium cost for the default
-  config on TinyStories is **~0.186**, so the Lagrangian budget term never
-  activates at `0.45`. `target_cost=0.14` (below that equilibrium) is
-  validated to work — confirmed by a full 2000-step run where `lagrange` rose
-  to 0.50 and `cost` was pulled down from a peak of 0.168 to 0.164. This is
-  now the default in `train.py` and `run_experiment.sh`.
-- **Structural finding**: under `target_cost=0.14`, capacity is cut
-  disproportionately from later layers (roughly layers 6–11) across the
-  `layer`/`head`/`ffn` gate families, while earlier/middle layers keep close
-  to their unconstrained shape. Task quality (`val_ppl`) barely changed
-  (8.166 vs. 8.125 unconstrained) despite ~12% lower architectural cost.
-  Not yet confirmed across seeds or at full corpus scale.
-- **Next step**: full-scale `run_experiment.sh` run (all 6 conditions, full
-  corpus, `max_steps=10000`), 1 seed first to validate the pipeline end to
-  end, then ≥3 seeds. See "Next steps" section below for hardware/parameter
-  guidance already agreed.
+- **Phase**: Phase 1 (differentiable structural selection) — **first
+  full-scale matrix complete**, seed 42. All 6 conditions (dense, dense_8l,
+  dense_half_ffn, sot, sot_compact, discovered_retrained) trained
+  (10,000 steps, full corpus) and evaluated (perplexity + hellaswag/
+  arc_easy/piqa/winogrande) on RunPod (A100, CA-MTL-3). Full results and
+  scoring against README's six interpretation criteria in the 2026-09-29
+  entry below. **4 of 6 criteria clear pass, 1 not yet testable (needs more
+  seeds), 1 nuanced** (see below — not a failure, but not a clean pass
+  either). Total cost: ~$13.33 of the $55 budget.
+- **Headline result**: SOT (109.63 ppl) beats the matched dense baseline
+  (116.72 ppl) outright, at 87% lower architectural cost (0.128 vs. 1.0).
+  Fresh retrain of the discovered 7-layer architecture recovers to 115.13
+  ppl — within ~5% of SOT itself, and still beating dense. Inherited-weights
+  compaction without retraining collapses badly (3240 ppl) — expected per
+  README's own "Failure 7" framing, but severe enough to warrant checking
+  whether the residual-stream-scale gap at materialization (gates hard-set
+  to 1.0 vs. the ~0.2–0.27 they ran at during training) is contributing more
+  than pure co-adaptation loss would.
+- **Codebase**: pipeline bugs from the initial commit are fixed (see
+  2026-09-28 entries) plus three more caught live during this run (see
+  2026-09-29 entry): tied-weights-on-load silently randomizing `lm_head`,
+  `--threshold 0.5` producing a zero-layer materialized model, and an fp16
+  dtype mismatch crashing dense-mode evaluation on CUDA. All fixed,
+  verified, and committed before being relied on.
+- **Key hyperparameter finding**: `target_cost=0.45` (the shipped default)
+  is unreachable — the natural unconstrained equilibrium cost is ~0.186, so
+  the Lagrangian budget term never activates at `0.45`. `target_cost=0.14`
+  is validated and is now the default in `train.py`/`run_experiment.sh`.
+- **Structural finding**: under budget pressure, capacity concentrates in a
+  contiguous middle-depth block (layers 2–8 of 12 in this run) rather than
+  being cut uniformly or kept maximal everywhere — confirmed twice, once in
+  the 2026-09-28 diagnostic and again as the actual materialized-architecture
+  selection in this run.
+- **Not yet fixed in code** (deliberately deferred, tracked here): the
+  `materialize.py`/`export_architecture()` fixed `--threshold=0.5` default
+  needs to become distribution-relative (or at least warn loudly on a
+  zero-layer result) rather than an absolute constant that only happens to
+  work for some gate-init/target_cost combinations.
 
 ## Next steps (agreed, not yet executed)
 
-1. Run `./run_experiment.sh` at full scale (no `--max_train_docs` cap) —
-   parallelize the 3 dense baselines + SOT across separate instances since
-   they're independent; `materialize.py` → `retrain_compact.py` →
-   `evaluate.py` is a sequential chain off the SOT checkpoint and runs after.
-   No checkpoint-resume exists in `train.py`, so prefer on-demand (not spot)
-   instances for anything longer than a session's safe uptime.
-2. Repeat for ≥3 seeds. Specifically check whether the "back layers cut
-   preferentially" pattern found at seed 42 reproduces, or was seed-specific.
-3. Run the full `evaluate.py` benchmark suite (`hellaswag`, `arc_easy`,
-   `piqa`, `winogrande`) on every condition — only perplexity has been
-   exercised so far.
-4. Score the real results against README's six interpretation criteria.
-5. Only after that: decide on Phase 2 (growth/mutation) per the research
-   proposal's Gate 1→2 (§27) — do not skip ahead of a validated Phase 1
-   result.
-6. Separately (lower priority, orthogonal): if/when moving past TinyStories
+1. **≥3 seeds.** The single-seed result above is promising but criterion 4
+   (stability across seeds) is the only one not yet testable. Specifically
+   check whether the middle-depth-block selection pattern reproduces, and
+   whether `sot_compact`'s collapse severity is consistent or seed-sensitive.
+2. **Investigate the inherited-weights collapse mechanically** before
+   accepting it purely as a co-adaptation story — see the residual-stream
+   scale-mismatch hypothesis in the 2026-09-29 entry. If confirmed as a real
+   gap (not just expected co-adaptation loss), it's a legitimate `materialize.py`
+   fix, not a research finding.
+3. **Fix the `--threshold` default** in `materialize.py`/`export_architecture()`
+   to be distribution-relative (e.g. per-family median/percentile) rather
+   than a fixed `0.5`, or at minimum raise a loud error on a zero-layer
+   result instead of silently proceeding.
+4. Only after seed stability is confirmed: decide on Phase 2 (growth/
+   mutation) per the research proposal's Gate 1→2 (§27) — do not skip ahead
+   of a seed-validated Phase 1 result.
+5. Separately (lower priority, orthogonal): if/when moving past TinyStories
    to a harder/more diverse dataset (README's own staged plan — WikiText-2/103
-   or an OpenWebText subset), re-run the same unconstrained-equilibrium
+   or an OpenWebText subset), re-run the unconstrained-equilibrium
    diagnostic on that dataset before assuming `target_cost=0.14` transfers.
    Model-complexity scaling (bigger `max_layers`/`d_model` on the *same* easy
    dataset) is a separate, likely opposite-direction, effect worth testing
@@ -303,3 +315,88 @@ on CPU/MPS, where `evaluate.py`'s fp16 cast doesn't apply — this was the
 first time this code path had actually run on a CUDA GPU. Fixed by deriving
 gate dtype from `self.embed.weight.dtype`; verified with a `.half()`
 forward pass that previously crashed, then confirmed on the pod.
+
+### Full results, seed 42
+
+All 6 conditions, full corpus, `max_steps=10000`, real held-out validation
+perplexity (`evaluate.py`'s `ppl()`, not the training-time approximation)
+plus the full lm-eval suite (`hellaswag`, `arc_easy`, `piqa`, `winogrande`).
+Summaries pulled from the pod under `results/*_summary.json` (the raw
+`evaluation.json` files were ~64MB each — lm-eval's full per-task dump, not
+worth transferring in full).
+
+| condition | perplexity | hellaswag | arc_easy | piqa | winogrande |
+|---|---|---|---|---|---|
+| dense (12L/384/1536) | **116.72** | 0.2562 | 0.2593 | 0.5250 | 0.5233 |
+| dense_8l | 128.31 | 0.2584 | 0.2593 | 0.5365 | 0.4941 |
+| dense_half_ffn | 139.31 | 0.2545 | 0.2618 | 0.5386 | 0.4925 |
+| **sot** | **109.63** | 0.2553 | 0.2538 | 0.5392 | 0.5043 |
+| sot_compact (inherited weights) | **3240.61** | 0.2554 | 0.2542 | 0.5299 | 0.5304 |
+| discovered_retrained (fresh) | **115.13** | 0.2535 | 0.2609 | 0.5343 | 0.5122 |
+
+SOT's final `architecture_cost()` at step 10000: **0.128** (`lagrange=0.0`,
+settled at the clamp floor — matches the live-monitored trajectory).
+
+lm-eval benchmark scores are flat and at-chance across *every* condition
+(hellaswag ~0.25 = random for 4-way; piqa/winogrande ~0.49–0.54 ≈ random for
+2-way). Expected, not a bug: a 48M-param model trained for 10k steps on
+TinyStories alone has no basis to develop the commonsense reasoning these
+benchmarks test — they were designed to differentiate GPT-2-scale-and-up
+models trained on much larger, more diverse corpora. **Perplexity is the
+only metric carrying real signal at this scale**; the benchmark suite ran
+successfully (validates the pipeline works end to end) but isn't
+discriminating anything here.
+
+### Scored against README's six interpretation criteria
+
+1. **SOT reaches similar or lower validation loss than the dense baseline.**
+   ✅ Clear pass — SOT (109.63) beats the matched dense baseline (116.72)
+   outright, not just "similar."
+2. **Learned cost falls substantially below 1.0.** ✅ Pass — 0.128, an 87%
+   reduction from the dense supernet's implicit cost of 1.0.
+3. **Re-training the discovered architecture from scratch recovers most of
+   the SOT model's quality.** ✅ Strong pass — discovered_retrained (115.13)
+   lands within ~5% relative perplexity of SOT itself (109.63), and beats
+   the equivalent-budget dense baseline (116.72). This is the cleanest
+   result in the run.
+4. **Stable across random seeds.** ⏳ Not yet testable — single seed (42)
+   only. Required follow-up before any of this is a confident claim rather
+   than one data point.
+5. **Not simply selecting maximum allowed capacity everywhere.** ✅ Pass,
+   confirmed structurally (not just by the cost number) — SOT kept 7 of 12
+   layers (the middle-depth block found in the earlier structural
+   diagnostic), reduced heads in one of them, and dropped skip connections
+   entirely.
+6. **Benchmark quality remains competitive after physical compaction, not
+   only in the masked supernet.** ⚠️ Nuanced, not a clean pass — depends on
+   which compaction condition "counts." `sot_compact` (inherited weights,
+   no retraining) collapses catastrophically (ppl 3240 — near-degenerate).
+   `discovered_retrained` (same architecture, fresh weights) does not
+   collapse at all (115.13, competitive). This matches README's own
+   documented "Failure 7" pattern almost exactly: *"Supernet advantage
+   disappears after materialisation... an important negative result rather
+   than a bug... indicates weight-sharing/co-adaptation produced the
+   apparent gain... therefore retraining-from-scratch compact models is
+   mandatory."* Read that way, this is the *expected* shape of a positive
+   result, not a failure of criterion 6 — but it does mean the literal
+   claim "benchmark quality remains competitive after compaction" is only
+   true for the retrained compact model, not the inherited-weights one.
+   Worth a closer look at *why* the collapse is this severe (ppl 110→3240 is
+   large even for a co-adaptation story) before fully accepting that framing
+   — a candidate mechanical explanation: SOT's residual stream is
+   multiplicatively scaled by `layer_gates[i]` (~0.2–0.27 for most active
+   layers in this run) at *every* block during training, but
+   `CompactBlock.forward` applies the full, unscaled residual addition
+   (implicit gate=1.0) — a much larger magnitude jump at materialization
+   than the earlier-fixed skip-normalization mismatch. Not established as a
+   bug (the 2026-09-28 advisor review explicitly judged hard-binarizing
+   kept units to full weight as the intended NAS-style design, not a
+   defect), but flagging as worth a dedicated look given the severity here.
+
+### Cost
+
+Full run (parallel phase + sequential materialize/retrain/evaluate,
+including one wasted ~30min detour on the degenerate `threshold=0.5`
+retrain): **~$13.33** of the $55 budget, on one RunPod A100 80GB PCIe pod
+(CA-MTL-3) at $1.599/hr. Pod still running at time of writing pending user
+confirmation to terminate.
