@@ -647,3 +647,82 @@ earlier storage cleanup).
 by this fix — fresh weights trained from scratch on the same architecture
 don't depend on what `sot_compact`'s inherited copy looked like. The
 3-seed headline results above stand as written.
+
+### Re-evaluation with the fix: the bug explains most, not all, of the collapse
+
+Re-provisioned a pod against the network volume (`d167myxctn`; `sot/final`
+checkpoints for all 3 seeds survived the earlier storage cleanup — it only
+removed intermediate `checkpoint-*` dirs), deployed the fixed
+`compact_model.py`, re-ran `materialize.py` (no threshold override, same
+auto-median as before) and `evaluate.py` against each seed's `sot/final`.
+No retraining involved. Cost: ~$0.80 (A100 80GB PCIe, CA-MTL-3, $1.59/hr, ~30 min wall-clock
+including one dependency-fix detour — see below).
+
+| Seed | sot_compact (broken) | sot_compact (fixed) | sot (reference) | % of gap explained by the bug | fixed/sot ratio |
+|---|---:|---:|---:|---:|---:|
+| 42 | 3240.61 | **794.77** | 109.63 | 78.1% | 7.25x |
+| 123 | 23004.32 | **445.13** | 117.67 | 98.6% | 3.78x |
+| 7 | 20551.79 | **280.03** | 108.33 | 99.2% | 2.59x |
+
+The magnitude bug was the dominant driver of the catastrophic collapse in
+every seed — a 76–99% reduction in the sot→sot_compact perplexity gap,
+just from copying weights at the magnitude they were actually trained at.
+But it wasn't the *whole* story: even fixed, `sot_compact` still lands
+2.6–7.3x worse than `sot` itself, in every seed — real, substantial
+recovery is still needed, consistent with genuine co-adaptation/pruning
+cost (which is exactly why `discovered_retrained` exists as a condition
+and why it, not `sot_compact`, is the one that matters for criterion 6).
+
+**A striking reversal in which seed looked "worst."** Before the fix,
+seed 42 looked like the mild outlier (3240 vs. ~20–23k for 123/7) and 123/7
+looked consistent with each other. After the fix, that pattern flips: 123
+and 7 are still consistent with each other (98.6%/99.2% explained, 3.78x/
+2.59x residual ratio) but seed 42 is now the *worst*-recovering seed by a
+clear margin (78.1% explained, 7.25x residual ratio, both worse than
+either other seed). This means seed 42's original "mild" collapse wasn't
+evidence of an intrinsically more forgiving architecture — it was largely
+an artifact of the same bug happening to do comparatively less damage
+there (plausibly because seed 42's kept-layer gate values or head/group
+selection happened to sit closer to the bug's implicit gate=1 assumption
+than 123/7's did). What's left unexplained is now the interesting
+question: why does seed 42's discovered architecture (7 contiguous layers,
+`[2..8]`) recover *less* well from correct-magnitude pruning than seed
+123's or seed 7's (6 layers each, with one gap) — worth a closer look, but
+not chased further in this pass; noted as an open item below.
+
+### Criterion 6, re-scored
+
+Same structural verdict as before (`discovered_retrained` passes, 3/3;
+`sot_compact` fails, 3/3 — retraining-from-scratch is still mandatory, not
+optional) but the story underneath is now cleaner: the failure is smaller
+and better-characterized than the original broken numbers suggested, most
+of it was a materialization bug (now fixed) rather than an inherent
+property of weight-sharing, and what genuinely remains (2.6–7.3x) is a
+believable magnitude for real co-adaptation loss rather than the
+near-total-collapse the broken numbers implied.
+
+### A second bug found and fixed along the way
+
+The re-eval pod's fresh `pip install -r requirements.txt` pulled
+unpinned-version `transformers>=5.0` (incompatible with the pod's
+preinstalled `torch==2.4.1`) and separately `lm-eval==0.4.13` (needs
+`typing_extensions>=4.13`; pod had `4.9.0`), each crashing evaluation
+outright — the second one only after a full pod's worth of setup, wasting
+some of the estimated budget on a false start. Pinned `transformers==4.49.0`
+and upgraded `typing_extensions`; not fixed in `requirements.txt` itself
+yet (worth doing — the floors `torch>=2.4`/`transformers>=4.49.0` are too
+loose for what those minimums actually need at install time).
+
+### Next steps, updated again
+
+(1) done — gate-magnitude fold fix confirmed and re-validated on real
+checkpoints. (2) `materialize.py --threshold` distribution-relative fix —
+still open. (3) equilibrium diagnostic on a harder dataset — still open.
+(4) done — `requirements.txt` now pins `transformers<5.0` (was crashing
+against the pod's preinstalled `torch==2.4.1`) and adds an explicit
+`typing_extensions>=4.13` floor (`lm-eval==0.4.13` needs it; the pod had
+`4.9.0` pulled in transitively). (5) new, lower priority: seed 42's
+worse-than-123/7 post-fix recovery ratio is unexplained — not blocking,
+but worth a look if there's a natural moment to revisit architecture
+selection. Only after these, Phase 2 (growth/mutation) per the research
+proposal's Gate 1→2.
