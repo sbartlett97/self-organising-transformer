@@ -53,37 +53,73 @@ for the full phased research programme.
   being cut uniformly or kept maximal everywhere — confirmed twice, once in
   the 2026-09-28 diagnostic and again as the actual materialized-architecture
   selection in this run.
-- **Not yet fixed in code** (deliberately deferred, tracked here): the
-  `materialize.py`/`export_architecture()` fixed `--threshold=0.5` default
-  needs to become distribution-relative (or at least warn loudly on a
-  zero-layer result) rather than an absolute constant that only happens to
-  work for some gate-init/target_cost combinations.
+- **Materialization bug found, fixed, and validated on real checkpoints**
+  (2026-09-29/30): `compact_model.py`'s `build_from_sot` was discarding
+  gate *magnitude* when copying weights — it kept the right heads/layers/
+  groups but restored them to full (unscaled) weight instead of the
+  ~0.2–0.3 magnitude they actually trained at. Verified exact via a
+  zero-cost local test (folding `gate*layer_gate` into `out.weight`/
+  `down.weight`'s input columns: 19.2% relative error unfixed → 5e-8
+  fixed), then re-validated on all 3 seeds' real checkpoints: the bug
+  explained 76–99% of the original sot→sot_compact perplexity collapse
+  (seed 42: 3240.61→794.77 ppl; seed 123: 23004.32→445.13; seed 7:
+  20551.79→280.03). Real pruning cost remains (2.6–7.3x sot's ppl even
+  fixed) — criterion 6's structural verdict is unchanged but now much
+  better characterized. Full detail in the two 2026-09-29 entries below.
+- **`materialize.py --threshold` default** — still not fixed (deferred,
+  tracked below); auto-median works fine in practice so far.
+- **Phase 2 kicked off (2026-09-30): dataset scale-up to WikiText-103.**
+  TinyStories is deliberately easy; the real test of the hypothesis is
+  whether SOT's advantage holds on harder, more diverse text. Plan at
+  `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+  Model config held fixed (same as Phase 1) — only the dataset changes,
+  to isolate that variable from a later model-size scale-up. Staged
+  approach: 1 seed first (not 3 upfront), since the seed-*stability*
+  question is already answered and what's open is whether the headline
+  result transfers to harder data at all. Equilibrium diagnostic found
+  WikiText-103's natural cost ≈0.190 (vs. TinyStories' 0.186 — strikingly
+  close, suggesting this equilibrium may be more a property of the
+  gate-init/regularizer dynamics than the dataset). Same 75%-of-equilibrium
+  ratio gives `target_cost=0.14` — identical to TinyStories'. Stage A's
+  4 training conditions (dense, dense_8l, dense_half_ffn, sot) launched on
+  WikiText-103, seed 42, **in progress** as of this entry; `sot_compact`/
+  `discovered_retrained` and evaluation still to come.
+- **Two more real bugs found while setting up the WikiText-103 run**:
+  `retrain_compact.py` and `evaluate.py` had no `--dataset_name`/
+  `--dataset_config` CLI exposure at all and silently hardcoded TinyStories
+  internally — would have corrupted the WikiText-103 `discovered_retrained`
+  and perplexity numbers by quietly training/evaluating against the wrong
+  corpus, with no error. Fixed (commit `05a828f`) before any WikiText-103
+  data was generated.
 
 ## Next steps (agreed, not yet executed)
 
-1. **≥3 seeds.** The single-seed result above is promising but criterion 4
-   (stability across seeds) is the only one not yet testable. Specifically
-   check whether the middle-depth-block selection pattern reproduces, and
-   whether `sot_compact`'s collapse severity is consistent or seed-sensitive.
-2. **Investigate the inherited-weights collapse mechanically** before
-   accepting it purely as a co-adaptation story — see the residual-stream
-   scale-mismatch hypothesis in the 2026-09-29 entry. If confirmed as a real
-   gap (not just expected co-adaptation loss), it's a legitimate `materialize.py`
-   fix, not a research finding.
-3. **Fix the `--threshold` default** in `materialize.py`/`export_architecture()`
+1. **WikiText-103 Stage A** — in progress (training). Once done: run
+   `materialize.py`/`retrain_compact.py`/`evaluate.py` (with
+   `--dataset_name wikitext --dataset_config wikitext-103-raw-v1` on the
+   dataset-aware ones) to complete the 6-condition matrix, write up the
+   comparison against Phase 1's TinyStories numbers, then report back
+   before deciding whether to commit to seeds 2/3 (per the plan's staged
+   decision point).
+2. **Fix the `--threshold` default** in `materialize.py`/`export_architecture()`
    to be distribution-relative (e.g. per-family median/percentile) rather
    than a fixed `0.5`, or at minimum raise a loud error on a zero-layer
-   result instead of silently proceeding.
-4. Only after seed stability is confirmed: decide on Phase 2 (growth/
-   mutation) per the research proposal's Gate 1→2 (§27) — do not skip ahead
-   of a seed-validated Phase 1 result.
-5. Separately (lower priority, orthogonal): if/when moving past TinyStories
-   to a harder/more diverse dataset (README's own staged plan — WikiText-2/103
-   or an OpenWebText subset), re-run the unconstrained-equilibrium
-   diagnostic on that dataset before assuming `target_cost=0.14` transfers.
-   Model-complexity scaling (bigger `max_layers`/`d_model` on the *same* easy
-   dataset) is a separate, likely opposite-direction, effect worth testing
-   independently — see 2026-09-28 entry.
+   result instead of silently proceeding. Still open, low priority (current
+   auto-median default hasn't caused a problem yet).
+3. **Seed 42's worse-than-123/7 post-fix recovery ratio is unexplained**
+   (Phase 1's gate-fold re-eval, 7.25x vs. 3.78x/2.59x residual ppl ratio)
+   — not blocking, worth a look if there's a natural moment to revisit
+   architecture selection.
+4. Only after WikiText-103 (and any further generalisation datasets) confirm
+   the finding holds past an easy dataset: decide on Phase 2 proper —
+   growth/mutation per the research proposal's Gate 1→2 (§27) — do not
+   skip ahead of a generalisation-validated result. (Note: "Phase 2" here
+   in the log has been used loosely for "dataset scale-up"; the research
+   proposal's own Phase 2 is specifically growth/mutation — keep these
+   distinct going forward.)
+5. Model-complexity scaling (bigger `max_layers`/`d_model`) is explicitly
+   sequenced *after* the dataset scale-up, not concurrent with it, so each
+   experiment isolates one variable — agreed with the user.
 
 ---
 
@@ -726,3 +762,107 @@ worse-than-123/7 post-fix recovery ratio is unexplained — not blocking,
 but worth a look if there's a natural moment to revisit architecture
 selection. Only after these, Phase 2 (growth/mutation) per the research
 proposal's Gate 1→2.
+
+## 2026-09-30 — WikiText-103 scale-up kicked off (dataset before model size)
+
+Phase 1 (TinyStories, small model, 3 seeds) is complete and validated —
+5 of 6 README criteria clear pass, 1 nuanced but well-characterized after
+the gate-fold fix. User asked "next step is to scale this up, yes?".
+Agreed: scale the *dataset* before the *model*, since TinyStories is
+deliberately easy (simple vocabulary, short repetitive sentences) and
+dropping 5-6 of 12 layers may look "fine" there simply because the task
+doesn't need the capacity — a falsely encouraging result. The research
+proposal (`self_organizing_transformer_research_proposal.md` §5.2)
+explicitly names a harder "generalisation dataset" as the required next
+step before trusting Phase 1 generalises.
+
+### Dataset choice: WikiText-103-raw-v1, not WikiText-2
+
+The proposal lists WikiText-2 before WikiText-103. Picked WikiText-103
+anyway, for a token-budget reason specific to this pipeline's existing
+hyperparameters: at `--max_steps 10000 --batch_size 16 --seq_len 256
+--grad_accum 8`, one run consumes `16*256*8*10000` ≈ 327M tokens.
+WikiText-2 is only ~2M tokens — ~160 epochs over the same tiny corpus,
+which would mostly test memorization, not generalisation. WikiText-103
+(~103M tokens) gives ~3 epochs at the same step count, a believable
+repeat factor comparable to TinyStories' own full-corpus scale.
+
+### Staged approach: 1 seed first, not 3 upfront
+
+User asked directly: "do we need to prove out the 3 seed validation again
+if we have already confirmed it?" — good question, answered no. The point
+of ≥3 seeds in Phase 1 was to confirm SOT's advantage is *stable*, not a
+fluke of one seed; that's answered and doesn't need re-proving. What's
+still open is whether the *headline result itself* holds on harder data
+at all, and whether WikiText-103 has different seed-to-seed variance than
+TinyStories did. Staged instead of committing 3 seeds blind: Stage A is 1
+seed (42), full 6-condition matrix; a decision point after Stage A (clean
+pass → propose 1-2 more seeds as a separate authorization; borderline/
+contradicts Phase 1 → seeds 2/3 become necessary before concluding
+anything). Full plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+Budget for Stage A estimated at ~$12-18 (vs. Phase 1's per-seed cost,
+which averaged ~$9.44/seed once the operational pattern was proven,
+though the very first seed paid ~$18.39 for one-off inefficiencies).
+
+### Bug found while wiring this up: dataset_name/dataset_config not actually plumbed through
+
+`train.py`'s `TrainConfig.dataset_config` field existed but had no
+`--dataset_config` CLI flag — a real gap, since HF's `wikitext` dataset
+*requires* a config name (`wikitext-103-raw-v1`) and can't load bare.
+Worse: `retrain_compact.py` and `evaluate.py` had **no** `--dataset_name`
+exposure at all — both hardcoded `TrainConfig`/`ppl()` defaults to
+`"roneneldan/TinyStories"` internally (`retrain_compact.py:36`,
+`evaluate.py:44,53`). This means every prior `discovered_retrained`
+condition really was retrained on the correct dataset only because it
+happened to be TinyStories every time — the moment the dataset changes,
+`retrain_compact.py` would have silently retrained on TinyStories while
+`evaluate.py` silently perplexity-scored every checkpoint (including
+`sot`/`dense`/etc, not just `discovered_retrained`) against TinyStories's
+validation split regardless of what the model was actually trained on.
+No error, no warning — just quietly wrong numbers. Caught before any
+WikiText-103 data was generated. Fixed by adding `--dataset_name`/
+`--dataset_config` CLI flags to all three scripts and threading them
+through to the relevant `TrainConfig`/`load_dataset` calls (commit
+`05a828f`), verified with `--help` locally before redeploying.
+
+### Equilibrium diagnostic: WikiText-103 ≈ TinyStories
+
+Re-ran the same diagnostic methodology as the original 2026-09-28
+TinyStories diagnostic: SOT, single seed (42), `--target_cost 0.9`
+(deliberately unreachable so the Lagrangian term stays pinned at its
+floor and `sparsity_loss`'s natural pull is what's observed), 3000 steps,
+same model config as Phase 1. Cost climbed from 0.162 (early) to a clear
+plateau at **0.190** by step 3000 (climb rate had slowed to ~0.001/100
+steps by the end, essentially flat). This is strikingly close to
+TinyStories' own equilibrium (0.186) — plausibly more a property of the
+gate-init (`-1.0`)/regularizer (`arch_reg=0.015`) dynamics at this model
+scale than of the dataset's difficulty; worth keeping in mind when this
+question comes up again at a different model scale. Applying the same
+75%-of-equilibrium ratio that validated `target_cost=0.14` for
+TinyStories (`0.14/0.186 ≈ 0.75`) gives `0.190 * 0.75 ≈ 0.14` — the exact
+same value. Used `target_cost=0.14` for Stage A's `sot` run.
+
+### Operational note: don't chain multiple background jobs in one SSH command
+
+First attempt to launch all 4 Stage A conditions used one SSH call with
+4 parenthesized `(setsid bash -c '...' & disown)` groups chained with
+`&`. 3 of 4 failed silently — `python3: can't open file '/root/train.py'`
+— apparently some race in how `cd`'s effect on cwd propagated to later
+subshells in the chain when the SSH connection closed quickly (unlike
+prior single-job launches, which reliably hit the expected ~8s client
+timeout rather than returning fast). Relaunched the 3 failed jobs
+individually (one SSH call per job — the pattern proven reliable
+throughout Phase 1) and all 4 came up correctly. Lesson for future
+multi-job launches on this infra: always one SSH call per job, never
+chain multiple backgrounded jobs in a single call, even though it
+appears to work for the first job in the chain.
+
+### Status at time of writing
+
+Stage A's 4 training conditions (dense, dense_8l, dense_half_ffn, sot) are
+running in parallel on pod `edbsvu7rlrx60p` (CA-MTL-3, A100 80GB PCIe,
+$1.59/hr), seed 42, `--dataset_name wikitext --dataset_config
+wikitext-103-raw-v1`, 10,000 steps each — in progress, not yet complete.
+`sot_compact`/`discovered_retrained` (materialize + retrain, using the
+now dataset-aware `retrain_compact.py`) and evaluation (using the now
+dataset-aware `evaluate.py`) are still to come once training finishes.
