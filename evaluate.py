@@ -41,7 +41,7 @@ def device_from(s: str) -> torch.device:
     return torch.device("cpu")
 
 
-def ppl(path: str, dataset_name: str = "roneneldan/TinyStories", split: str = "validation", seq_len: Optional[int] = None, batch_size: int = 8, max_batches: int = 100, device: str = "auto"):
+def ppl(path: str, dataset_name: str = "roneneldan/TinyStories", dataset_config: Optional[str] = None, split: str = "validation", seq_len: Optional[int] = None, batch_size: int = 8, max_batches: int = 100, device: str = "auto"):
     dev = device_from(device)
     model = load_model(path, torch.float16 if dev.type == "cuda" else None).to(dev)
     if seq_len is None:
@@ -50,7 +50,7 @@ def ppl(path: str, dataset_name: str = "roneneldan/TinyStories", split: str = "v
         # evaluates on truncated/misaligned chunks (seq_len < training length) with no error.
         seq_len = model.config.max_position_embeddings
     tokenizer = AutoTokenizer.from_pretrained(path)
-    raw = load_dataset(dataset_name)
+    raw = load_dataset(dataset_name, dataset_config) if dataset_config else load_dataset(dataset_name)
     if split not in raw:
         raise ValueError(f"No split {split}; available={list(raw.keys())}")
     ids: List[int] = []
@@ -197,6 +197,8 @@ def lm_eval(path: str, tasks: str, batch_size: int = 4, device: str = "auto", ou
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("path")
+    p.add_argument("--dataset_name", default="roneneldan/TinyStories")
+    p.add_argument("--dataset_config", default=None)
     p.add_argument("--tasks", default="hellaswag,arc_easy,piqa,winogrande")
     p.add_argument("--skip_lm_eval", action="store_true")
     p.add_argument("--device", default="auto")
@@ -205,7 +207,7 @@ def main():
     p.add_argument("--seq_len", type=int, default=None, help="Defaults to the checkpoint's own max_position_embeddings")
     p.add_argument("--results", default="evaluation.json")
     a = p.parse_args()
-    out = {"perplexity": ppl(a.path, seq_len=a.seq_len, max_batches=a.ppl_batches, batch_size=a.batch_size, device=a.device)}
+    out = {"perplexity": ppl(a.path, dataset_name=a.dataset_name, dataset_config=a.dataset_config, seq_len=a.seq_len, max_batches=a.ppl_batches, batch_size=a.batch_size, device=a.device)}
     if not a.skip_lm_eval:
         out["lm_eval"] = lm_eval(a.path, a.tasks, batch_size=a.batch_size, device=a.device)
     Path(a.results).write_text(json.dumps(out, indent=2, default=str))

@@ -295,6 +295,7 @@ def parse_args() -> TrainConfig:
     p.add_argument("--model_type", choices=["sot", "dense"], default="sot")
     p.add_argument("--output_dir", default="./outputs/sot")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
+    p.add_argument("--dataset_config", default=None)
     p.add_argument("--max_train_docs", type=int, default=None, help="Cap on train-split documents to tokenize, for fast diagnostic runs")
     p.add_argument("--tokenizer_name", default="gpt2")
     p.add_argument("--seq_len", type=int, default=256)
