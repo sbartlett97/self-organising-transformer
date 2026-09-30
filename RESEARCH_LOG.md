@@ -68,22 +68,26 @@ for the full phased research programme.
   better characterized. Full detail in the two 2026-09-29 entries below.
 - **`materialize.py --threshold` default** — still not fixed (deferred,
   tracked below); auto-median works fine in practice so far.
-- **Phase 2 kicked off (2026-09-30): dataset scale-up to WikiText-103.**
-  TinyStories is deliberately easy; the real test of the hypothesis is
-  whether SOT's advantage holds on harder, more diverse text. Plan at
+- **Dataset scale-up to WikiText-103 (Stage A, 2026-09-30): first
+  negative result of the project.** Model config held fixed (same as
+  Phase 1) — only the dataset changed. Equilibrium diagnostic found
+  WikiText-103's natural cost ≈0.190 (vs. TinyStories' 0.186), giving the
+  same `target_cost=0.14` via the same 75%-of-equilibrium ratio. Single
+  seed (42), full 6-condition matrix: **`sot` did not beat dense (29.28 vs
+  28.23 ppl) and `discovered_retrained` did not either (31.88 ppl, worse
+  than `sot` itself)** — both reversals of Phase 1's headline result,
+  where SOT and its retrained architecture beat dense in 3/3 TinyStories
+  seeds. Structural finding: head-level pruning appeared for the first
+  time (layers 8/9 of the kept `[4..9]` block reduced to 4/6 and 2/6
+  heads — every TinyStories seed kept full heads everywhere). Leading
+  hypothesis, not confirmed: `target_cost=0.14`'s ~86% cost reduction may
+  simply be too aggressive on harder data, independent of seed — not
+  something more seeds alone would resolve. This needs a decision (more
+  seeds at current budget vs. a less aggressive `target_cost` re-run)
+  before Phase 1's finding can be called generalised. Full detail and
+  reasoning in the 2026-09-30 entry below; plan at
   `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
-  Model config held fixed (same as Phase 1) — only the dataset changes,
-  to isolate that variable from a later model-size scale-up. Staged
-  approach: 1 seed first (not 3 upfront), since the seed-*stability*
-  question is already answered and what's open is whether the headline
-  result transfers to harder data at all. Equilibrium diagnostic found
-  WikiText-103's natural cost ≈0.190 (vs. TinyStories' 0.186 — strikingly
-  close, suggesting this equilibrium may be more a property of the
-  gate-init/regularizer dynamics than the dataset). Same 75%-of-equilibrium
-  ratio gives `target_cost=0.14` — identical to TinyStories'. Stage A's
-  4 training conditions (dense, dense_8l, dense_half_ffn, sot) launched on
-  WikiText-103, seed 42, **in progress** as of this entry; `sot_compact`/
-  `discovered_retrained` and evaluation still to come.
+  Stage A cost: ~$8.27, under the ~$12-18 estimate.
 - **Two more real bugs found while setting up the WikiText-103 run**:
   `retrain_compact.py` and `evaluate.py` had no `--dataset_name`/
   `--dataset_config` CLI exposure at all and silently hardcoded TinyStories
@@ -857,12 +861,110 @@ multi-job launches on this infra: always one SSH call per job, never
 chain multiple backgrounded jobs in a single call, even though it
 appears to work for the first job in the chain.
 
-### Status at time of writing
+### Stage A complete: on WikiText-103, SOT does not beat dense
 
-Stage A's 4 training conditions (dense, dense_8l, dense_half_ffn, sot) are
-running in parallel on pod `edbsvu7rlrx60p` (CA-MTL-3, A100 80GB PCIe,
-$1.59/hr), seed 42, `--dataset_name wikitext --dataset_config
-wikitext-103-raw-v1`, 10,000 steps each — in progress, not yet complete.
-`sot_compact`/`discovered_retrained` (materialize + retrain, using the
-now dataset-aware `retrain_compact.py`) and evaluation (using the now
-dataset-aware `evaluate.py`) are still to come once training finishes.
+All 6 conditions trained, materialized/retrained where applicable, and
+evaluated. Pod `edbsvu7rlrx60p` terminated immediately on completion, no
+idle billing. Actual Stage A cost: **~$8.27** (checked via `list-billing`),
+comfortably under the ~$12-18 estimate.
+
+| Condition | Perplexity |
+|---|---:|
+| dense | **28.23** |
+| sot | 29.28 |
+| dense_8l | 30.14 |
+| dense_half_ffn | 30.50 |
+| discovered_retrained | 31.88 |
+| sot_compact | 8495.94 |
+
+**This is a materially different result from Phase 1.** `sot` is 3.7%
+*worse* than dense — the first time in this project SOT hasn't beaten the
+matched dense baseline. More significantly, `discovered_retrained` — the
+condition that was the most robust, cleanest pass in all 3 TinyStories
+seeds (beating dense by 0.3–2.1% and landing within 5–7.4% of `sot`) — is
+now *worse than `sot` itself* (8.9% worse) and 12.9% worse than dense.
+Fresh weights on the discovered 6-layer architecture did not recover here;
+on TinyStories, they reliably did.
+
+Read together, this looks less like "the architecture is fine but the
+copied weights are bad" (Phase 1's `sot_compact` story) and more like
+"the discovered architecture itself doesn't have enough capacity for this
+task" — retraining from scratch can't fix a capacity shortfall the way it
+can fix a co-adaptation/weight-magnitude problem. That's a materially
+different failure mode than anything seen in Phase 1, and it's exactly
+the risk flagged when this phase was proposed: an aggressive
+capacity cut (`target_cost=0.14`, ~86% cost reduction) that cost nothing
+on an easy dataset may cost real capability on a harder one.
+
+`sot_compact`'s 8495.94 ppl is not comparable to Phase 1's collapse
+numbers in one respect worth flagging: this run used the already-fixed
+`materialize.py` (gate-magnitude folding) from the start, so there's no
+"broken vs. fixed" comparison here — 8495.94 is the *fixed* number, and
+it's still a severe collapse, consistent with a harder task making
+inherited-weight compaction less forgiving, not just target_cost being
+more aggressive.
+
+### Structural finding: head-level pruning appears for the first time
+
+Materialized architecture (auto-threshold=0.2371): layers `[4,5,6,7,8,9]`
+kept (6 of 12, perfectly contiguous — unlike any TinyStories seed's exact
+membership, though similarly sized). All 3 TinyStories seeds kept **full
+heads (6/6)** in every active layer, with only layer/skip-level pruning.
+Here, the two deepest kept layers had heads *reduced*: layer 8 to 4/6,
+layer 9 to 2/6 (raw threshold-selected counts were 5 and 2 respectively;
+5 isn't a legal divisor of `d_model=384` among `{1..6}`, so
+`build_from_sot`'s existing legal-divisor snap took over, landing on 4).
+This is the first time head-level pruning has actually fired in a
+materialized architecture across this whole project — plausible reading:
+on a harder task, the model reaches for a second lever (which heads
+within a layer matter) once layer-level pruning alone can't hit the cost
+budget as cheaply, rather than only ever operating on the coarser lever.
+Worth watching whether this becomes a more general pattern as task
+difficulty increases further.
+
+### What this does and doesn't mean — my honest read, not a decision
+
+Per the plan's decision point (`swirling-sleeping-hickey.md`): this is
+squarely the "borderline/contradicts Phase 1" case, which the plan
+explicitly said should not be resolved unilaterally. Recording my own
+read here, not as a conclusion:
+
+- **Against pure seed noise**: two independent conditions (`sot` and
+  `discovered_retrained`) both lost to dense, in a mutually consistent
+  ordering (dense < sot < dense_8l < dense_half_ffn < discovered_retrained
+  < sot_compact) rather than one outlier condition. That's a coherent
+  pattern, not the kind of single-number fluke a bad batch or an unlucky
+  initialization typically produces.
+- **For seed noise still being possible**: it's one seed. Phase 1 itself
+  showed real seed-to-seed variance (layer-selection pattern, collapse
+  severity) even when the headline direction stayed stable — a different
+  seed's WikiText-103 architecture could conceivably land in a less
+  capacity-starved region and beat dense.
+- **My leading hypothesis**: `target_cost=0.14` — validated for
+  TinyStories, and re-derived here from a WikiText-103-specific
+  equilibrium diagnostic using the *same ratio* — may simply be too
+  aggressive a cost budget for a harder dataset, independent of seed.
+  The equilibrium ratio transferring (both ≈0.75× natural equilibrium)
+  doesn't guarantee the *resulting* cost level is still "free" the way it
+  was on TinyStories; easy vs. hard datasets could need different ratios,
+  not just different equilibrium points.
+
+Not recommending seeds 2/3 as the next move by default — if the leading
+hypothesis is right, more seeds at the same `target_cost=0.14` would just
+confirm the same capacity shortfall more times, not resolve it. Worth
+discussing with the user before spending further: either more seeds at
+the current budget (to separate signal from noise on *this* setting), or
+a second diagnostic at a less aggressive `target_cost` (e.g. re-run the
+matrix at ~0.25–0.3) to test the "budget too aggressive" hypothesis
+directly, before committing to either.
+
+### Updated 3-way dataset comparison
+
+TinyStories (Phase 1, 3 seeds): SOT beat dense in 3/3, discovered_retrained
+recovered and beat dense in 3/3, layer selection always kept full heads.
+WikiText-103 (Stage A, 1 seed): SOT lost to dense, discovered_retrained
+lost to both dense and SOT, and head-level pruning appeared for the first
+time. The generalisation test this phase set out to run has produced its
+first genuinely negative signal — not fatal to the overall hypothesis,
+but a real result that needs resolving before claiming Phase 1 generalises
+past an easy dataset.
