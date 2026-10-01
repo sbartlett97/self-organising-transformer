@@ -79,15 +79,30 @@ for the full phased research programme.
   where SOT and its retrained architecture beat dense in 3/3 TinyStories
   seeds. Structural finding: head-level pruning appeared for the first
   time (layers 8/9 of the kept `[4..9]` block reduced to 4/6 and 2/6
-  heads — every TinyStories seed kept full heads everywhere). Leading
-  hypothesis, not confirmed: `target_cost=0.14`'s ~86% cost reduction may
-  simply be too aggressive on harder data, independent of seed — not
-  something more seeds alone would resolve. This needs a decision (more
-  seeds at current budget vs. a less aggressive `target_cost` re-run)
-  before Phase 1's finding can be called generalised. Full detail and
-  reasoning in the 2026-09-30 entry below; plan at
+  heads — every TinyStories seed kept full heads everywhere).
+- **Follow-up (2026-10-01): target_cost=0.17 re-run, 2 seeds — confirmed
+  not a budget-tuning problem.** Tested whether a less aggressive cost
+  budget (between the too-tight 0.14 and the natural ~0.19 equilibrium)
+  would let SOT match dense. It didn't: `sot` still lost to dense in both
+  seeds (29.01/29.05 vs. 28.23/28.11 ppl, 2.8–3.3% gap, barely narrower
+  than 0.14's 3.7%), and `discovered_retrained` still failed to recover in
+  either (32.41/33.15 ppl — worse than `sot` itself in both, and no better
+  than Stage A's 31.88 at the tighter budget). Both seeds independently
+  converged on the *exact same* 6 layers (`[5,6,7,8,9,10]`) with a
+  monotonic head-count decline toward the output — much tighter cross-seed
+  structural agreement than Phase 1 ever showed, arguing the mechanism is
+  finding a consistent answer that's genuinely insufficient, not an
+  unstable search. Conclusion: this looks like a real capacity shortfall
+  at this model scale for this harder dataset, not a `target_cost`-tuning
+  artifact — per the research proposal's own Gate 1→2 instruction
+  ("investigate the mechanism before adding complexity"), this
+  investigation is concluded, with three options on the table (push
+  target_cost further — unlikely to help much more; scale up model size
+  before further dataset work; or accept this as a real, bounded negative
+  result). Full detail in the 2026-10-01 entry below; plan at
   `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
-  Stage A cost: ~$8.27, under the ~$12-18 estimate.
+  Combined WikiText-103 investigation cost: Stage A ~$8.27 + this 2-seed
+  re-run ~$19-20 ≈ ~$27-28.
 - **Two more real bugs found while setting up the WikiText-103 run**:
   `retrain_compact.py` and `evaluate.py` had no `--dataset_name`/
   `--dataset_config` CLI exposure at all and silently hardcoded TinyStories
@@ -968,3 +983,127 @@ time. The generalisation test this phase set out to run has produced its
 first genuinely negative signal — not fatal to the overall hypothesis,
 but a real result that needs resolving before claiming Phase 1 generalises
 past an easy dataset.
+
+## 2026-10-01 — target_cost=0.17 re-run (2 seeds): the regression is not a budget-tuning problem
+
+User asked to test the hypothesis directly: re-run the WikiText-103 matrix
+at `target_cost=0.17` (between the too-aggressive 0.14 and the natural
+unconstrained equilibrium ~0.19), 2 seeds (42, 123) this time rather than
+1, to separate seed noise from a real effect. User topped up RunPod with
+a fresh $30 for this.
+
+**Infrastructure note**: CA-MTL-3 ran out of GPU capacity entirely (tried
+A100 80GB PCIe, A100 SXM4, H100 PCIe, A40 — all rejected as unavailable
+despite catalog stock elsewhere). Moved to **EU-RO-1** — new network
+volume (`7m6hd7xsf7`), two pods, one per seed. This meant *not* reusing
+Stage A's dense-family baselines (different region/volume) — both seeds
+ran the full fresh 4-condition matrix, which conveniently produced a free
+determinism check: seed 42's dense/dense_8l/dense_half_ffn perplexity
+came back **bit-identical** to Stage A's numbers (28.23070333054666 to
+14 decimal places) — confirms these really are deterministic given a
+fixed seed, dataset, and hyperparameters, with `target_cost` genuinely
+irrelevant to dense-mode training as expected.
+
+### Full results, both seeds, target_cost=0.17
+
+| Condition | Seed 42 | Seed 123 |
+|---|---:|---:|
+| dense | 28.23 | 28.11 |
+| dense_8l | 30.14 | 29.98 |
+| dense_half_ffn | 30.50 | 30.45 |
+| **sot** | **29.01** | **29.05** |
+| sot_compact | 5480.25 | 7521.70 |
+| discovered_retrained | 32.41 | 33.15 |
+
+For reference, Stage A (seed 42, target_cost=0.14): dense 28.23, sot 29.28,
+sot_compact 8495.94, discovered_retrained 31.88.
+
+### The headline answer: raising target_cost does not resolve the regression
+
+- **`sot` vs. `dense` gap**: 3.72% (seed 42 @ 0.14) → 2.76% (seed 42 @ 0.17)
+  → 3.34% (seed 123 @ 0.17). A ~21% relative increase in allowed
+  architectural cost (0.14→0.17) narrowed the gap by at most a quarter in
+  the one same-seed comparison available, and the second seed sits right
+  back at the original magnitude. **SOT still loses to dense in both
+  seeds, at both target_cost settings tested** — this isn't close enough
+  to call "matching" under any reasonable tolerance; it's a small but
+  consistent, reproducible miss, not noise.
+- **`discovered_retrained` does not recover, anywhere.** This is the more
+  important number (Phase 1's most robust condition) and the pattern is
+  now unambiguous across 3 data points (1 seed @ 0.14, 2 seeds @ 0.17):
+  31.88, 32.41, 33.15 — all worse than `sot` itself, all worse than
+  `dense`, and if anything trending slightly worse, not better, at the
+  higher target_cost. On TinyStories, fresh retraining reliably recovered
+  and beat dense in 3/3 seeds. On WikiText-103, across 3 independent
+  runs now, it has never once recovered. That's not a budget-tuning
+  artifact — a looser budget should make recovery *easier* if the
+  problem were simply "too little capacity was allowed," and it didn't.
+
+### Structural finding: tight cross-seed convergence, shifted and more aggressive
+
+Both seeds at `target_cost=0.17` independently selected the **exact same
+6 layers**, `[5,6,7,8,9,10]` — shifted one position deeper than Stage A's
+`[4..9]` — with within-layer head counts that both show a clear
+**monotonic decline toward the output**:
+
+- Seed 42: heads `[4,4,3,4,1,1]`, layer_gates `[0.340,0.319,0.315,0.330,0.313,0.295]`
+- Seed 123: heads `[6,4,3,2,1,1]`, layer_gates `[0.339,0.343,0.323,0.312,0.307,0.302]`
+
+This is a *much* tighter cross-seed structural agreement than anything in
+Phase 1, where layer *membership* itself varied seed-to-seed (contiguous
+vs. gapped, different offsets). Here the exact same 6 layers, and a
+qualitatively identical "collapse heads toward 1 near the output" pattern,
+emerged twice independently. Read together with the ppl results: the
+model isn't failing to find a *consistent* structure — it's finding the
+same structure reliably, and that structure just isn't good enough to
+match dense on this task. That argues for a genuine capacity ceiling at
+this model scale on this dataset, not an optimization/search-stability
+problem.
+
+### What this means for Gate 1→2 on WikiText-103
+
+Per the research proposal's own instruction ("if a gate fails, investigate
+the mechanism before adding the next layer of complexity"), this was that
+investigation. Conclusion: **the WikiText-103 Gate 1→2 failure is not a
+`target_cost`-tuning artifact.** Both the headline `sot`-vs-`dense` gap
+and `discovered_retrained`'s failure-to-recover are stable across two
+independent `target_cost` settings and three seeds. The more likely
+explanation is a genuine capacity shortfall: this is the same ~48M-param,
+12-layer-max model that was validated on TinyStories, asked to do a
+harder, more diverse task — and consistently discovering that the task
+needs most or all of that capacity, not that a ~6-layer subset of it
+suffices. This is, in a sense, a *sensible* result for the mechanism to
+produce (it isn't inventing a bad architecture; dense_8l and
+dense_half_ffn — the naive reduced-capacity baselines — also lose to full
+dense, by a wider margin than `sot` does) — it just means this model scale
+doesn't have slack to cut on this harder dataset the way it did on
+TinyStories.
+
+### Recommendation, not a decision
+
+Three honest options, not resolved here:
+1. Push `target_cost` higher still (toward or above the ~0.19 natural
+   equilibrium) — unlikely to help much further given the trend between
+   0.14 and 0.17 was already small, and anything at/above ~0.19 is
+   functionally unconstrained (reproduces the diagnostic's own result).
+2. Treat this as evidence that **model-size scale-up should come before
+   further dataset-difficulty tuning** — a larger supernet (more layers/
+   wider `d_model`) might have the slack on WikiText-103 that this one
+   doesn't, which would reframe the user's original sequencing (dataset
+   before model size) as needing to interleave rather than strictly
+   stage.
+3. Accept this as a real, informative negative result as-is: Phase 1's
+   finding does not generalise unconditionally — it holds on easy tasks
+   at this model scale, and the mechanism is honest about it (finds a
+   consistent, explainable structure that simply isn't sufficient, rather
+   than quietly looking fine) — and move to writing this up as a genuine,
+   bounded finding rather than continuing to chase a fix.
+
+### Cost
+
+This 2-seed run: ~$17.80 confirmed via `list-billing` plus a small
+unsynced tail (pods terminated ~02:00-02:15 UTC, final hour not yet
+reflected) — estimated final total ~$19-20, comfortably within the user's
+$30 top-up. Combined with Stage A's $8.27, total WikiText-103 investigation
+cost to date: ~$27-28 of $55 (original) + $30 (top-up) = $85 total
+authorized across both phases.
