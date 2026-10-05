@@ -1284,6 +1284,19 @@ Advance only if differentiable structural learning:
 - beats or matches dense/static baselines at equal compute;
 - survives materialisation and retraining.
 
+**Status (2026-10-01): passed, with a documented scope limitation.** All
+three criteria hold on the development dataset (TinyStories, 3 seeds).
+On the generalisation dataset (WikiText-103), "beats or matches" and
+"survives retraining" do not hold at the model scale tested — investigated
+directly (cost-budget varied across 3 seeds, gap did not meaningfully
+close; both seeds at the looser budget converged on the same discovered
+architecture) rather than left unexamined, per the "investigate the
+mechanism before adding the next layer of complexity" instruction below.
+Diagnosis: a capacity limit at this model scale on harder data, not an
+unstable or failing search. Advancing to Phase 2 on that basis; the model-
+scale question carries forward as an open item for Phase 2's own
+experiment design. Full detail in `RESEARCH_LOG.md` and `README.md`.
+
 ## Gate 2 → 3
 
 Advance only if discrete birth/death:
