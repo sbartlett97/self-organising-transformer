@@ -13,6 +13,7 @@ from transformers import AutoTokenizer
 
 from compact_model import CompactTransformer
 from model import SOTConfig, SelfOrganizingTransformer
+from plastic_model import PlasticTransformer
 
 
 def load_model(path: str, dtype: torch.dtype | None):
@@ -26,6 +27,8 @@ def load_model(path: str, dtype: torch.dtype | None):
         model_type = json.load(f).get("model_type")
     if model_type == "self_organizing_transformer_compact":
         return CompactTransformer.from_pretrained(path, torch_dtype=dtype)
+    if model_type == "self_organizing_transformer_plastic":
+        return PlasticTransformer.from_pretrained(path, torch_dtype=dtype)
     if model_type == "self_organizing_transformer":
         return SelfOrganizingTransformer.from_pretrained(path, torch_dtype=dtype)
     raise ValueError(f"Unrecognized model_type={model_type!r} in {path}/config.json")
