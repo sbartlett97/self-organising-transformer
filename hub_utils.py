@@ -216,11 +216,40 @@ def push_checkpoint(
     return url
 
 
+# Hand-maintained, not derived from RESEARCH_LOG.md -- update the text here
+# whenever a phase/dataset's state or headline finding changes materially.
+# ensure_collection() re-applies the current text on every call, so a
+# collection's description tracks whichever entry here is live, with no
+# separate "did I remember to update the Hub" step. Hub API hard-caps
+# collection descriptions at 150 chars -- full intent/state/findings live
+# in each model card and RESEARCH_LOG.md; this is just a pointer+headline.
+_COLLECTION_DESCRIPTIONS = {
+    ("phase1", "tinystories"): (
+        "Phase 1 gating, 3 seeds x 6 conditions. Corrected 2026-10-06: SOT "
+        "trails dense ~2.6% ppl at ~13% cost (bad transformers ver). "
+        "See RESEARCH_LOG.md."
+    ),
+    ("phase1", "wikitext103"): (
+        "Phase 1 generalisation test. SOT doesn't beat/match dense here; "
+        "a capacity limit at this model scale, stable across seeds. "
+        "See RESEARCH_LOG.md."
+    ),
+    ("phase2", "tinystories"): (
+        "Phase 2: discrete birth/death plasticity. Stage 2 found+fixed a "
+        "plateau-churn bug (285f8ce); clean re-run in progress. "
+        "See RESEARCH_LOG.md."
+    ),
+}
+
+
 def ensure_collection(username: str, phase: str, dataset: str, repo_id: str) -> str:
     api = HfApi()
     title = f"SOT {phase} — {dataset}"
     collection = api.create_collection(title=title, namespace=username, exists_ok=True, private=False)
     api.add_collection_item(collection.slug, item_id=repo_id, item_type="model", exists_ok=True)
+    description = _COLLECTION_DESCRIPTIONS.get((phase, dataset))
+    if description:
+        api.update_collection_metadata(collection.slug, description=description)
     return collection.slug
 
 
