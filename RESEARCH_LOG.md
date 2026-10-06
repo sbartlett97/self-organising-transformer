@@ -1107,3 +1107,82 @@ reflected) — estimated final total ~$19-20, comfortably within the user's
 $30 top-up. Combined with Stage A's $8.27, total WikiText-103 investigation
 cost to date: ~$27-28 of $55 (original) + $30 (top-up) = $85 total
 authorized across both phases.
+
+## 2026-10-06 — Phase 2 implementation: discrete birth/death structural plasticity
+
+Gate 1→2 formally closed (bounded pass, see 2026-10-01 entry and the
+research proposal's own Gate 1→2 annotation). Started Phase 2 per the
+proposal's §11 ("Discrete birth/death"): start from a small seed and grow
+via discrete lifecycle events, rather than starting over-complete and
+pruning down. Plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+
+**Design**: hybrid continuous substrate + discrete lifecycle overlay.
+Phase 1's `SelfOrganizingTransformer`/`_gates()` mechanism is reused
+unchanged (via thin subclass `PlasticTransformer` in the new
+`plastic_model.py` — adds lifecycle hyperparameters only, no new
+parameters, no forward-pass changes). A new `StructuralController`
+(`plasticity.py`) layers a discrete state machine (`DORMANT → PROTECTED
+→ MATURE → DEAD`) on top, mutating gate logits directly (birth = reset to
+active init, death = hard-clamp) without touching the tensor math — chosen
+over true sparse/conditional computation because the proposal explicitly
+permits cost proxies in early phases (§9) and real sparse compute is a
+much bigger systems lift for a 48M-param validation experiment. New
+`train_phase2.py` reuses `train.py`'s `PackedTokens`/`BatchIterator`/
+`load_tokens`/`evaluate_loss` (same pattern `retrain_compact.py` already
+uses), calling the controller every `growth_interval` steps.
+
+### Two real bugs found and fixed via local testing, before any cloud spend
+
+1. **Plateau signal never built up.** `record_step` was only fed the
+   sparse `eval_every`-cadence `val_loss`, but `growth_interval` fires far
+   more often — `_loss_history` stayed essentially empty the whole run,
+   so the loss-plateau term of the birth score (`w_p · P_i`) was always 0.
+   Fixed by feeding every-step `train_loss` into an EMA instead, snapshotted
+   once per growth event.
+2. **Unbounded mass death.** Only births were rate-limited (`birth_limit`);
+   a first end-to-end smoke test showed all 13 seed-mature units crossing
+   the death threshold in the *same* growth tick and dying simultaneously
+   — they shared the same init and uniform regularizer pressure, so
+   nothing differentiated their timing. Added `death_limit`, symmetric to
+   `birth_limit`: eligible-but-not-selected units keep their streak and
+   remain eligible next check, so death still happens, just gradually
+   (confirmed: 12 deaths spread across 6 growth events in the re-test,
+   not 13 at once).
+
+### One tuning discovery worth flagging explicitly
+
+`birth_score_threshold`'s default (`0.3`, picked without empirical
+grounding) was ~20–100x too high — achieved scores topped out around
+0.003–0.014 throughout a 400-step local smoke test. This isn't a scale
+artifact to wait out: `contribution_ema`'s ceiling is `sigmoid(dormant_floor_logit)`
+≈ 0.018, a fixed function of hyperparameters, not of training progress —
+more steps alone wouldn't have fixed it. Lowered the default to `0.01`,
+confirmed empirically against the same local test (now gets real births).
+Flagging this as **likely still needing re-tuning once real-scale dynamics
+are observed** — exactly why the staged rollout's step 2 (single seed,
+TinyStories, heuristic-only) exists before committing to the full matrix.
+
+### Verification performed (staged rollout step 1, zero cloud cost)
+
+- 7-case local correctness test on `StructuralController` directly (seed
+  split ratio, heuristic birth on a forced high score, protection window
+  immunity to death scoring, sustained-low-gate death after
+  `death_patience`, random-mode respects `birth_limit`/dormant-only
+  selection, well-formed JSON event log, `death_limit` caps simultaneous
+  deaths).
+- Full `train_phase2.py` smoke run (tiny config, CPU, 400 steps): real
+  birth → protection → maturity → death cycling observed end-to-end, not
+  just unit-tested in isolation.
+- Confirmed `evaluate.py`'s new dispatch branch loads a Phase 2 checkpoint
+  correctly.
+- Confirmed `materialize.py` needs **zero changes** for Phase 2
+  checkpoints — verified empirically, not just assumed from the plan:
+  the thin-subclass design means `PlasticTransformer` has no parameters
+  `SelfOrganizingTransformer.from_pretrained` wouldn't already know about.
+
+### Status / next step
+
+Committed (`8213f73`). Staged rollout step 2 (single seed, TinyStories,
+heuristic-only, real scale) not yet run — next step, and the real test of
+whether `birth_score_threshold` and the other hyperparameters need further
+tuning before committing to the full 3-condition × 2-dataset matrix.
