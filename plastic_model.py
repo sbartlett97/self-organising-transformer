@@ -14,7 +14,7 @@ class PlasticConfig(SOTConfig):
         growth_interval: int = 250,
         birth_limit: int = 2,
         minimum_age: int = 1000,
-        death_threshold: float = 0.5,
+        death_relative_margin: float = 0.5,
         death_patience: int = 3,
         ema_decay: float = 0.98,
         **kwargs: Any,
@@ -24,7 +24,7 @@ class PlasticConfig(SOTConfig):
         self.growth_interval = growth_interval
         self.birth_limit = birth_limit
         self.minimum_age = minimum_age
-        self.death_threshold = death_threshold
+        self.death_relative_margin = death_relative_margin
         self.death_patience = death_patience
         self.ema_decay = ema_decay
 

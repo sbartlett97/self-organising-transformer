@@ -26,6 +26,7 @@ class Phase2Config(TrainConfig):
     birth_limit: int = 2
     death_limit: int = 2
     minimum_age: int = 1000
+    death_relative_margin: float = 0.5
     output_dir: str = "./outputs/phase2"
 
 
@@ -46,6 +47,7 @@ def build_model(cfg: Phase2Config, tokenizer) -> PlasticTransformer:
         growth_interval=cfg.growth_interval,
         birth_limit=cfg.birth_limit,
         minimum_age=cfg.minimum_age,
+        death_relative_margin=cfg.death_relative_margin,
     )
     return PlasticTransformer(config)
 
@@ -87,6 +89,7 @@ def train(cfg: Phase2Config):
         birth_limit=cfg.birth_limit,
         death_limit=cfg.death_limit,
         minimum_age=cfg.minimum_age,
+        death_relative_margin=cfg.death_relative_margin,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -200,6 +203,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--birth_limit", type=int, default=2)
     p.add_argument("--death_limit", type=int, default=2)
     p.add_argument("--minimum_age", type=int, default=1000)
+    p.add_argument("--death_relative_margin", type=float, default=0.5, help="A mature unit dies only once its gate falls below this fraction of its own kind's (layer/head/ffn_group) current mature-population median")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)

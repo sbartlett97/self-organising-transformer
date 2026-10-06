@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import statistics
+from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -48,7 +50,22 @@ class StructuralController:
         birth_limit: int = 2,
         death_limit: int = 2,
         minimum_age: int = 1000,
-        death_threshold: float = 0.5,
+        # An absolute threshold here assumed "good" gates reach ~0.5+, but
+        # this architecture's gates settle around 0.2-0.35 even for
+        # genuinely kept components in Phase 1 (same miscalibration
+        # materialize.py's old absolute threshold=0.5 default had, already
+        # fixed there via a relative, auto-median threshold -- see
+        # hub_utils.py's _architecture_section). Confirmed in Stage 2's
+        # first real-scale run (2026-10-06): death_threshold=0.5 flagged
+        # nearly the entire mature population every check regardless of
+        # merit, keeping births and deaths in lockstep and flatlining net
+        # population growth despite 2.5x unused architecture-cost budget.
+        # death_relative_margin replaces it: a unit is death-eligible only
+        # when its gate falls below `margin` x its own kind's (layer/head/
+        # ffn_group) current mature-population median -- "meaningfully
+        # behind its surviving peers," recalibrated every check, rather
+        # than a fixed magnitude this architecture may never reach.
+        death_relative_margin: float = 0.5,
         death_patience: int = 3,
         ema_decay: float = 0.98,
         birth_weight_gradient: float = 0.5,
@@ -73,7 +90,7 @@ class StructuralController:
         self.birth_limit = birth_limit
         self.death_limit = death_limit
         self.minimum_age = minimum_age
-        self.death_threshold = death_threshold
+        self.death_relative_margin = death_relative_margin
         self.death_patience = death_patience
         self.ema_decay = ema_decay
         self.w_g = birth_weight_gradient
@@ -185,14 +202,26 @@ class StructuralController:
         growth tick), which violates §11's "stable topology evolution"
         success criterion. Eligible-but-not-selected units keep their streak
         and remain eligible next call, so a real die-off still happens, just
-        gradually."""
+        gradually.
+
+        Eligibility is relative, not absolute: a unit's gate is compared
+        against its own kind's (layer/head/ffn_group) current
+        mature-population median, recomputed fresh every call -- see
+        death_relative_margin's docstring in __init__ for why."""
+        mature_gates_by_kind: dict = defaultdict(list)
+        for uid, t in self.units.items():
+            if t.state == LifecycleState.MATURE:
+                mature_gates_by_kind[uid[0]].append(torch.sigmoid(torch.tensor(self._get_logit(uid))).item())
+        kind_median = {kind: statistics.median(vals) for kind, vals in mature_gates_by_kind.items()}
+
         eligible = []
         for uid, t in self.units.items():
             if t.state != LifecycleState.MATURE or t.steps_since_birth < self.minimum_age:
                 continue
             gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
-            death_score = 1.0 - gate_val
-            if death_score > self.death_threshold:
+            relative_floor = kind_median[uid[0]] * self.death_relative_margin
+            death_score = relative_floor - gate_val  # positive = below its kind's relative floor
+            if gate_val < relative_floor:
                 self._death_streak[uid] = self._death_streak.get(uid, 0) + 1
             else:
                 self._death_streak[uid] = 0
