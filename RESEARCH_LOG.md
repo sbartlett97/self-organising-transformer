@@ -1186,3 +1186,96 @@ Committed (`8213f73`). Staged rollout step 2 (single seed, TinyStories,
 heuristic-only, real scale) not yet run — next step, and the real test of
 whether `birth_score_threshold` and the other hyperparameters need further
 tuning before committing to the full 3-condition × 2-dataset matrix.
+
+## 2026-10-06 (continued) — Staged rollout step 2: the plateau term causes a late-run churn loop
+
+Ran `train_phase2.py` at real scale: single seed (42), TinyStories,
+`birth_mode=heuristic`, same architecture/optimizer hyperparameters as
+Phase 1's TinyStories runs (10000 steps, `target_cost=0.14`), pushed to
+`sbartlett97/sot-phase2-tinystories-heuristic-seed42`.
+
+### Steps 250–4250: healthy, selective plasticity
+
+Births and deaths were sparse, bounded, and varied in location —
+consistent with "demand-gated growth," the behaviour the design intends.
+
+### Steps ~4250–10000: a steady churn loop
+
+From step ~4250 onward, nearly every `growth_interval=250` event hit
+`birth_limit=2`/`death_limit=2` exactly, concentrated heavily on layer 8's
+(later also 7/9/10's) FFN groups, with units cycling birth→death on a
+~1750-step lifespan. `state_counts` stopped moving — the population was
+churning, not converging — and this continued unresolved to step 10000,
+while the plateau score climbed from 0 to ~0.9–1.0 over the same window.
+
+**Root cause** (diagnosed, then fixed — commit `285f8ce`): the birth
+score's plateau term (`P_i` in proposal §11) was implemented as a flat
+global scalar, added identically to every dormant candidate
+(`w_p · plateau`). Training loss naturally flattens late in any normal
+run, so once `plateau` grew large it alone pushed *every* dormant
+candidate over `birth_score_threshold` simultaneously — collapsing
+"selective, demand-gated growth" into "always max out `birth_limit`,
+ranked by whichever candidate held a marginal `gradient_ema` edge that
+tick." That's exactly the observed churn signature: same budget spent
+every event, same handful of units cycling.
+
+**The fix**: plateau now *modulates* each candidate's own gradient
+pressure rather than being added as a flat bonus —
+`b_i = w_g·G_i + w_c·C_i + w_p·plateau·G_i_normalized` — so a saturated
+plateau amplifies units that already show demand instead of lowering the
+bar for every dormant unit regardless of its own signal. This is also the
+formulation that actually matches the proposal's own per-candidate `P_i`
+subscript, which the flat-scalar version didn't. Verified locally: the
+existing 7-case `StructuralController` test suite still passes, plus a
+new 8th case that asserts a saturated plateau does *not* sweep up a
+zero-gradient-pressure candidate.
+
+**Important caveat**: this Stage 2 run used the *old* (buggy) formula —
+the fix was written and verified afterward, not re-run yet. Its results
+below are informative context, not a clean validation of the fixed
+controller.
+
+### Final state and evaluation
+
+Final lifecycle state: `mature=271, dormant=503, dead=70, protected=8`;
+totals: `66` births, `70` deaths across the run. Final train/val loss
+1.7355/1.7737 (val ppl 5.89 — not directly comparable to the numbers
+below, since training's `evaluate_loss` and `evaluate.py`'s harness-driven
+`ppl()` are different code paths).
+
+`evaluate.py` (held-out perplexity + lm-evaluation-harness) against the
+final checkpoint: **perplexity 4.82**, hellaswag acc 0.2557/acc_norm
+0.2607, arc_easy acc 0.2588/acc_norm 0.2483, piqa acc 0.5452/acc_norm
+0.5212, winogrande acc 0.5099. Pushed successfully; the Hub card
+(`sbartlett97/sot-phase2-tinystories-heuristic-seed42`) now carries this
+performance section plus a comparison against the Phase 1 TinyStories
+seed42 dense baseline (116.72 ppl), rendering as "beats dense by 95.9%."
+
+**That comparison needs an explicit caveat, not a clean headline.**
+Phase 1's TinyStories seed42 `evaluate.py`-reported perplexities (dense
+116.72, sot 109.63, discovered_retrained 115.13) are themselves under
+active, unresolved investigation: the same checkpoints' own
+training-time validation loss (`metrics.json`, pulled from each repo) is
+dramatically lower (e.g. sot: val_loss 1.546 → ppl ≈ 4.69 at step 10000,
+vs. `evaluate.py`'s reported 109.63) — a ~20–25x gap that has been
+reproduced locally against the real downloaded Phase 1 checkpoint, in
+fp32, independent of the original CUDA/fp16 training run. Weight tying
+and `architecture_mode` have been checked and ruled out as the cause;
+investigation is ongoing (see below). Phase 2's own number, by contrast,
+*is* internally consistent (evaluate.py ppl 4.82 vs. training val_ppl
+5.89 — same ballpark, no gap), which narrows the Phase 1 issue toward
+something specific to how those earlier checkpoints evaluate on reload,
+not a general flaw in `evaluate.py` or in this reload path. Until that's
+resolved, read "beats dense by 95.9%" as "Phase 2's real, trustworthy
+number is ~4.8, compared against a Phase 1 baseline number that may
+itself be significantly overstated" — directionally informative, not a
+validated comparison.
+
+### Recommendation
+
+The plateau-churn bug is fixed in code but not yet validated by an actual
+run. Before committing cloud spend to the full 3-condition × 2-dataset
+matrix, the natural next step is re-running Stage 2 (same single seed,
+TinyStories, heuristic mode) with the fixed formula, to confirm the churn
+loop is actually resolved and not just locally plausible. **Not launched
+yet — pending the user's decision.**
