@@ -9,3 +9,4 @@ safetensors>=0.4.5
 lm-eval[hf]>=0.4.12
 tqdm>=4.66
 typing_extensions>=4.13
+trackio>=0.1.0

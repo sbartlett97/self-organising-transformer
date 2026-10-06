@@ -1528,3 +1528,79 @@ single seed first, or treat "discrete growth underperforms at this scale"
 as a real (if provisional) finding and reconsider whether the full matrix
 is the right next step versus adjusting Stage 2's hyperparameters first.
 **Flagging for the user's decision, not proceeding unilaterally.**
+
+**Superseded by the next entry** — the user correctly pushed back on
+treating this one run as a verdict on the mechanism rather than on this
+specific configuration, named `death_threshold` and `birth_limit` as the
+two things to check, and was right on both counts.
+
+## 2026-10-06 (continued) — Stage 2 re-run 2: fixing death eligibility turns the loss into a win
+
+Investigated the user's hypothesis directly against this run's own data
+before changing anything. `target_cost` turned out not to be the
+constraint — `lagrange` stayed at `0.0000` for all 10000 steps and cost
+topped out at `0.055`, nowhere near the `0.14` budget; the Lagrangian
+penalty never activated once. What the data *did* show: mature population
+grew 281→283 early, then **shrank to 270 by step ~4000 and sat flat there
+for the remaining 60% of training**, with births and deaths locked in
+near-lockstep every quartile (4/8, 19/20, 20/20, 22/22). Root cause:
+`death_threshold=0.5` (absolute) assumed "good" gates reach ~0.5+, but
+this architecture's gates settle around 0.2–0.35 even for genuinely kept
+components (confirmed in both Phase 1's best checkpoint and this run's
+own final gates: head_gate 0.14–0.19, ffn_gate 0.13–0.17) — nearly the
+entire mature population read as "should die" every check, regardless of
+merit, and growth could never outpace that.
+
+**Fix** (commit `d421ff3`): `death_relative_margin` replaces
+`death_threshold` — a unit is death-eligible only once its gate falls
+below `margin` (default 0.5) × its own kind's (layer/head/ffn_group)
+current mature-population median, recomputed every check. Same relative-
+threshold fix pattern as `materialize.py`'s earlier `--threshold 0.5`
+bug. Verified against 9 local test cases (including a new one
+confirming a known, accepted limitation: if an entire kind's mature
+population crashes together, the criterion can't see it, since the
+median collapses with them) before any cloud spend. Also doubled
+`birth_limit` 2→4 per the user's request, since the original run's births
+were close to saturated (65 of a possible 80 used).
+
+### Result: a clean win, and the death mechanism wasn't even exercised
+
+Re-ran on a fresh pod, transformers compliance re-verified before launch.
+Mature population actually grew this time — 283→342 by step 7000, then
+leveled off — and **zero deaths occurred in the entire 10000-step run**
+(59 births, 0 deaths, confirmed in `events.json`). Final architecture
+cost 0.072 (still well under the 0.14 budget — `lagrange` stayed 0.0 the
+whole run again, so cost still isn't the active constraint; the Stage 1
+run's growth just plateaued around step 7500 on its own).
+
+`evaluate.py` perplexity: **4.40** — beats Phase 1's corrected dense
+(4.63) by 4.9% and sot (4.75) by 7.4%, on the same seed, same clean
+methodology. The Hub card's own comparison line confirms it: "beats the
+matched dense baseline (4.63) by 4.9%." This is the first result in
+either phase where the gating/plasticity mechanism actually beats dense
+outright under corrected numbers, not just "trails by a small margin at
+lower cost."
+
+**Honest caveat**: zero deaths happened, so this run only tested the
+*birth* half of the lifecycle — the relative-threshold fix was effective
+enough (combined with the higher birth_limit letting the population reach
+a comfortable size before growth naturally plateaued) that death was
+never actually triggered. This is a genuinely good result, but it's not
+yet evidence that the DEATH side of discrete birth/death lifecycle works
+correctly at scale — only that removing its false-positive bug stopped it
+from being actively harmful. A future run that pushes the architecture
+closer to its cost budget (e.g. a higher `target_cost` or `seed_fraction`,
+so growth genuinely contends for capacity) would be a better test of
+death actually pruning something real.
+
+### Updated recommendation
+
+This single clean win is enough to justify the full 3-condition ×
+2-dataset matrix being back on the table, but it's still one seed. Given
+death was never exercised, worth at minimum running the `random` birth-
+mode control (same fixed controller, uniform-random candidate selection)
+on this same seed before committing to the full matrix, to confirm the
+heuristic scoring is adding value over random growth and not just
+benefiting from more capacity regardless of *which* units get it. Flagging
+for the user's decision on whether to proceed to the full matrix now or
+run that control first.

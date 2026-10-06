@@ -94,6 +94,7 @@ def train(cfg: Phase2Config):
     )
     controller.seed_architecture()
     model.train()
+    hub_utils.init_trackio(cfg, phase="phase2", condition=cfg.hub_condition or cfg.birth_mode)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
     scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
@@ -152,6 +153,18 @@ def train(cfg: Phase2Config):
         if cfg.birth_mode != "none" and global_step % cfg.growth_interval == 0:
             event = controller.update(global_step, mode=cfg.birth_mode)
             pbar.write(json.dumps({"step": global_step, "plasticity_event": event}))
+            sc = event["state_counts"]
+            hub_utils.trackio_log({
+                "step": global_step,
+                "births": len(event["births"]),
+                "deaths": len(event["deaths"]),
+                "plateau": event["plateau"],
+                "max_dormant_birth_score": event["max_dormant_birth_score"],
+                "state_mature": sc.get("mature", 0),
+                "state_dormant": sc.get("dormant", 0),
+                "state_dead": sc.get("dead", 0),
+                "state_protected": sc.get("protected", 0),
+            })
 
         if global_step % cfg.log_every == 0 or global_step == 1:
             record = {
@@ -165,12 +178,14 @@ def train(cfg: Phase2Config):
             }
             pbar.write(json.dumps(record))
             history.append(record)
+            hub_utils.trackio_log(record)
 
         if global_step % cfg.eval_every == 0 or global_step == cfg.max_steps:
             val_loss = evaluate_loss(model, val_data, cfg.batch_size, device)
             record = {"step": global_step, "val_loss": val_loss, "val_ppl": math.exp(min(20, val_loss))}
             pbar.write(json.dumps(record))
             history.append(record)
+            hub_utils.trackio_log(record)
             save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history)
 
         if global_step % cfg.save_every == 0:
@@ -193,6 +208,7 @@ def train(cfg: Phase2Config):
         repo_id = cfg.hub_model_id or hub_utils.repo_id_for(username, "phase2", dataset, condition, cfg.seed, cfg.hub_target_cost_tag)
         hub_utils.push_checkpoint(final_path, repo_id, cfg.hub_private, "phase2", dataset, condition, cfg.seed)
         hub_utils.ensure_collection(username, "phase2", dataset, repo_id)
+    hub_utils.trackio_finish()
 
 
 def parse_args() -> Phase2Config:
@@ -233,6 +249,8 @@ def parse_args() -> Phase2Config:
     p.add_argument("--hub_private", action="store_true")
     p.add_argument("--hub_condition", default=None, help="Defaults to --birth_mode (heuristic/random/none)")
     p.add_argument("--hub_target_cost_tag", default=None)
+    p.add_argument("--no_trackio", dest="use_trackio", action="store_false", help="Disable live Trackio metrics (on by default)")
+    p.add_argument("--trackio_space_id", default=None, help="HF Space to sync live metrics to, e.g. username/sot-tracking -- defaults to <your HF username>/sot-tracking")
     a = p.parse_args()
     return Phase2Config(**vars(a), model_type="sot")
 

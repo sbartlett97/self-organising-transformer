@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import statistics
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -235,8 +236,8 @@ _COLLECTION_DESCRIPTIONS = {
         "See RESEARCH_LOG.md."
     ),
     ("phase2", "tinystories"): (
-        "Phase 2: discrete birth/death plasticity. Churn bug fixed; clean "
-        "re-run underperforms Phase 1 on ppl. Matrix on hold. "
+        "Phase 2: discrete birth/death plasticity. After 2 bugfixes: beats "
+        "Phase 1 dense by 4.9% ppl (1 seed, 0 deaths -- caveated). "
         "See RESEARCH_LOG.md."
     ),
 }
@@ -253,4 +254,86 @@ def ensure_collection(username: str, phase: str, dataset: str, repo_id: str) -> 
     return collection.slug
 
 
-__all__ = ["repo_id_for", "build_model_card", "push_checkpoint", "ensure_collection"]
+# Shared live-metrics tracking (Trackio: https://huggingface.co/blog/trackio).
+# A module-level flag rather than a passed-around handle -- each training
+# script runs one training loop per process, so there's never more than one
+# active run to track, and this keeps call sites (trackio_log/trackio_finish)
+# trivial no-ops when tracking is off or unavailable.
+_trackio_active = False
+
+
+def init_trackio(cfg, phase: str, condition: str) -> bool:
+    """Best-effort trackio init for a live, optionally remote (HF Space)
+    dashboard. Returns True if logging is active. Every failure mode here
+    (not installed, no HF auth available, Space creation failing) degrades
+    to "skip tracking, keep training" rather than raising -- a dashboard
+    being unavailable should never be the reason a real run fails, same
+    spirit as Trackio's own internal defensiveness."""
+    global _trackio_active
+    _trackio_active = False
+    if not getattr(cfg, "use_trackio", True):
+        return False
+    try:
+        import trackio
+    except ImportError:
+        print("trackio not installed -- skipping live tracking (pip install trackio to enable)")
+        return False
+
+    dataset = dataset_tag(getattr(cfg, "dataset_name", "unknown"))
+    seed = getattr(cfg, "seed", 0)
+    name_parts = [dataset, condition, f"seed{seed}"]
+    tc_tag = getattr(cfg, "hub_target_cost_tag", None)
+    if tc_tag:
+        name_parts.append(f"tc{tc_tag}")
+    run_name = "-".join(name_parts)
+
+    space_id = getattr(cfg, "trackio_space_id", None)
+    if space_id is None:
+        try:
+            username = HfApi().whoami()["name"]
+            space_id = f"{username}/sot-tracking"
+        except Exception as exc:
+            print(f"trackio: could not resolve HF username for remote sync ({exc}) -- logging locally only")
+            space_id = None
+
+    config = asdict(cfg) if is_dataclass(cfg) else dict(vars(cfg))
+    try:
+        trackio.init(project=f"sot-{phase}", name=run_name, group=dataset, config=config, space_id=space_id)
+    except Exception as exc:
+        print(f"trackio.init failed ({exc}) -- continuing without live tracking")
+        return False
+    _trackio_active = True
+    return True
+
+
+def trackio_log(record: dict) -> None:
+    """Log one record if tracking is active. Silently drops non-scalar
+    fields (e.g. gate_summary()'s nested gates_by_layer list) -- Trackio
+    logs scalar metrics, and the full record already goes to the local
+    metrics.json regardless of this."""
+    if not _trackio_active:
+        return
+    import trackio
+
+    safe = {k: v for k, v in record.items() if isinstance(v, (int, float, str, bool))}
+    try:
+        trackio.log(safe)
+    except Exception as exc:
+        print(f"trackio.log failed ({exc}) -- continuing without live tracking for this step")
+
+
+def trackio_finish() -> None:
+    if not _trackio_active:
+        return
+    import trackio
+
+    try:
+        trackio.finish()
+    except Exception as exc:
+        print(f"trackio.finish failed ({exc})")
+
+
+__all__ = [
+    "repo_id_for", "build_model_card", "push_checkpoint", "ensure_collection",
+    "init_trackio", "trackio_log", "trackio_finish",
+]

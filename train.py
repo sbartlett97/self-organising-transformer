@@ -61,6 +61,8 @@ class TrainConfig:
     hub_private: bool = False
     hub_condition: str | None = None
     hub_target_cost_tag: str | None = None
+    use_trackio: bool = True
+    trackio_space_id: str | None = None
 
 
 class PackedTokens:
@@ -201,6 +203,7 @@ def train(cfg: TrainConfig):
 
     model = build_model(cfg, tokenizer).to(device)
     model.train()
+    hub_utils.init_trackio(cfg, phase="phase1", condition=cfg.hub_condition or cfg.model_type)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
     scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
@@ -265,12 +268,14 @@ def train(cfg: TrainConfig):
             }
             pbar.write(json.dumps(record))
             history.append(record)
+            hub_utils.trackio_log(record)
 
         if global_step % cfg.eval_every == 0 or global_step == cfg.max_steps:
             val_loss = evaluate_loss(model, val_data, cfg.batch_size, device)
             record = {"step": global_step, "val_loss": val_loss, "val_ppl": math.exp(min(20, val_loss))}
             pbar.write(json.dumps(record))
             history.append(record)
+            hub_utils.trackio_log(record)
             save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history)
 
         if global_step % cfg.save_every == 0:
@@ -288,6 +293,7 @@ def train(cfg: TrainConfig):
         repo_id = cfg.hub_model_id or hub_utils.repo_id_for(username, "phase1", dataset, cfg.hub_condition, cfg.seed, cfg.hub_target_cost_tag)
         hub_utils.push_checkpoint(final_path, repo_id, cfg.hub_private, "phase1", dataset, cfg.hub_condition, cfg.seed)
         hub_utils.ensure_collection(username, "phase1", dataset, repo_id)
+    hub_utils.trackio_finish()
 
 
 def parse_args() -> TrainConfig:
@@ -322,6 +328,8 @@ def parse_args() -> TrainConfig:
     p.add_argument("--hub_private", action="store_true")
     p.add_argument("--hub_condition", default=None, help="e.g. dense, dense_8l, dense_half_ffn, sot -- required with --push_to_hub")
     p.add_argument("--hub_target_cost_tag", default=None, help="e.g. 017 for a target_cost=0.17 run, included in the auto-generated repo id")
+    p.add_argument("--no_trackio", dest="use_trackio", action="store_false", help="Disable live Trackio metrics (on by default)")
+    p.add_argument("--trackio_space_id", default=None, help="HF Space to sync live metrics to, e.g. username/sot-tracking -- defaults to <your HF username>/sot-tracking")
     a = p.parse_args()
     return TrainConfig(**vars(a))
 

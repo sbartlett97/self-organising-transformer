@@ -34,6 +34,8 @@ p.add_argument('--hub_model_id',default=None,help='Overrides the auto-generated 
 p.add_argument('--hub_private',action='store_true')
 p.add_argument('--hub_phase',default='phase1')
 p.add_argument('--hub_target_cost_tag',default=None)
+p.add_argument('--no_trackio',dest='use_trackio',action='store_false',help='Disable live Trackio metrics (on by default)')
+p.add_argument('--trackio_space_id',default=None,help='HF Space to sync live metrics to, e.g. username/sot-tracking -- defaults to <your HF username>/sot-tracking')
 a=p.parse_args()
 
 set_seed(a.seed)
@@ -43,6 +45,7 @@ base=CompactTransformer.from_pretrained(a.architecture_model)
 # Fresh weights, identical architecture.
 model=CompactTransformer(base.config)
 device=pick_device(a.device); model.to(device).train()
+hub_utils.init_trackio(a, phase=a.hub_phase, condition='discovered_retrained')
 train_data,val_data=load_tokens(TrainConfig(seq_len=base.config.max_position_embeddings,dataset_name=a.dataset_name,dataset_config=a.dataset_config,max_train_docs=a.max_train_docs),tok)
 opt=torch.optim.AdamW(model.parameters(),lr=a.learning_rate,weight_decay=a.weight_decay,betas=(.9,.95))
 sched=get_cosine_schedule_with_warmup(opt,a.warmup_steps,a.max_steps)
@@ -66,12 +69,16 @@ for step in pbar:
     pbar.set_postfix(loss=f'{train_loss:.4f}')
     if step%100==0:
         pbar.write(f'step={step} train_loss={train_loss:.4f}')
-        history.append({'step':step,'train_loss':train_loss})
+        record={'step':step,'train_loss':train_loss}
+        history.append(record)
+        hub_utils.trackio_log(record)
     if step%a.eval_every==0 or step==a.max_steps:
         v=evaluate_loss(model,val_data,a.batch_size,device)
         val_ppl=torch.exp(torch.tensor(min(v,20))).item()
         pbar.write(f'step={step} val_loss={v:.4f} val_ppl={val_ppl:.3f}')
-        history.append({'step':step,'val_loss':v,'val_ppl':val_ppl})
+        record={'step':step,'val_loss':v,'val_ppl':val_ppl}
+        history.append(record)
+        hub_utils.trackio_log(record)
 model.save_pretrained(out,safe_serialization=True); tok.save_pretrained(out)
 (out/'train_config.json').write_text(json.dumps(vars(a),indent=2))
 (out/'metrics.json').write_text(json.dumps(history,indent=2))
@@ -83,3 +90,4 @@ if a.push_to_hub:
     repo_id = a.hub_model_id or hub_utils.repo_id_for(username, a.hub_phase, dataset, 'discovered_retrained', a.seed, a.hub_target_cost_tag)
     hub_utils.push_checkpoint(out, repo_id, a.hub_private, a.hub_phase, dataset, 'discovered_retrained', a.seed)
     hub_utils.ensure_collection(username, a.hub_phase, dataset, repo_id)
+hub_utils.trackio_finish()
