@@ -1465,3 +1465,66 @@ have been treated with more suspicion at the time.
 - All 18 affected Hub model cards re-pushed with corrected perplexity.
 - This log, `README.md`'s "Phase 1 result" section, and the research
   proposal's Gate 1→2 annotation corrected to reflect the real result.
+
+## 2026-10-06 (continued) — Phase 2 Stage 2 re-run: churn fixed, but the clean result is a loss to dense
+
+Re-ran Stage 2 (single seed 42, TinyStories, heuristic birth mode, same
+hyperparameters as the original Stage 2 run) with the fixed per-candidate
+plateau formula (`285f8ce`), on a fresh pod explicitly verified to be
+running the pinned-compliant `transformers==4.57.6` before launch (RTX
+4090, $0.74/hr — A100 was out of stock everywhere at launch time; total
+cost for the ~2h run ≈$1.50).
+
+### Churn loop: confirmed fixed
+
+Checked every lifecycle event against the same signature that flagged the
+original bug (a unit crossing birth→death repeatedly instead of the
+population settling): **zero units had ≥4 lifecycle events** across the
+full 10000-step run (65 births, 70 deaths total, spread across distinct
+units throughout training, not concentrated on a repeat-cycling handful
+the way the original run's layer-8 FFN groups were). The fix holds at real
+scale, not just in the local unit tests.
+
+### Clean result: Phase 2 loses to both Phase 1 conditions on perplexity
+
+Final state: `mature=270, dormant=504, dead=70, protected=8`. Final train
+loss 1.939, val loss 2.152 (val ppl 8.61 — training-time approximation,
+not directly comparable, see below). `evaluate.py` perplexity (clean,
+transformers-compliant, same methodology as the corrected Phase 1 numbers
+above): **7.18**. Phase 1 TinyStories seed42, same corrected methodology:
+dense 4.63, sot 4.75. **Phase 2's discrete-growth mechanism underperforms
+both Phase 1 conditions on this single seed** — not a marginal gap (7.18
+vs. 4.63–4.75 is ~51–55% worse), and the Hub card's own auto-generated
+comparison line states this plainly ("loses to the matched dense baseline
+(4.63) by 55.2%").
+
+This is a genuine, clean negative result for Stage 2 as currently
+configured — not an artifact of the churn bug (which is fixed) or the
+transformers bug (this run verified compliant throughout). Plausible,
+not-yet-investigated explanations, roughly in order of suspicion:
+- `seed_fraction=0.33`'s initial MATURE population may simply be a worse
+  starting point than Phase 1's fully-present (always-on, continuously
+  gated) architecture — the discrete lifecycle model spends part of the
+  10000-step budget growing into capacity Phase 1 has from step 0.
+- `minimum_age=1000` is a long protection window relative to
+  `growth_interval=250` — a newly birthed unit gets ~4 growth cycles of
+  immunity before it can contribute to death-pass eligibility, which may
+  be too conservative or too permissive; not yet checked which.
+- Single seed — this could be seed noise rather than a structural
+  disadvantage of discrete growth; the original (buggy) Stage 2 run and
+  this clean one discovered different active-layer sets (originally
+  `[2,5,6,7,8,9]`; now `[2,5,7,8,9,10]` — layer 6 swapped for layer 10),
+  so the search itself isn't fully stable run-to-run even with the same
+  seed and fixed hyperparameters, which the churn fix doesn't address.
+
+### Recommendation
+
+Do not commit to the full 3-condition (`heuristic`/`random`/`none`) ×
+2-dataset matrix yet. The churn bug is fixed and confirmed, but this
+single clean data point shows discrete growth losing to Phase 1's simpler
+continuous gating, which is itself a result worth understanding before
+scaling up — either investigate the three candidates above on this same
+single seed first, or treat "discrete growth underperforms at this scale"
+as a real (if provisional) finding and reconsider whether the full matrix
+is the right next step versus adjusting Stage 2's hyperparameters first.
+**Flagging for the user's decision, not proceeding unilaterally.**

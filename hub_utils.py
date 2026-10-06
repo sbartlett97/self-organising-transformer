@@ -235,8 +235,8 @@ _COLLECTION_DESCRIPTIONS = {
         "See RESEARCH_LOG.md."
     ),
     ("phase2", "tinystories"): (
-        "Phase 2: discrete birth/death plasticity. Stage 2 found+fixed a "
-        "plateau-churn bug (285f8ce); clean re-run in progress. "
+        "Phase 2: discrete birth/death plasticity. Churn bug fixed; clean "
+        "re-run underperforms Phase 1 on ppl. Matrix on hold. "
         "See RESEARCH_LOG.md."
     ),
 }
