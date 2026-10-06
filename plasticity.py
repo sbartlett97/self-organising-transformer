@@ -219,11 +219,25 @@ class StructuralController:
         dormant = [uid for uid, t in self.units.items() if t.state == LifecycleState.DORMANT]
 
         if mode == "heuristic":
+            # plateau (P_i in proposal §11) must be per-candidate, not a flat
+            # value broadcast to every dormant unit -- an additive
+            # `w_p * plateau` term pushes ALL candidates above threshold
+            # simultaneously once plateau is large (loss naturally flattens
+            # in any normal run eventually), collapsing "selective, demand-
+            # gated growth" into "always max out birth_limit, ranked by
+            # noise" (observed in Stage 2: a steady ~1750-step churn loop
+            # concentrated on whichever candidate held a marginal gradient_ema
+            # edge). Instead, plateau *modulates* each candidate's own
+            # gradient pressure -- it amplifies units that already show
+            # demand, rather than lowering the bar for every dormant unit
+            # regardless of its own signal.
+            max_grad = max((self.units[uid].gradient_ema for uid in dormant), default=0.0)
             scored = []
             all_scores = []
             for uid in dormant:
                 t = self.units[uid]
-                b = self.w_g * t.gradient_ema + self.w_c * t.contribution_ema + self.w_p * plateau
+                g_norm = (t.gradient_ema / max_grad) if max_grad > 0 else 0.0
+                b = self.w_g * t.gradient_ema + self.w_c * t.contribution_ema + self.w_p * plateau * g_norm
                 all_scores.append(b)
                 if b >= self.birth_score_threshold:
                     scored.append((b, uid))
