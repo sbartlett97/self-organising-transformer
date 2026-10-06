@@ -12,6 +12,7 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, get_cosine_schedule_with_warmup, set_seed
 
+import hub_utils
 from plastic_model import PlasticConfig, PlasticTransformer
 from plasticity import StructuralController
 from train import BatchIterator, evaluate_loss, load_tokens, pick_device, TrainConfig
@@ -173,13 +174,22 @@ def train(cfg: Phase2Config):
             save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history)
 
     pbar.close()
-    save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, is_final=True)
+    final_path = save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, is_final=True)
     print("\nDISCOVERED ARCHITECTURE")
     print(json.dumps(model.export_architecture(threshold=0.5), indent=2))
     print("\nFINAL STATE COUNTS")
     print(json.dumps(controller.state_counts(), indent=2))
     print(f"\nTotal births: {sum(1 for e in controller.events if e['event'] == 'birth')}")
     print(f"Total deaths: {sum(1 for e in controller.events if e['event'] == 'death')}")
+
+    if cfg.push_to_hub:
+        from huggingface_hub import HfApi
+        condition = cfg.hub_condition or cfg.birth_mode
+        username = HfApi().whoami()["name"]
+        dataset = hub_utils.dataset_tag(cfg.dataset_name)
+        repo_id = cfg.hub_model_id or hub_utils.repo_id_for(username, "phase2", dataset, condition, cfg.seed, cfg.hub_target_cost_tag)
+        hub_utils.push_checkpoint(final_path, repo_id, cfg.hub_private, "phase2", dataset, condition, cfg.seed)
+        hub_utils.ensure_collection(username, "phase2", dataset, repo_id)
 
 
 def parse_args() -> Phase2Config:
@@ -214,6 +224,11 @@ def parse_args() -> Phase2Config:
     p.add_argument("--ffn_groups", type=int, default=64)
     p.add_argument("--skip_span", type=int, default=3)
     p.add_argument("--gate_init_logit", type=float, default=-1.0)
+    p.add_argument("--push_to_hub", action="store_true")
+    p.add_argument("--hub_model_id", default=None, help="Overrides the auto-generated repo id")
+    p.add_argument("--hub_private", action="store_true")
+    p.add_argument("--hub_condition", default=None, help="Defaults to --birth_mode (heuristic/random/none)")
+    p.add_argument("--hub_target_cost_tag", default=None)
     a = p.parse_args()
     return Phase2Config(**vars(a), model_type="sot")
 

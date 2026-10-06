@@ -6,7 +6,11 @@ from model import SelfOrganizingTransformer
 from compact_model import build_from_sot
 from transformers import AutoTokenizer
 
-p=argparse.ArgumentParser(); p.add_argument('sot_path'); p.add_argument('--threshold',type=float,default=None,help='Layer/head/ffn/skip gate cutoff for export_architecture(). Defaults to the median layer_gate of this checkpoint (a fixed 0.5 is not reachable under gate_init_logit=-1.0 -- it produces a zero-layer model)'); p.add_argument('--output_dir',default='./outputs/sot_compact'); p.add_argument('--push_to_hub',action='store_true'); p.add_argument('--hub_model_id'); p.add_argument('--private',action='store_true'); a=p.parse_args()
+import hub_utils
+
+p=argparse.ArgumentParser(); p.add_argument('sot_path'); p.add_argument('--threshold',type=float,default=None,help='Layer/head/ffn/skip gate cutoff for export_architecture(). Defaults to the median layer_gate of this checkpoint (a fixed 0.5 is not reachable under gate_init_logit=-1.0 -- it produces a zero-layer model)'); p.add_argument('--output_dir',default='./outputs/sot_compact')
+p.add_argument('--push_to_hub',action='store_true'); p.add_argument('--hub_model_id',default=None,help='Overrides the auto-generated repo id'); p.add_argument('--hub_private',action='store_true'); p.add_argument('--hub_phase',default='phase1'); p.add_argument('--hub_target_cost_tag',default=None)
+a=p.parse_args()
 model=SelfOrganizingTransformer.from_pretrained(a.sot_path)
 threshold=a.threshold
 if threshold is None:
@@ -23,7 +27,17 @@ if len(compact.config.layers)==0:
 out=Path(a.output_dir); out.mkdir(parents=True,exist_ok=True); compact.save_pretrained(out,safe_serialization=True); AutoTokenizer.from_pretrained(a.sot_path).save_pretrained(out)
 arch=model.export_architecture(threshold); (out/'source_architecture.json').write_text(json.dumps(arch,indent=2))
 print(json.dumps(compact.config.layers,indent=2))
+
+source_train_config_path = Path(a.sot_path) / 'train_config.json'
+source_train_config = json.loads(source_train_config_path.read_text()) if source_train_config_path.exists() else {}
+if source_train_config:
+    (out / 'train_config.json').write_text(json.dumps(source_train_config, indent=2))
+
 if a.push_to_hub:
-    from huggingface_hub import HfApi,create_repo
-    create_repo(a.hub_model_id,repo_type='model',private=a.private,exist_ok=True)
-    HfApi().upload_folder(folder_path=str(out),repo_id=a.hub_model_id,repo_type='model')
+    from huggingface_hub import HfApi
+    username = HfApi().whoami()['name']
+    dataset = hub_utils.dataset_tag(source_train_config.get('dataset_name', 'unknown'))
+    seed = source_train_config.get('seed', 0)
+    repo_id = a.hub_model_id or hub_utils.repo_id_for(username, a.hub_phase, dataset, 'sot_compact', seed, a.hub_target_cost_tag)
+    hub_utils.push_checkpoint(out, repo_id, a.hub_private, a.hub_phase, dataset, 'sot_compact', seed)
+    hub_utils.ensure_collection(username, a.hub_phase, dataset, repo_id)

@@ -12,10 +12,11 @@ from typing import Dict, Iterable, List
 import numpy as np
 import torch
 from datasets import load_dataset
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi
 from tqdm import tqdm
 from transformers import AutoTokenizer, get_cosine_schedule_with_warmup, set_seed
 
+import hub_utils
 from model import SOTConfig, SelfOrganizingTransformer
 
 
@@ -58,6 +59,8 @@ class TrainConfig:
     push_to_hub: bool = False
     hub_model_id: str | None = None
     hub_private: bool = False
+    hub_condition: str | None = None
+    hub_target_cost_tag: str | None = None
 
 
 class PackedTokens:
@@ -182,13 +185,6 @@ def save_checkpoint(model, tokenizer, cfg: TrainConfig, out_dir: Path, step: int
     return path
 
 
-def push_folder(path: Path, repo_id: str, private: bool):
-    api = HfApi()
-    create_repo(repo_id=repo_id, private=private, exist_ok=True)
-    api.upload_folder(folder_path=str(path), repo_id=repo_id, repo_type="model")
-    print(f"Uploaded {path} -> https://huggingface.co/{repo_id}")
-
-
 def train(cfg: TrainConfig):
     set_seed(cfg.seed)
     random.seed(cfg.seed)
@@ -285,9 +281,13 @@ def train(cfg: TrainConfig):
     print("\nDISCOVERED ARCHITECTURE")
     print(json.dumps(model.export_architecture(threshold=0.5), indent=2))
     if cfg.push_to_hub:
-        if not cfg.hub_model_id:
-            raise ValueError("--hub_model_id is required with --push_to_hub")
-        push_folder(final_path, cfg.hub_model_id, cfg.hub_private)
+        if not cfg.hub_condition:
+            raise ValueError("--hub_condition is required with --push_to_hub (e.g. dense, dense_8l, dense_half_ffn, sot)")
+        username = HfApi().whoami()["name"]
+        dataset = hub_utils.dataset_tag(cfg.dataset_name)
+        repo_id = cfg.hub_model_id or hub_utils.repo_id_for(username, "phase1", dataset, cfg.hub_condition, cfg.seed, cfg.hub_target_cost_tag)
+        hub_utils.push_checkpoint(final_path, repo_id, cfg.hub_private, "phase1", dataset, cfg.hub_condition, cfg.seed)
+        hub_utils.ensure_collection(username, "phase1", dataset, repo_id)
 
 
 def parse_args() -> TrainConfig:
@@ -318,8 +318,10 @@ def parse_args() -> TrainConfig:
     p.add_argument("--skip_span", type=int, default=3)
     p.add_argument("--gate_init_logit", type=float, default=-1.0)
     p.add_argument("--push_to_hub", action="store_true")
-    p.add_argument("--hub_model_id", default=None)
+    p.add_argument("--hub_model_id", default=None, help="Overrides the auto-generated repo id")
     p.add_argument("--hub_private", action="store_true")
+    p.add_argument("--hub_condition", default=None, help="e.g. dense, dense_8l, dense_half_ffn, sot -- required with --push_to_hub")
+    p.add_argument("--hub_target_cost_tag", default=None, help="e.g. 017 for a target_cost=0.17 run, included in the auto-generated repo id")
     a = p.parse_args()
     return TrainConfig(**vars(a))
 

@@ -209,12 +209,34 @@ def main():
     p.add_argument("--ppl_batches", type=int, default=100)
     p.add_argument("--seq_len", type=int, default=None, help="Defaults to the checkpoint's own max_position_embeddings")
     p.add_argument("--results", default="evaluation.json")
+    p.add_argument("--push_to_hub", action="store_true", help="Push this checkpoint's weights + an enriched model card (with these results) to the Hub")
+    p.add_argument("--hub_model_id", default=None, help="Overrides the auto-generated repo id")
+    p.add_argument("--hub_private", action="store_true")
+    p.add_argument("--hub_phase", default="phase1")
+    p.add_argument("--hub_condition", default=None, help="e.g. dense, dense_8l, sot, sot_compact, discovered_retrained -- required with --push_to_hub")
+    p.add_argument("--hub_target_cost_tag", default=None)
+    p.add_argument("--hub_dense_ppl", type=float, default=None, help="Matched dense baseline's perplexity, for the card's comparison line")
     a = p.parse_args()
     out = {"perplexity": ppl(a.path, dataset_name=a.dataset_name, dataset_config=a.dataset_config, seq_len=a.seq_len, max_batches=a.ppl_batches, batch_size=a.batch_size, device=a.device)}
     if not a.skip_lm_eval:
         out["lm_eval"] = lm_eval(a.path, a.tasks, batch_size=a.batch_size, device=a.device)
     Path(a.results).write_text(json.dumps(out, indent=2, default=str))
     print(json.dumps(out["perplexity"], indent=2))
+
+    if a.push_to_hub:
+        import hub_utils
+        from huggingface_hub import HfApi
+        if not a.hub_condition:
+            raise ValueError("--hub_condition is required with --push_to_hub")
+        train_config_path = Path(a.path) / "train_config.json"
+        train_config = json.loads(train_config_path.read_text()) if train_config_path.exists() else {}
+        summary = {"perplexity": out["perplexity"], "lm_eval_results": out.get("lm_eval", {}).get("results", {})}
+        username = HfApi().whoami()["name"]
+        dataset = hub_utils.dataset_tag(train_config.get("dataset_name", a.dataset_name))
+        seed = train_config.get("seed", 0)
+        repo_id = a.hub_model_id or hub_utils.repo_id_for(username, a.hub_phase, dataset, a.hub_condition, seed, a.hub_target_cost_tag)
+        hub_utils.push_checkpoint(Path(a.path), repo_id, a.hub_private, a.hub_phase, dataset, a.hub_condition, seed, evaluation_summary=summary, dense_ppl=a.hub_dense_ppl)
+        hub_utils.ensure_collection(username, a.hub_phase, dataset, repo_id)
 
 
 if __name__ == "__main__":
