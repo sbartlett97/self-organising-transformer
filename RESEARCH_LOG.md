@@ -8,30 +8,41 @@ for the full phased research programme.
 
 ## Current status
 
+- **⚠️ CORRECTION (2026-10-06): Phase 1 TinyStories's headline result was an
+  artifact of a broken `transformers` install, not a real finding.** Every
+  perplexity number below marked (original, now known incorrect) was
+  computed through a `transformers==5.17.0` environment that violates this
+  project's own `requirements.txt` pin (`>=4.49.0,<5.0`) and silently
+  corrupts save/reload round-tripping for this custom architecture. See
+  the "Transformers-version reload bug" 2026-10-06 entry for the full
+  investigation and the corrected numbers; this "Current status" block now
+  states the corrected picture directly rather than the original one.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
   10,000 steps, full corpus, perplexity + hellaswag/arc_easy/piqa/
   winogrande) on RunPod (A100, CA-MTL-3). README's stated minimum of 3
-  seeds for the stability criterion is now satisfied. Full 3-seed
+  seeds for the stability criterion is now satisfied. Corrected 3-seed
   comparison, scored against README's six interpretation criteria, in the
-  "Seed 7 complete: full 3-seed comparison" 2026-09-29 entry below. **5 of
-  6 criteria now clear pass across all 3 seeds** (including stability,
-  previously untestable), **1 nuanced** — same as before, but with
-  stronger evidence (see below).
-- **Headline result**: SOT beats the matched dense baseline in all 3 seeds
-  (109.63 vs 116.72; 117.67 vs 129.01; 108.33 vs 114.35 ppl), at ~87%
-  lower architectural cost throughout (cost ≈0.125–0.129 vs. dense's
-  implicit 1.0). Fresh retrain of each seed's discovered architecture
-  recovers to within 5.0–7.4% of SOT itself and still beats dense, in all
-  3 seeds — the single most robust result in the whole run. Inherited-
-  weights compaction without retraining collapses in all 3 seeds, but
-  severity is highly seed-sensitive (3240.61 / 23004.32 / 20551.79 ppl for
-  seeds 42/123/7) — seed 42 turns out to be the mild outlier, not the
-  typical case, which raises the priority of investigating whether the
-  residual-stream-scale gap at materialization (gates hard-set to 1.0 vs.
-  the ~0.2–0.27 they ran at during training) is contributing more than
-  pure co-adaptation loss would.
+  2026-10-06 correction entry below. **3 of 6 criteria clear pass across
+  all 3 seeds, 1 fails (SOT no longer beats dense), 2 unaffected/nuanced**
+  — a materially different scorecard than originally reported (see below).
+- **Corrected headline result**: SOT does **not** beat the matched dense
+  baseline on TinyStories — dense is consistently *better* (lower ppl) in
+  all 3 seeds (dense ≈4.61–4.64 vs. sot ≈4.74–4.75, a 2.4–2.8% relative
+  perplexity gap in dense's favour), at ~87% lower architectural cost
+  throughout (cost ≈0.125–0.129 vs. dense's implicit 1.0). Reframed
+  positive finding: **SOT trades a small, consistent quality cost for a
+  large capacity reduction**, not "beats dense outright" — a materially
+  more modest claim than originally reported. Fresh retrain of each seed's
+  discovered architecture lands within ~3–5% of SOT itself (consistent
+  with the original "recovers most of SOT's quality" framing) but, like
+  SOT, now also loses to dense (discovered_retrained ≈4.89–4.97 vs. dense
+  ≈4.61–4.64). Inherited-weights compaction without retraining still
+  collapses in all 3 seeds even on the gate-fold-fixed checkpoints
+  (ppl 349–881, clean numbers unaffected by the transformers bug) — this
+  part of the original finding stands, just at a less catastrophic
+  magnitude than the original (bug-compounded) 3240–23004 ppl figures.
 - **Layer-selection pattern**: not identical across seeds, but a real
   coarser pattern holds — all 3 seeds exclude layer 0 and layers 9–11, and
   keep 6–7 layers drawn from the 1–8 range (seed 42: `[2..8]` exactly
@@ -385,6 +396,12 @@ forward pass that previously crashed, then confirmed on the pod.
 
 ### Full results, seed 42
 
+**⚠️ CORRECTED 2026-10-06: the perplexity numbers in this table were computed
+through a broken `transformers==5.17.0` install and are wrong — see the
+"Transformers-version reload bug" entry near the bottom of this log for the
+corrected numbers and a materially different verdict. Left in place
+unmodified for the historical record; do not cite this table.**
+
 All 6 conditions, full corpus, `max_steps=10000`, real held-out validation
 perplexity (`evaluate.py`'s `ppl()`, not the training-time approximation)
 plus the full lm-eval suite (`hellaswag`, `arc_easy`, `piqa`, `winogrande`).
@@ -536,6 +553,11 @@ immediately on completion, no idle time). Materialized architecture:
 layers `[1,2,3,4,5,7]` (6 of 12, threshold=0.229 median layer_gate), full
 heads/FFN retained in each active layer, no skip connections kept — same
 qualitative shape as seeds 42 and 123. All results pulled and committed.
+
+**⚠️ CORRECTED 2026-10-06: the table below is wrong (broken `transformers`
+install) — see the "Transformers-version reload bug" entry near the bottom
+of this log for corrected numbers and verdict. Left unmodified for the
+historical record; do not cite this table.**
 
 ### Full results, all 3 seeds (perplexity)
 
@@ -1279,3 +1301,167 @@ matrix, the natural next step is re-running Stage 2 (same single seed,
 TinyStories, heuristic mode) with the fixed formula, to confirm the churn
 loop is actually resolved and not just locally plausible. **Not launched
 yet — pending the user's decision.**
+
+## 2026-10-06 (continued) — Transformers-version reload bug: Phase 1 TinyStories's headline result was an artifact
+
+While checking on Phase 2 Stage 2's `evaluate.py` run, its perplexity (4.82)
+looked suspiciously ~24x better than Phase 1 TinyStories's reported numbers
+(109–139 ppl). Investigated why.
+
+### Investigation
+
+Ruled out, in order, with direct evidence against the real downloaded
+Phase 1 seed42 `sot` checkpoint: weight tying (confirmed intact on reload),
+`architecture_mode` (confirmed `"sot"`), the checkpoint's own saved
+tokenizer (byte-identical to a fresh `"gpt2"` tokenizer on sample text),
+`low_cpu_mem_usage` loading path (state dicts identical with it on/off),
+raw tensor dtype (all `float32` on disk, no silent fp16 storage), gate
+logit values (bit-exact to 7 significant figures against the checkpoint's
+own `metrics.json` training log), and `train.py`'s own data-loading code
+having changed since the run (it hadn't — last relevant commit predates
+the training run). The decisive test: evaluating the reloaded checkpoint
+on its own *training* data (which it was directly fit to, train_loss=1.52
+at step 10000) *also* gave a high loss (4.61) — ruling out any
+validation-split/data-pipeline explanation entirely, since the model
+should show strong memorization on its own training data regardless of
+any packing/chunking difference.
+
+That left the environment itself. `config.json`'s `transformers_version`
+field records which `transformers` build was active when a checkpoint's
+`save_pretrained()` ran. Checking it across checkpoints: Phase 1 TinyStories
+(all 18 checkpoints: 3 seeds × `dense`/`dense_8l`/`dense_half_ffn`/`sot`/
+`sot_compact`/`discovered_retrained`) all show `5.17.0`. Phase 1
+WikiText-103 (both target_cost sweeps, all conditions) and Phase 2 Stage 2
+both show `4.57.6`/`4.49.0`. This project's own `requirements.txt` pins
+`transformers>=4.49.0,<5.0` — **`5.17.0` is explicitly out of spec.** The
+local `.venv` used throughout this session had also silently drifted to
+`5.17.0`, matching the Phase 1 TinyStories pod's state and explaining why
+every local reproduction attempt faithfully reproduced the same inflated
+numbers.
+
+**Confirmed root cause directly**: downgraded the local `.venv` to the
+pinned-compliant `transformers==4.57.6` and reloaded the exact same Phase 1
+seed42 `sot` checkpoint, byte-for-byte, no other change. `evaluate_loss`
+came back `1.545914` — matching the original training-time value
+(`1.545951`) to 5 decimal places (the tiny residual is ordinary
+floating-point batch-order noise). Under `5.17.0` the same checkpoint,
+same code, same data, gave `4.765` (ppl≈117). `transformers==5.17.0`
+silently corrupts weight save/reload round-tripping for this custom gated
+architecture — gate logits and tied embeddings happened to survive the
+round trip intact (hence passing every earlier check), but something else
+in the larger weight tensors did not.
+
+**How the bad version got installed**: `pyproject.toml` declares
+`dependencies = []` — empty. If any setup step ran `pip install -e .`
+rather than (or before) `pip install -r requirements.txt`, nothing would
+enforce the `<5.0` pin, and a later `pip install` of `lm-eval[hf]` or
+`accelerate` (neither of which caps `transformers`) could silently resolve
+the newest available release. This is a plausible, fixable root cause, not
+just a one-off fluke — `pyproject.toml`'s dependencies are being synced to
+match `requirements.txt` as part of this fix (see commit).
+
+### Scope: only Phase 1 TinyStories is affected
+
+| Run | `transformers_version` | Status |
+|---|---|---|
+| Phase 1 TinyStories, 3 seeds × 6 conditions (Sept 29) | `5.17.0` | **Corrupted — re-evaluated below** |
+| Phase 1 TinyStories `sot_compact_gatefix`, 3 seeds (Sept 30) | `4.49.0` | Clean — gate-fold bug fix validation stands as originally reported |
+| Phase 1 WikiText-103, both target_cost sweeps | `4.57.6` | Clean — the "bounded negative result" conclusion is unaffected, no correction needed |
+| Phase 2 Stage 2 (2026-10-06) | `4.57.6` | Clean |
+
+### Corrected results, all 3 seeds (perplexity)
+
+Re-evaluated all 18 affected checkpoints locally (CPU, no retraining, no
+GPU) under the now-pinned-compliant `transformers==4.57.6`, reusing
+`evaluate.py`'s exact existing `ppl()` methodology (sequential chunking,
+`seq_len=256`, `batch_size=8`, `max_batches=100`) so the *only* variable
+that changed relative to the original numbers is the library version —
+isolating the fix to the actual bug, not a methodology change. Did not
+re-run the full `lm-eval` harness suite (slow on CPU, and already
+established — correctly, independent of this bug — as flat/at-chance for
+a 48M-param TinyStories-only model regardless of underlying quality, so
+low expected value for the cost).
+
+| Condition | Seed 42 | Seed 123 | Seed 7 |
+|---|---:|---:|---:|
+| dense | 4.63 | 4.61 | 4.64 |
+| dense_8l | 4.83 | 4.80 | 4.81 |
+| dense_half_ffn | 4.84 | 4.83 | 4.83 |
+| **sot** | **4.75** | **4.74** | **4.75** |
+| sot_compact (gate-fold fixed, already-clean numbers) | 881.24 | 525.03 | 349.24 |
+| discovered_retrained | 4.89 | 4.96 | 4.97 |
+
+(`sot_compact` here uses the already-clean `sot_compact_gatefix` repos, not
+the original bug-compounded `sot_compact` repos, which remain corrupted by
+*both* the gate-fold bug and this transformers bug and are not worth
+re-evaluating separately.)
+
+### Re-scored against README's six interpretation criteria
+
+1. **SOT reaches similar or lower validation loss than the dense
+   baseline.** ❌ **Reversed from the original pass.** SOT is consistently
+   *worse* than dense in all 3 seeds (4.750 vs 4.625, +2.71%; 4.740 vs
+   4.613, +2.75%; 4.748 vs 4.636, +2.41%). The gap is small (~2.4–2.8%)
+   and consistent — arguably "similar" by a generous reading, but not a
+   pass under the criterion as originally scored (which required SOT to
+   *beat* dense, and it did, on the corrupted numbers).
+2. **Learned cost falls substantially below 1.0.** ✅ Unaffected by this
+   bug — cost still converges to ~0.125–0.129, an ~87% reduction.
+3. **Re-training the discovered architecture from scratch recovers most of
+   the SOT model's quality.** ✅ Still a pass in relative terms —
+   discovered_retrained lands within ~2.9–4.7% of SOT itself (consistent
+   with the original ~5–7% band), but it no longer beats dense (it now
+   loses to dense by 5.7–7.6%, since SOT itself loses to dense).
+4. **Stable across random seeds.** ✅ Still passes, and arguably *more*
+   convincingly than before — the corrected dense-beats-sot gap is tightly
+   consistent across all 3 seeds (2.4–2.8%), as is retrain's gap to SOT
+   (2.9–4.7%).
+5. **Not simply selecting maximum allowed capacity everywhere.** ✅
+   Unaffected — still 6–7 of 12 layers kept, never all 12.
+6. **Benchmark quality remains competitive after physical compaction, not
+   only in the masked supernet.** ⚠️ Same qualitative verdict as before,
+   less extreme magnitude: `sot_compact` (gate-fold-fixed, clean numbers)
+   still collapses in all 3 seeds (349–881 ppl vs. ~4.7–4.9 for
+   `discovered_retrained`) — retraining-from-scratch remains mandatory,
+   not optional, just not by as dramatic a margin as the bug-compounded
+   original 3240–23004 figures suggested.
+
+**Net**: 3 of 6 criteria clear pass, 1 reversed to a fail (criterion 1), 2
+unaffected. The project's actual, defensible Phase 1 TinyStories finding is
+**"SOT reaches within ~2.6% of dense perplexity at ~13% of dense's
+architectural cost, and this holds stably across 3 seeds"** — a real,
+still-interesting compute-efficiency result, but not "SOT beats dense,"
+which was always a surprising claim on its face (a gated subset of a dense
+model's own capacity outperforming the ungated full model) that should
+have been treated with more suspicion at the time.
+
+### What this does and doesn't change
+
+- **WikiText-103's "bounded negative result" is unaffected and stands as
+  originally reported** — those checkpoints were evaluated under the
+  clean `4.57.6`. If anything, this correction makes the TinyStories and
+  WikiText-103 findings more consistent with each other: both now show
+  SOT modestly *trailing* dense on raw perplexity rather than TinyStories
+  showing an outright win and WikiText-103 showing a loss.
+- **The gate-fold bug and its fix (2026-09-29/30) are unaffected and
+  stand** — that investigation used `sot_compact_gatefix` checkpoints,
+  saved under the clean `4.49.0`.
+- **The Gate 1→2 annotation in the research proposal and README's "Phase 1
+  result" section both cite the original, now-corrected numbers** — being
+  updated in this same pass (see commits).
+- **Phase 2 Stage 2's Hub card compared its real ppl (4.82) against the
+  corrupted Phase 1 dense baseline (116.72)**, making the "beats dense by
+  95.9%" line on that card misleading — corrected by re-pushing with the
+  real dense baseline (4.63) as part of this fix.
+- Every TinyStories Phase 1 Hub model card is being re-pushed with the
+  corrected perplexity in this same pass; weights are untouched (only the
+  evaluation summary in each card changes).
+
+### Fix applied
+
+- Local `.venv` downgraded to `transformers==4.57.6`.
+- `pyproject.toml`'s `dependencies` synced to `requirements.txt` so an
+  editable install can no longer bypass the pin.
+- All 18 affected Hub model cards re-pushed with corrected perplexity.
+- This log, `README.md`'s "Phase 1 result" section, and the research
+  proposal's Gate 1→2 annotation corrected to reflect the real result.

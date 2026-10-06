@@ -1284,18 +1284,37 @@ Advance only if differentiable structural learning:
 - beats or matches dense/static baselines at equal compute;
 - survives materialisation and retraining.
 
-**Status (2026-10-01): passed, with a documented scope limitation.** All
-three criteria hold on the development dataset (TinyStories, 3 seeds).
-On the generalisation dataset (WikiText-103), "beats or matches" and
-"survives retraining" do not hold at the model scale tested — investigated
-directly (cost-budget varied across 3 seeds, gap did not meaningfully
-close; both seeds at the looser budget converged on the same discovered
-architecture) rather than left unexamined, per the "investigate the
-mechanism before adding the next layer of complexity" instruction below.
-Diagnosis: a capacity limit at this model scale on harder data, not an
-unstable or failing search. Advancing to Phase 2 on that basis; the model-
-scale question carries forward as an open item for Phase 2's own
-experiment design. Full detail in `RESEARCH_LOG.md` and `README.md`.
+**Status (2026-10-01): passed, with a documented scope limitation.**
+**Corrected 2026-10-06**: the TinyStories evaluation this status was
+originally based on ran through a `transformers` version that violates
+this project's own pinned dependency range and silently corrupted
+weight reload — see `RESEARCH_LOG.md`'s 2026-10-06 "Transformers-version
+reload bug" entry for the full investigation and corrected numbers. With
+the correction, "beats or matches dense/static baselines" is a softer
+pass than originally reported: SOT trails dense by a small, consistent
+~2.4–2.8% relative perplexity margin (arguably "matches," not "beats") on
+TinyStories, and the WikiText-103 result below is unaffected by this
+correction (it was evaluated under a compliant `transformers` version
+throughout) and continues to show a larger gap. "Stable heterogeneous
+architectures" and "survives materialisation and retraining" (in relative
+terms — the retrained architecture still recovers most of SOT's own
+quality) both still hold.
+
+All three criteria held, in this softer form, on the development dataset
+(TinyStories, 3 seeds). On the generalisation dataset (WikiText-103),
+"beats or matches" and "survives retraining" do not hold at the model
+scale tested — investigated directly (cost-budget varied across 3 seeds,
+gap did not meaningfully close; both seeds at the looser budget converged
+on the same discovered architecture) rather than left unexamined, per the
+"investigate the mechanism before adding the next layer of complexity"
+instruction below. Diagnosis: a capacity limit at this model scale on
+harder data, not an unstable or failing search — and, post-correction,
+this diagnosis now reads as a matter of *degree* shared with TinyStories
+(both trail dense; WikiText-103 trails by more) rather than a sharp
+TinyStories-wins/WikiText-103-loses split. Advanced to Phase 2 on that
+basis; the model-scale question carries forward as an open item for
+Phase 2's own experiment design. Full detail in `RESEARCH_LOG.md` and
+`README.md`.
 
 ## Gate 2 → 3
 

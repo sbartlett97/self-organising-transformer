@@ -114,22 +114,39 @@ A negative result is also informative. In particular, if gates collapse early, t
 
 ## Phase 1 result
 
+**Corrected 2026-10-06**: the TinyStories numbers originally reported here
+were computed through a `transformers==5.17.0` install that violates this
+project's own pinned dependency range (`requirements.txt`:
+`transformers>=4.49.0,<5.0`) and silently corrupts weight save/reload
+round-tripping for this custom architecture. The corrected numbers below
+are re-evaluated against the same (untouched) checkpoint weights under the
+pinned-compliant version. Full investigation and both the original and
+corrected tables are in `RESEARCH_LOG.md`'s 2026-10-06 "Transformers-version
+reload bug" entry.
+
 Run against the recommended first experiment (TinyStories, the config
-above) across 3 seeds: **all 6 criteria pass.** SOT beats the matched
-dense baseline in every seed, at ~87% lower architectural cost; the
-discovered architecture recovers after a from-scratch retrain and still
-beats dense; the result is seed-stable; the model does not simply select
-maximum capacity; and (after a materialization bug was found and fixed —
-see `RESEARCH_LOG.md`) benchmark quality after physical compaction holds
-for the retrained condition, which is the one that matters for this
-criterion.
+above) across 3 seeds: **3 of 6 criteria pass cleanly, 1 fails, 2 are
+unaffected/nuanced.** SOT does *not* beat the matched dense baseline — it
+trails dense by a small, consistent margin (~2.4–2.8% relative perplexity)
+in all 3 seeds, at ~87% lower architectural cost; the discovered
+architecture recovers most (not all) of SOT's quality after a from-scratch
+retrain (~3–5% gap to SOT, consistent with the original finding) but, like
+SOT, also trails dense; the result is seed-stable (arguably more so than
+originally reported — the corrected gaps are tightly consistent across
+seeds); the model does not simply select maximum capacity; and (after a
+materialization bug was found and fixed — see `RESEARCH_LOG.md`) benchmark
+quality after physical compaction still collapses for the inherited-weights
+condition and still only holds for the retrained condition, same
+qualitative shape as originally found, smaller magnitude.
 
 Run against WikiText-103 — the generalisation dataset this design
 document calls for before trusting the TinyStories result — **criteria 1
 and 3 do not pass** at this model's scale (12 max layers, `d_model=384`):
 SOT does not beat or match dense, and the discovered architecture does
-not recover after retraining. This was investigated directly, not just
-observed: the architectural cost budget (`target_cost`) was varied
+not recover after retraining. (WikiText-103's checkpoints were evaluated
+under a compliant `transformers` version throughout — this result is
+unaffected by the correction above.) This was investigated directly, not
+just observed: the architectural cost budget (`target_cost`) was varied
 between the value validated on TinyStories and a near-unconstrained
 setting, across 3 seeds total, and the gap did not meaningfully close.
 Both seeds at the looser budget independently discovered the *same* 6
@@ -138,11 +155,17 @@ mechanism is finding a consistent, explainable architecture that is
 simply undersized for this task at this model scale — not an unstable or
 failing search.
 
-**Current verdict**: the primary hypothesis is validated on the
-development dataset and bounded, not refuted, on the generalisation
-dataset — the boundary is a capacity limit at this specific model scale,
-not a flaw in the structural-learning mechanism itself. Full numeric
-detail, every run, and the investigation process are in `RESEARCH_LOG.md`.
+**Current verdict**: with the correction above, TinyStories and
+WikiText-103 now tell a more consistent story than originally reported —
+on *both* datasets, SOT modestly trails dense on raw perplexity while
+using a fraction of the architectural cost, rather than TinyStories
+showing an outright win and WikiText-103 showing a loss. The real,
+defensible Phase 1 finding is a compute-efficiency trade (small quality
+cost for large capacity reduction, stable across seeds), not "SOT beats
+dense" — and the WikiText-103 gap is larger than TinyStories's, consistent
+with a capacity limit that bites harder on the more demanding dataset.
+Full numeric detail, every run, and the investigation process (including
+this correction) are in `RESEARCH_LOG.md`.
 
 ## Important limitation
 
