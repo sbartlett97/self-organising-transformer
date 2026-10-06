@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import statistics
 from pathlib import Path
 from typing import Any, Optional
 
@@ -76,16 +77,28 @@ def _hyperparameters_section(train_config: dict) -> str:
 
 
 def _architecture_section(arch: dict) -> str:
+    layers = arch.get("layers", [])
+    # architecture.json is saved with whatever threshold export_architecture()
+    # happened to be called with -- train.py's periodic/final saves always use
+    # its default (0.5), which this project's SOT gates never reach (typically
+    # ~0.2-0.34), so the file's own "active"/"heads"/"ffn_groups" fields can be
+    # stale/misleading (everything reads as inactive). Recompute using the
+    # same auto-median convention materialize.py uses, from the raw per-layer
+    # gate values the file always carries regardless of that threshold.
+    layer_gates = [l["layer_gate"] for l in layers if isinstance(l.get("layer_gate"), (int, float))]
+    threshold = statistics.median(layer_gates) if layer_gates else arch.get("threshold", 0.5)
+
     lines = ["| Layer | Active | Heads | FFN groups | Layer gate |", "|---:|:---:|---:|---:|---:|"]
-    for layer in arch.get("layers", []):
-        active = "✅" if layer.get("active") else "—"
-        heads = len(layer.get("heads", []))
-        ffn = len(layer.get("ffn_groups", []))
+    for layer in layers:
         gate = layer.get("layer_gate")
+        active = isinstance(gate, (int, float)) and gate >= threshold
+        head_gate = layer.get("head_gate") or []
+        ffn_gate = layer.get("ffn_gate") or []
+        heads = sum(1 for v in head_gate if v >= threshold) if head_gate else len(layer.get("heads", []))
+        ffn = sum(1 for v in ffn_gate if v >= threshold) if ffn_gate else len(layer.get("ffn_groups", []))
         gate_s = f"{gate:.4f}" if isinstance(gate, (int, float)) else "—"
-        lines.append(f"| {layer.get('index')} | {active} | {heads} | {ffn} | {gate_s} |")
-    threshold = arch.get("threshold")
-    header = f"Materialization threshold: `{threshold:.4f}`\n\n" if isinstance(threshold, (int, float)) else ""
+        lines.append(f"| {layer.get('index')} | {'✅' if active else '—'} | {heads} | {ffn} | {gate_s} |")
+    header = f"Threshold (auto-median of this checkpoint's layer gates): `{threshold:.4f}`\n\n"
     return header + "\n".join(lines)
 
 
