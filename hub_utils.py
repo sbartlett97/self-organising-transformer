@@ -310,14 +310,18 @@ def trackio_log(record: dict) -> None:
     """Log one record if tracking is active. Silently drops non-scalar
     fields (e.g. gate_summary()'s nested gates_by_layer list) -- Trackio
     logs scalar metrics, and the full record already goes to the local
-    metrics.json regardless of this."""
+    metrics.json regardless of this. `step`, if present, is passed as
+    Trackio's own step index rather than left in the metrics dict -- else
+    Trackio treats it as a reserved key and renames it to `__step`,
+    breaking the dashboard's x-axis."""
     if not _trackio_active:
         return
     import trackio
 
     safe = {k: v for k, v in record.items() if isinstance(v, (int, float, str, bool))}
+    step = safe.pop("step", None)
     try:
-        trackio.log(safe)
+        trackio.log(safe, step=step)
     except Exception as exc:
         print(f"trackio.log failed ({exc}) -- continuing without live tracking for this step")
 
