@@ -63,6 +63,7 @@ class TrainConfig:
     hub_target_cost_tag: str | None = None
     use_trackio: bool = True
     trackio_space_id: str | None = None
+    resume_from: str | None = None
 
 
 class PackedTokens:
@@ -173,7 +174,7 @@ def evaluate_loss(model, packed: PackedTokens, batch_size: int, device: torch.de
     return float(np.mean(losses)) if losses else float("inf")
 
 
-def save_checkpoint(model, tokenizer, cfg: TrainConfig, out_dir: Path, step: int, history: list, is_final=False):
+def save_checkpoint(model, tokenizer, cfg: TrainConfig, out_dir: Path, step: int, history: list, is_final=False, optimizer=None, lagrange=None):
     path = out_dir / ("final" if is_final else f"checkpoint-{step}")
     path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(path, safe_serialization=True)
@@ -184,6 +185,17 @@ def save_checkpoint(model, tokenizer, cfg: TrainConfig, out_dir: Path, step: int
         json.dump(model.export_architecture(), f, indent=2)
     with open(path / "metrics.json", "w") as f:
         json.dump(history, f, indent=2)
+    if optimizer is not None:
+        # Rolling, single copy at out_dir's root (not per-checkpoint) -- a
+        # full AdamW state dict roughly doubles the model's own size, and
+        # resuming only ever wants the latest one anyway, not a history of
+        # them. Lets --resume_from pick up optimizer momentum/variance and
+        # the Lagrangian multiplier, not just weights, avoiding the
+        # few-dozen-step wobble of restarting Adam cold.
+        torch.save(
+            {"optimizer_state_dict": optimizer.state_dict(), "lagrange": float(lagrange.item()) if lagrange is not None else 0.0, "global_step": step},
+            out_dir / "training_state.pt",
+        )
     return path
 
 
@@ -201,21 +213,48 @@ def train(cfg: TrainConfig):
         tokenizer.pad_token = tokenizer.eos_token
     train_data, val_data = load_tokens(cfg, tokenizer)
 
-    model = build_model(cfg, tokenizer).to(device)
+    history = []
+    global_step = 0
+    resumed_lagrange = 0.0
+    training_state = {}
+    if cfg.resume_from:
+        # --resume_from points at a specific checkpoint-N (or final)
+        # directory; training_state.pt (optimizer/lagrange/step) lives one
+        # level up, at the run's own out_dir root -- see save_checkpoint's
+        # rolling-single-copy note. Model dims (--max_layers/--d_model/etc.)
+        # must match what the checkpoint was saved with; from_pretrained
+        # fails loudly on a shape mismatch rather than silently truncating.
+        resume_path = Path(cfg.resume_from)
+        model = SelfOrganizingTransformer.from_pretrained(resume_path).to(device)
+        metrics_path = resume_path / "metrics.json"
+        if metrics_path.exists():
+            history = json.loads(metrics_path.read_text())
+        state_path = resume_path.parent / "training_state.pt"
+        if state_path.exists():
+            training_state = torch.load(state_path, map_location=device, weights_only=True)
+            global_step = training_state.get("global_step", 0)
+            resumed_lagrange = training_state.get("lagrange", 0.0)
+        else:
+            print(f"--resume_from set but no training_state.pt found at {state_path} -- resuming weights only, step/optimizer/lagrange reset to 0")
+        print(f"Resumed from {resume_path} at step {global_step}")
+    else:
+        model = build_model(cfg, tokenizer).to(device)
     model.train()
     hub_utils.init_trackio(cfg, phase="phase1", condition=cfg.hub_condition or cfg.model_type)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
+    if "optimizer_state_dict" in training_state:
+        optimizer.load_state_dict(training_state["optimizer_state_dict"])
     scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
+    for _ in range(global_step):
+        scheduler.step()
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
 
     # Learned Lagrange multiplier for the compute budget.
-    lagrange = torch.tensor(0.0, device=device)
-    history = []
-    global_step = 0
+    lagrange = torch.tensor(resumed_lagrange, device=device)
     micro_step = 0
-    train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=cfg.seed))
+    train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=cfg.seed + global_step))
 
-    pbar = tqdm(total=cfg.max_steps, desc="train", unit="step")
+    pbar = tqdm(total=cfg.max_steps, desc="train", unit="step", initial=global_step)
     while global_step < cfg.max_steps:
         optimizer.zero_grad(set_to_none=True)
         accum_task = 0.0
@@ -276,13 +315,13 @@ def train(cfg: TrainConfig):
             pbar.write(json.dumps(record))
             history.append(record)
             hub_utils.trackio_log(record)
-            save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history)
+            save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history, optimizer=optimizer, lagrange=lagrange)
 
         if global_step % cfg.save_every == 0:
-            save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history)
+            save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history, optimizer=optimizer, lagrange=lagrange)
 
     pbar.close()
-    final_path = save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history, is_final=True)
+    final_path = save_checkpoint(model, tokenizer, cfg, out_dir, global_step, history, is_final=True, optimizer=optimizer, lagrange=lagrange)
     print("\nDISCOVERED ARCHITECTURE")
     print(json.dumps(model.export_architecture(threshold=0.5), indent=2))
     if cfg.push_to_hub:
@@ -330,6 +369,7 @@ def parse_args() -> TrainConfig:
     p.add_argument("--hub_target_cost_tag", default=None, help="e.g. 017 for a target_cost=0.17 run, included in the auto-generated repo id")
     p.add_argument("--no_trackio", dest="use_trackio", action="store_false", help="Disable live Trackio metrics (on by default)")
     p.add_argument("--trackio_space_id", default=None, help="HF Space to sync live metrics to, e.g. username/sot-tracking -- defaults to <your HF username>/sot-tracking")
+    p.add_argument("--resume_from", default=None, help="Path to a checkpoint-N (or final) directory to resume from -- model dims (--max_layers/--d_model/etc.) must match what it was saved with; optimizer/lagrange/step come from training_state.pt in its parent dir, if present")
     a = p.parse_args()
     return TrainConfig(**vars(a))
 
