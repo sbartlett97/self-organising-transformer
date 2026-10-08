@@ -17,6 +17,19 @@ for the full phased research programme.
   the "Transformers-version reload bug" 2026-10-06 entry for the full
   investigation and the corrected numbers; this "Current status" block now
   states the corrected picture directly rather than the original one.
+- **Latest (2026-10-08): width scale-up (3.19x params, WikiText-103)
+  resolved the capacity shortfall** — scaled dense ppl 21.98 vs. the old
+  scale's 28.23, sot essentially matches dense (22.00) at ~12% of the
+  cost. Phase 2 at this scale went through three attempts fixing two real
+  bugs in `plasticity.py` (plateau-timing-dependent growth, then a NaN
+  poisoning growth mid-run) — both now fixed and verified at real scale,
+  but the fully-clean result still shows **zero deaths** across all three
+  attempts and the *best* result (fewest total growth events) had the
+  *best* ppl (27.27), while the fully-unblocked run grew the most (689
+  mature units, 160/160 possible births) and had the *worst* ppl (31.89)
+  — `birth_score_floor=0.0` apparently lets growth continue past the
+  point of being useful, with no death mechanism yet triggering to prune
+  it back. Open question, not yet decided — see the 2026-10-08 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -1604,3 +1617,221 @@ heuristic scoring is adding value over random growth and not just
 benefiting from more capacity regardless of *which* units get it. Flagging
 for the user's decision on whether to proceed to the full matrix now or
 run that control first.
+
+## 2026-10-08 — Width scale-up: resolving the WikiText-103 capacity shortfall
+
+Stage 2's win had zero deaths across the whole run — population grew and
+plateaued on its own, never under real capacity pressure. Decision (user):
+rather than run the previously-proposed `random`-mode control at the
+current (apparently too-easy) scale, scale up model capacity and dataset
+difficulty together to find a regime where growth genuinely contends for
+budget. Plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+
+**Design**: width-only 2x scale-up (`d_model` 384→768, `max_heads` 6→12,
+`max_ffn_dim` 1536→3072, `ffn_groups` 64→128, `max_layers` unchanged at
+12 — holds `head_dim`=64 and FFN `group_size`=24 constant, so it's more
+of the same granularity, not coarser), on WikiText-103 (already
+integrated, already has baseline numbers at the old scale to compare
+against). 47.7M → 152.1M params (3.19x), computed exactly via
+`model.py`, not estimated. Verified the real target shapes through both
+the Phase 1 and Phase 2 code paths locally (CPU, a few steps) before any
+cloud spend — no shape errors, dense-mode cost correctly reads 1.0,
+Phase 2 registers exactly 1692 units (12 × (1+12+128)).
+
+### Equilibrium + baselines: the shortfall is resolved
+
+Equilibrium diagnostic (same method as the original TinyStories/WikiText-103
+calibrations: `target_cost=0.45`, inert, observe where cost naturally
+settles): **0.177** — remarkably close to both TinyStories' 0.186 and the
+old-scale WikiText-103's 0.190, suggesting this equilibrium is more a
+property of the gate/regularizer dynamics than of model scale.
+`target_cost=0.13` (75% of equilibrium, same convention as before).
+
+Dense + sot baselines, single seed, scaled model, WikiText-103, `evaluate.py`:
+
+| condition | ppl (evaluate.py) | ppl (training-time val) |
+|---|---:|---:|
+| dense | **21.98** | 24.30 |
+| sot | 22.00 (loses to dense by 0.1%) | 24.44 |
+
+Old scale (12L/384d) dense was **28.23** ppl (2026-09-30 entry) — the
+width scale-up alone dropped dense ppl by ~22%, confirming the original
+"capacity limit at this model scale" diagnosis and giving real headroom
+for a gating mechanism to prove itself against, rather than everyone
+losing to an undersized ceiling. Sot essentially matches dense at ~12%
+of the cost — the strongest compute-efficiency result in either phase.
+
+### Process note: an idle-pod mistake, owned
+
+After the first scale-up pod (dense+sot baselines) finished, it sat idle
+for ~3 hours (finished 17:45 UTC, something eventually stopped it around
+20:50 UTC) before I got back to it, costing ~$2.20 for nothing — I got
+pulled into the resume-feature conversation and the pod review and never
+circled back to terminate it. The pod was gone entirely by the time I
+checked (not just stopped), taking the hung second attempt's local-only
+files with it (not a real loss — final dense/sot results were already
+pushed to the Hub before this happened). Exactly the "never leave a pod
+idle" mistake this project already learned once; recommitted to
+terminating promptly, and did so consistently for the rest of today's
+pods.
+
+### A recurring, unresolved issue: Trackio's remote sync hangs mid-training
+
+Wired in 2026-10-06 (commits around `b5d4b0d`) for live metrics. Twice
+today, a training process froze completely (GPU idle at ~15W despite
+VRAM still held, process sleeping on `futex_wait_queue`) — once during
+the dense+sot concurrent run (both processes stuck simultaneously,
+originally misdiagnosed as GPU/VRAM contention), once during a solo sot
+retry at 94% complete. Direct investigation (`ss -tnp` on the second
+hang) found multiple `CLOSE-WAIT` TCP connections to HuggingFace's
+backend IPs with unread data sitting in the receive queue, plus one
+`ESTABLISHED` connection matching the hang — a genuine network-level
+hang in Trackio's HTTP sync, called synchronously from inside the main
+training loop, so a hung call there blocks training entirely. Not yet
+root-caused further; `--no_trackio` used for every run for the rest of
+today pending a proper fix (likely: move the sync off the training
+thread, or wrap it in a hard timeout).
+
+**Mitigation built in response**: `train.py` now supports `--resume_from
+<checkpoint_dir>` (commit `e96ee71`) — loads weights via
+`from_pretrained`, recovers step/optimizer-state/Lagrange-multiplier from
+a rolling `training_state.pt` written alongside each checkpoint, and
+continues `metrics.json` rather than overwriting it. Verified locally: a
+10-step run resumed to 20 continues the Lagrange multiplier and loss
+smoothly, no cold-restart wobble. Would have saved both of today's lost
+runs had it existed sooner. `train_phase2.py` doesn't have this yet —
+worth adding if Trackio's hang isn't fixed first.
+
+## 2026-10-08 (continued) — Phase 2 at scale: zero deaths, and why
+
+Phase 2 (heuristic), single seed, scaled model, WikiText-103,
+`target_cost=0.13`, `birth_limit=4` (doubled per the Stage 2 pattern).
+
+**Result**: final ppl 27.27 (training-time val) — worse than both scaled
+Phase 1 baselines, unlike Stage 2's TinyStories win. Zero deaths, 59
+births, population flat at 613 mature from step ~7500 onward, final cost
+0.063 — well under the 0.13 budget, meaning there was still headroom the
+mechanism simply never used.
+
+### Diagnosing why growth stalls: plateau timing, not capacity
+
+Investigated directly against this run's data (and cross-checked against
+Stage 2's TinyStories win) before changing anything, per the user's
+question about decoupling capacity growth from loss-plateau timing:
+
+- This run: `plateau` was 0.243/0.205/0.237 at steps 6750/7000/7250 (28
+  births occurred in that window), then crashed to exactly `0.0` at step
+  7500 and stayed there — zero births for the rest of training.
+- Stage 2's TinyStories win: birth scores climbed steadily (0.0104 →
+  0.0132 → ... → 0.047) right up to step 6000, then stopped dead.
+
+Both tell the same story: `plateau = max(0, 1 - |slope|×50)` over a
+rolling 2500-step window swings to exactly 0 whenever loss is still
+improving measurably, and only provides its amplification boost during
+genuine flat spells. Growth was riding a plateau-driven wave of amplified
+scores in both runs, then the model re-entered a phase of real
+improvement, the boost vanished, and the *raw* `w_g·gradient_ema +
+w_c·contribution_ema` signal alone wasn't enough to clear the fixed
+`birth_score_threshold=0.01` for any candidate still dormant — because a
+dormant unit's gate sits deep in the sigmoid's saturated tail
+(`dormant_floor_logit=-4.0`), so its own gradient is structurally small
+*regardless of whether activating it would help*. Same class of bug as
+the already-fixed absolute `death_threshold=0.5`: an absolute bar this
+architecture can only clear under specific, plateau-driven timing
+conditions, not a genuine measure of demand.
+
+## 2026-10-08 (continued) — birth_score_floor: relative ranking replaces the absolute threshold
+
+Fix (commit `fb0a790`, mirrors `death_relative_margin`'s fix): birth
+eligibility is now the top `birth_limit` dormant candidates by raw score
+each check, excluding only genuinely zero-signal ones
+(`birth_score_floor=0.0`), rather than requiring everyone to clear a
+fixed bar only reachable during plateau windows. Also added
+`growth_log.json` to every checkpoint: every growth check's full
+diagnostic (plateau, max score, state counts), not just checks that
+produced a birth/death — previously only printed to stdout and lost the
+moment a pod was torn down (exactly what made the plateau-crash
+correlation above need reconstruction from a check I'd luckily captured
+before terminating the first scaled Phase 2 pod). Verified against 10
+local test cases (9 prior + a new one confirming the actual fix: a
+modest-score candidate that would have failed the old absolute threshold
+now gets born under `plateau=0`, purely by being top-ranked) before any
+cloud spend.
+
+### Re-run: excellent for 62% of training, then a second, different bug
+
+Births fired at **every single check** from step 250 to 6250 (26
+consecutive growth events, 4 births each, `plateau=0.0` almost the
+entire time) — unambiguous confirmation the relative-ranking fix works.
+Mature population climbed steadily 545→629, fully decoupled from
+plateau.
+
+Then at step 6500, `max_dormant_birth_score` went `NaN` and stayed `NaN`
+for the remaining 3500 steps (35% of training) — zero births, population
+frozen at 645, even as `plateau` later climbed to 0.85-0.91 near the end
+(which, pre-freeze, would very likely have triggered more growth). Final
+ppl 25.77 — worse than Phase 1's baselines, but a real improvement over
+the first scaled attempt's 27.27, purely from the extra growth that
+happened before the freeze.
+
+**Root cause**: an EMA can never recover from one non-finite update
+(`ema_decay*NaN + ... ` is `NaN` forever after) — a single gradient
+overflow slipping through before the scaler catches it permanently
+poisons that unit's `gradient_ema`. Worse, Python's `sort()` is
+unreliable on a list containing `NaN` (`NaN` comparisons are always
+`False`, breaking the total-order assumption sort relies on), so a
+poisoned candidate left in the list before sorting can scatter into the
+top-`birth_limit` slots — where it then correctly fails the floor check
+and gets rejected, but in doing so can crowd out a genuinely good
+candidate sorted below it purely due to the broken comparison.
+
+**Fix** (commit `fbdb44d`): `record_step()` now skips the EMA update
+entirely for a non-finite gradient rather than propagating it (prevents
+poisoning at the source); `_birth_pass()` filters non-finite scores out
+*before* `sort()`, not after (defense in depth for anything
+already-poisoned, e.g. a resumed older run). Added a `nan_candidates`
+diagnostic to the growth-check record so this is visible in
+`growth_log.json` if it ever recurs. Verified against 2 new local test
+cases (12 total) before any further cloud spend.
+
+### Re-run 2: both bugs fully confirmed fixed — and a new tension surfaces
+
+**Fully clean**: 0 of 40 growth checks had any `nan_candidates`, 0 of 40
+had zero births — every single check across the entire run produced
+growth, including passing cleanly through step 6500 (the exact point the
+previous run died: birth event fired normally there,
+`max_dormant_birth_score=0.059`, `nan_candidates=0`). Total births:
+**160** = `4 × 40`, the theoretical maximum under `birth_limit=4`. Both
+fixes verified at real scale, not just locally.
+
+But: final ppl **31.89** — worse than *every* prior scaled Phase 2
+attempt (27.27, 25.77) and much worse than Phase 1's baselines
+(21.98/22.00). Mature population reached 689 (more than either previous
+attempt), cost only reached **0.085** (still well under the 0.13 budget
+even running at full capacity every single check the entire run — the
+growth *rate* is simply too slow relative to a 10000-step budget to ever
+fill it). Still zero deaths, anywhere, in any of the three attempts.
+
+**Reading**: `birth_score_floor=0.0` ("any positive signal at all") is
+such a low bar that it essentially never excludes anyone, so the
+controller now *always* fills `birth_limit=4` every check regardless of
+whether the remaining dormant pool has anything genuinely worth growing.
+Once the clearly-useful candidates are used up, later growth is drawn
+from increasingly marginal signal — and with zero deaths anywhere to
+prune anything back, those additions just accumulate permanently, likely
+diluting the architecture rather than improving it. The relative-ranking
+fix correctly solved the bug it targeted (plateau-timing dependence) but
+surfaced a different, previously-masked problem: "top-K every time" is
+not the same as "only grow when it's actually worth it."
+
+### Status / open question
+
+Not yet decided. Candidates worth investigating, not yet tried: raise
+`birth_score_floor` to a modest-but-real positive value (not back to an
+unreachable absolute bar, just enough to exclude truly marginal
+candidates); taper `birth_limit` down as training progresses so early
+growth stays aggressive but late-stage growth tapers off naturally; or
+accept that 10000 steps / this growth rate isn't enough budget for the
+population to reach a natural capacity ceiling where death would
+actually trigger, and extend training length instead. Flagging for the
+user's decision before further cloud spend.
