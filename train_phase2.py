@@ -52,7 +52,7 @@ def build_model(cfg: Phase2Config, tokenizer) -> PlasticTransformer:
     return PlasticTransformer(config)
 
 
-def save_checkpoint(model, tokenizer, cfg: Phase2Config, controller: StructuralController, out_dir: Path, step: int, history: list, is_final=False):
+def save_checkpoint(model, tokenizer, cfg: Phase2Config, controller: StructuralController, out_dir: Path, step: int, history: list, growth_log: list, is_final=False):
     path = out_dir / ("final" if is_final else f"checkpoint-{step}")
     path.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(path, safe_serialization=True)
@@ -65,6 +65,16 @@ def save_checkpoint(model, tokenizer, cfg: Phase2Config, controller: StructuralC
         json.dump(history, f, indent=2)
     with open(path / "events.json", "w") as f:
         json.dump(controller.events_json(), f, indent=2)
+    with open(path / "growth_log.json", "w") as f:
+        # Every growth_interval check's full plasticity_event dict (plateau,
+        # max_dormant_birth_score, birth_score_floor, state_counts),
+        # not just the checks that produced a birth/death -- events.json
+        # alone can't show *why* growth stalled (e.g. plateau crashing to 0
+        # right as births stop), only *that* it did. Previously only
+        # printed to stdout, which is lost the moment a pod is torn down --
+        # this makes it part of the checkpoint, pushed to the Hub like
+        # everything else.
+        json.dump(growth_log, f, indent=2)
     return path
 
 
@@ -102,6 +112,7 @@ def train(cfg: Phase2Config):
 
     lagrange = torch.tensor(0.0, device=device)
     history = []
+    growth_log = []
     global_step = 0
     train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=cfg.seed))
 
@@ -153,6 +164,7 @@ def train(cfg: Phase2Config):
         if cfg.birth_mode != "none" and global_step % cfg.growth_interval == 0:
             event = controller.update(global_step, mode=cfg.birth_mode)
             pbar.write(json.dumps({"step": global_step, "plasticity_event": event}))
+            growth_log.append(event)
             sc = event["state_counts"]
             hub_utils.trackio_log({
                 "step": global_step,
@@ -186,13 +198,13 @@ def train(cfg: Phase2Config):
             pbar.write(json.dumps(record))
             history.append(record)
             hub_utils.trackio_log(record)
-            save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history)
+            save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, growth_log)
 
         if global_step % cfg.save_every == 0:
-            save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history)
+            save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, growth_log)
 
     pbar.close()
-    final_path = save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, is_final=True)
+    final_path = save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, growth_log, is_final=True)
     print("\nDISCOVERED ARCHITECTURE")
     print(json.dumps(model.export_architecture(threshold=0.5), indent=2))
     print("\nFINAL STATE COUNTS")

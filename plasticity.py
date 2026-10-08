@@ -71,15 +71,29 @@ class StructuralController:
         birth_weight_gradient: float = 0.5,
         birth_weight_contribution: float = 0.3,
         birth_weight_plateau: float = 0.2,
-        # contribution_ema's ceiling is sigmoid(dormant_floor_logit)=~0.018
-        # regardless of model/dataset scale (it's a function of these
-        # hyperparameters, not of training progress), so birth_score_threshold
-        # has to be picked relative to that ceiling, not just "scale will fix
-        # it". 0.01 was confirmed empirically (not guessed) against a local
-        # smoke test where achieved scores topped out around 0.003-0.014 --
-        # expect this to need re-tuning once real-scale dynamics are observed
-        # (staged rollout step 2 exists specifically to check this).
-        birth_score_threshold: float = 0.01,
+        # A dormant unit's gate sits at dormant_floor_logit, deep in the
+        # sigmoid's saturated tail -- gradient flowing back to its own gate
+        # logit is structurally small *regardless of whether activating it
+        # would actually help*, since sigmoid saturation suppresses the
+        # gradient, not just the forward contribution. An absolute
+        # birth_score_threshold (the old design) could therefore only ever
+        # be cleared when the plateau term's multiplicative boost pushed
+        # scores up -- meaning growth timing tracked "has global loss been
+        # flat for the last 2500 steps" rather than "does this candidate
+        # show genuine demand" (confirmed in two 2026-10 real-scale runs:
+        # births occurred in tight bursts exactly when plateau was
+        # elevated, and stopped dead the moment it crashed to 0, on both a
+        # win and a loss). Same class of miscalibration as the old absolute
+        # death_threshold=0.5, fixed there via a relative, auto-median
+        # comparison. Fixed here the mirror-image way: birth eligibility is
+        # now the top birth_limit dormant candidates by raw score each
+        # check (ranking, not an absolute floor), so "is there a
+        # comparatively-best candidate right now" decides growth, not
+        # "has anyone happened to clear a fixed bar this cycle".
+        # birth_score_floor only excludes genuinely zero-signal candidates
+        # (a unit that has received no gradient and shows no plateau boost
+        # at all) -- it is a sanity guard, not the primary gate.
+        birth_score_floor: float = 0.0,
         dormant_floor_logit: float = -4.0,
         birth_init_logit: float = -1.0,
         dead_logit: float = -8.0,
@@ -96,7 +110,7 @@ class StructuralController:
         self.w_g = birth_weight_gradient
         self.w_c = birth_weight_contribution
         self.w_p = birth_weight_plateau
-        self.birth_score_threshold = birth_score_threshold
+        self.birth_score_floor = birth_score_floor
         self.dormant_floor_logit = dormant_floor_logit
         self.birth_init_logit = birth_init_logit
         self.dead_logit = dead_logit
@@ -261,18 +275,19 @@ class StructuralController:
             # demand, rather than lowering the bar for every dormant unit
             # regardless of its own signal.
             max_grad = max((self.units[uid].gradient_ema for uid in dormant), default=0.0)
-            scored = []
             all_scores = []
             for uid in dormant:
                 t = self.units[uid]
                 g_norm = (t.gradient_ema / max_grad) if max_grad > 0 else 0.0
                 b = self.w_g * t.gradient_ema + self.w_c * t.contribution_ema + self.w_p * plateau * g_norm
-                all_scores.append(b)
-                if b >= self.birth_score_threshold:
-                    scored.append((b, uid))
-            self._last_max_birth_score = max(all_scores) if all_scores else 0.0
-            scored.sort(key=lambda x: -x[0])
-            chosen = scored[: self.birth_limit]
+                all_scores.append((b, uid))
+            self._last_max_birth_score = max((b for b, _ in all_scores), default=0.0)
+            all_scores.sort(key=lambda x: -x[0])
+            # Relative, not absolute: the top birth_limit candidates by
+            # score, excluding only genuinely zero-signal ones -- see
+            # birth_score_floor's docstring in __init__ for why this
+            # replaced a fixed threshold.
+            chosen = [(b, uid) for b, uid in all_scores[: self.birth_limit] if b > self.birth_score_floor]
         elif mode == "random":
             picks = self._rng.sample(dormant, min(self.birth_limit, len(dormant)))
             chosen = [(None, uid) for uid in picks]
@@ -304,7 +319,7 @@ class StructuralController:
             "deaths": deaths,
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
-            "birth_score_threshold": self.birth_score_threshold,
+            "birth_score_floor": self.birth_score_floor,
             "state_counts": self.state_counts(),
         }
 
