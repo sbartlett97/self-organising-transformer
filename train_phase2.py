@@ -24,9 +24,12 @@ class Phase2Config(TrainConfig):
     seed_fraction: float = 0.33
     growth_interval: int = 250
     birth_limit: int = 2
+    birth_limit_end: int | None = None  # None = flat birth_limit all run; else linearly tapers birth_limit -> birth_limit_end over training
     death_limit: int = 2
     minimum_age: int = 1000
     death_relative_margin: float = 0.5
+    death_patience: int = 3
+    birth_score_floor: float = 0.0
     output_dir: str = "./outputs/phase2"
 
 
@@ -100,6 +103,8 @@ def train(cfg: Phase2Config):
         death_limit=cfg.death_limit,
         minimum_age=cfg.minimum_age,
         death_relative_margin=cfg.death_relative_margin,
+        death_patience=cfg.death_patience,
+        birth_score_floor=cfg.birth_score_floor,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -162,7 +167,19 @@ def train(cfg: Phase2Config):
         pbar.set_postfix(loss=f"{train_loss:.3f}", cost=f"{mean_cost:.3f}", lgr=f"{float(lagrange.item()):.3f}")
 
         if cfg.birth_mode != "none" and global_step % cfg.growth_interval == 0:
+            if cfg.birth_limit_end is not None:
+                # Linear taper birth_limit -> birth_limit_end over training:
+                # aggressive early growth while the dormant pool is full of
+                # genuinely good candidates, tapering down as it's more
+                # likely only marginal signal is left -- birth_score_floor
+                # alone doesn't stop "always fill the quota" once the floor
+                # itself is cleared, so this bounds how large that quota is
+                # as training progresses. See the 2026-10-08 scale-up
+                # entries in RESEARCH_LOG.md for why this was added.
+                progress = min(1.0, global_step / cfg.max_steps)
+                controller.birth_limit = round(cfg.birth_limit + (cfg.birth_limit_end - cfg.birth_limit) * progress)
             event = controller.update(global_step, mode=cfg.birth_mode)
+            event["birth_limit_used"] = controller.birth_limit
             pbar.write(json.dumps({"step": global_step, "plasticity_event": event}))
             growth_log.append(event)
             sc = event["state_counts"]
@@ -172,6 +189,7 @@ def train(cfg: Phase2Config):
                 "deaths": len(event["deaths"]),
                 "plateau": event["plateau"],
                 "max_dormant_birth_score": event["max_dormant_birth_score"],
+                "birth_limit_used": controller.birth_limit,
                 "state_mature": sc.get("mature", 0),
                 "state_dormant": sc.get("dormant", 0),
                 "state_dead": sc.get("dead", 0),
@@ -229,9 +247,12 @@ def parse_args() -> Phase2Config:
     p.add_argument("--seed_fraction", type=float, default=0.33)
     p.add_argument("--growth_interval", type=int, default=250)
     p.add_argument("--birth_limit", type=int, default=2)
+    p.add_argument("--birth_limit_end", type=int, default=None, help="If set, linearly tapers birth_limit -> this value over training, instead of a flat birth_limit the whole run")
     p.add_argument("--death_limit", type=int, default=2)
     p.add_argument("--minimum_age", type=int, default=1000)
     p.add_argument("--death_relative_margin", type=float, default=0.5, help="A mature unit dies only once its gate falls below this fraction of its own kind's (layer/head/ffn_group) current mature-population median")
+    p.add_argument("--death_patience", type=int, default=3, help="Consecutive growth checks a unit must stay below death_relative_margin before it actually dies")
+    p.add_argument("--birth_score_floor", type=float, default=0.0, help="A dormant candidate is birth-eligible only if its raw score exceeds this -- excludes genuinely zero-signal candidates from filling the birth_limit quota, see plasticity.py's StructuralController docstring")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)
