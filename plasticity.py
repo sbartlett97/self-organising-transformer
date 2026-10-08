@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 import statistics
 from collections import defaultdict
@@ -120,6 +121,7 @@ class StructuralController:
         self._loss_history: list[float] = []
         self._train_loss_ema: Optional[float] = None
         self._last_max_birth_score: float = 0.0
+        self._last_nan_candidates: int = 0
         self.events: list[dict] = []
         self._death_streak: dict[tuple, int] = {}
         self._register_units()
@@ -183,7 +185,20 @@ class StructuralController:
             grad = param.grad
             if grad is not None:
                 g = float(grad.item()) if idx is None else float(grad[idx].item())
-                t.gradient_ema = self.ema_decay * t.gradient_ema + (1 - self.ema_decay) * abs(g)
+                # An EMA can never recover from a single non-finite update --
+                # ema_decay*NaN + ... is NaN forever after, permanently
+                # poisoning that unit's birth score (and, worse, Python's
+                # sort() becomes unreliable on a list containing NaN, which
+                # can crowd a genuinely-good candidate out of the top-K
+                # selection even though the NaN one correctly fails the
+                # floor check itself -- observed directly: growth froze for
+                # 1250+ steps with max_dormant_birth_score stuck at NaN).
+                # Skip the update rather than let one bad gradient (fp16
+                # overflow slipping through before the scaler catches it,
+                # a rare spike, whatever) take out a unit for the rest of
+                # training.
+                if math.isfinite(g):
+                    t.gradient_ema = self.ema_decay * t.gradient_ema + (1 - self.ema_decay) * abs(g)
             gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
             t.contribution_ema = self.ema_decay * t.contribution_ema + (1 - self.ema_decay) * gate_val
             t.age += 1
@@ -274,14 +289,29 @@ class StructuralController:
             # gradient pressure -- it amplifies units that already show
             # demand, rather than lowering the bar for every dormant unit
             # regardless of its own signal.
-            max_grad = max((self.units[uid].gradient_ema for uid in dormant), default=0.0)
+            finite_grads = [self.units[uid].gradient_ema for uid in dormant if math.isfinite(self.units[uid].gradient_ema)]
+            max_grad = max(finite_grads, default=0.0)
             all_scores = []
+            nan_candidates = 0
             for uid in dormant:
                 t = self.units[uid]
-                g_norm = (t.gradient_ema / max_grad) if max_grad > 0 else 0.0
+                g_norm = (t.gradient_ema / max_grad) if max_grad > 0 and math.isfinite(t.gradient_ema) else 0.0
                 b = self.w_g * t.gradient_ema + self.w_c * t.contribution_ema + self.w_p * plateau * g_norm
-                all_scores.append((b, uid))
+                # Filter non-finite scores out *before* sorting, not after --
+                # NaN comparisons are always False, so a NaN entry left in
+                # the list breaks sort()'s total-order assumption and can
+                # scatter a poisoned candidate into the top-K slots, crowding
+                # out a genuinely good one even though the NaN entry itself
+                # would correctly fail the floor check on its own. record_step
+                # now guards gradient_ema against this at the source (see its
+                # docstring), so this is belt-and-suspenders for anything
+                # already-poisoned (e.g. a resumed older run).
+                if math.isfinite(b):
+                    all_scores.append((b, uid))
+                else:
+                    nan_candidates += 1
             self._last_max_birth_score = max((b for b, _ in all_scores), default=0.0)
+            self._last_nan_candidates = nan_candidates
             all_scores.sort(key=lambda x: -x[0])
             # Relative, not absolute: the top birth_limit candidates by
             # score, excluding only genuinely zero-signal ones -- see
@@ -320,6 +350,7 @@ class StructuralController:
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
             "birth_score_floor": self.birth_score_floor,
+            "nan_candidates": self._last_nan_candidates,
             "state_counts": self.state_counts(),
         }
 
