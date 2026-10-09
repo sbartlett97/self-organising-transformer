@@ -1,0 +1,987 @@
+{
+  "checkpoint": "sbartlett97/sot-phase1-tinystories-sot-seed42",
+  "batch_seed": 1234,
+  "baseline_loss": 1.441364586353302,
+  "n_batches": 8,
+  "batch_size": 8,
+  "seq_len": 256,
+  "summary": {
+    "ffn_group": {
+      "n_active": 30,
+      "n_active_total": 768,
+      "n_dormant_total": 0,
+      "spearman_delta_vs_gate": 0.38064516129032255,
+      "spearman_delta_vs_taylor": 0.40556173526140155,
+      "gate_min_over_median": 0.9448448485332214,
+      "delta_min": 0.00020135939121246338,
+      "delta_median": 0.0005032643675804138,
+      "delta_max": 0.0013978183269500732,
+      "dormant_delta_mean": null,
+      "dormant_delta_max": null
+    },
+    "head": {
+      "n_active": 30,
+      "n_active_total": 72,
+      "n_dormant_total": 0,
+      "spearman_delta_vs_gate": 0.8028921023359289,
+      "spearman_delta_vs_taylor": 0.8331479421579533,
+      "gate_min_over_median": 0.6262567477198708,
+      "delta_min": 0.0001224130392074585,
+      "delta_median": 0.010215096175670624,
+      "delta_max": 0.03610500693321228,
+      "dormant_delta_mean": null,
+      "dormant_delta_max": null
+    },
+    "layer": {
+      "n_active": 12,
+      "n_active_total": 12,
+      "n_dormant_total": 0,
+      "spearman_delta_vs_gate": 0.39860139860139865,
+      "spearman_delta_vs_taylor": 0.7342657342657343,
+      "gate_min_over_median": 0.8986754006415039,
+      "delta_min": 0.044670507311820984,
+      "delta_median": 0.2001410573720932,
+      "delta_max": 3.017400085926056,
+      "dormant_delta_mean": null,
+      "dormant_delta_max": null
+    }
+  },
+  "rows": [
+    {
+      "unit": [
+        "layer",
+        0,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.20620740950107574,
+      "logit": -1.3479397296905518,
+      "delta_loss": 3.017400085926056,
+      "taylor": 0.009204170031660124
+    },
+    {
+      "unit": [
+        "layer",
+        1,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.21883529424667358,
+      "logit": -1.2724666595458984,
+      "delta_loss": 0.58434097468853,
+      "taylor": 0.017103559065435467
+    },
+    {
+      "unit": [
+        "layer",
+        2,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.2389056235551834,
+      "logit": -1.1586887836456299,
+      "delta_loss": 0.5494168251752853,
+      "taylor": 0.010373478305133691
+    },
+    {
+      "unit": [
+        "layer",
+        3,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.2467317134141922,
+      "logit": -1.1161198616027832,
+      "delta_loss": 0.42196764051914215,
+      "taylor": 0.005483105255450085
+    },
+    {
+      "unit": [
+        "layer",
+        4,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.24307315051555634,
+      "logit": -1.1359041929244995,
+      "delta_loss": 0.299700602889061,
+      "taylor": 0.015934791999440572
+    },
+    {
+      "unit": [
+        "layer",
+        5,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.2695518136024475,
+      "logit": -0.9968975782394409,
+      "delta_loss": 0.28955410420894623,
+      "taylor": 0.01062569062272202
+    },
+    {
+      "unit": [
+        "layer",
+        6,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.22753550112247467,
+      "logit": -1.2222797870635986,
+      "delta_loss": 0.11072801053524017,
+      "taylor": 0.007583147932219966
+    },
+    {
+      "unit": [
+        "layer",
+        7,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.22349771857261658,
+      "logit": -1.2453984022140503,
+      "delta_loss": 0.07904835045337677,
+      "taylor": 0.006567162166571187
+    },
+    {
+      "unit": [
+        "layer",
+        8,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.22097468376159668,
+      "logit": -1.259995460510254,
+      "delta_loss": 0.06394816935062408,
+      "taylor": 0.004432386802704612
+    },
+    {
+      "unit": [
+        "layer",
+        9,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.2132265716791153,
+      "logit": -1.3055849075317383,
+      "delta_loss": 0.05267512798309326,
+      "taylor": 0.0053795056810175
+    },
+    {
+      "unit": [
+        "layer",
+        10,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.20475758612155914,
+      "logit": -1.3568202257156372,
+      "delta_loss": 0.044670507311820984,
+      "taylor": 0.001912299411376267
+    },
+    {
+      "unit": [
+        "layer",
+        11,
+        0
+      ],
+      "kind": "layer",
+      "status": "active",
+      "gate": 0.19971820712089539,
+      "logit": -1.3880565166473389,
+      "delta_loss": 0.053651854395866394,
+      "taylor": 0.006756405828195422
+    },
+    {
+      "unit": [
+        "head",
+        11,
+        2
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.18146754801273346,
+      "logit": -1.5064362287521362,
+      "delta_loss": 0.00014705955982208252,
+      "taylor": 0.00038250202295709467
+    },
+    {
+      "unit": [
+        "head",
+        11,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.18701323866844177,
+      "logit": -1.46953547000885,
+      "delta_loss": 0.00034461915493011475,
+      "taylor": 0.00041503216074356307
+    },
+    {
+      "unit": [
+        "head",
+        9,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.20022588968276978,
+      "logit": -1.3848830461502075,
+      "delta_loss": 0.0006056129932403564,
+      "taylor": 0.00047777984598985077
+    },
+    {
+      "unit": [
+        "head",
+        10,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.20668548345565796,
+      "logit": -1.3450216054916382,
+      "delta_loss": 0.0001224130392074585,
+      "taylor": 0.0008952474069175089
+    },
+    {
+      "unit": [
+        "head",
+        8,
+        4
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.21231117844581604,
+      "logit": -1.3110500574111938,
+      "delta_loss": 0.0016216039657592773,
+      "taylor": 0.00047429143563904535
+    },
+    {
+      "unit": [
+        "head",
+        10,
+        1
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.22286078333854675,
+      "logit": -1.2490723133087158,
+      "delta_loss": 0.0005296617746353149,
+      "taylor": 0.0003616910588555829
+    },
+    {
+      "unit": [
+        "head",
+        7,
+        5
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.23623163998126984,
+      "logit": -1.1734517812728882,
+      "delta_loss": 0.002947688102722168,
+      "taylor": 0.0008063292861818638
+    },
+    {
+      "unit": [
+        "head",
+        6,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.24248778820037842,
+      "logit": -1.1390882730484009,
+      "delta_loss": 0.0008399337530136108,
+      "taylor": 0.0017051820136454899
+    },
+    {
+      "unit": [
+        "head",
+        6,
+        1
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.2582469880580902,
+      "logit": -1.0550998449325562,
+      "delta_loss": 0.0030662715435028076,
+      "taylor": 0.0008527215338790981
+    },
+    {
+      "unit": [
+        "head",
+        9,
+        1
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.264325886964798,
+      "logit": -1.0236045122146606,
+      "delta_loss": 0.0010779649019241333,
+      "taylor": 0.0007830131921270663
+    },
+    {
+      "unit": [
+        "head",
+        7,
+        2
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.2658971846103668,
+      "logit": -1.0155394077301025,
+      "delta_loss": 0.0032228827476501465,
+      "taylor": 0.0011306380610508588
+    },
+    {
+      "unit": [
+        "head",
+        0,
+        5
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.27364662289619446,
+      "logit": -0.9761990904808044,
+      "delta_loss": 0.0030494332313537598,
+      "taylor": 0.0009034199671936324
+    },
+    {
+      "unit": [
+        "head",
+        0,
+        1
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.2803341746330261,
+      "logit": -0.9428046345710754,
+      "delta_loss": 0.010051190853118896,
+      "taylor": 0.0028229249187243675
+    },
+    {
+      "unit": [
+        "head",
+        0,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.28310996294021606,
+      "logit": -0.9290871620178223,
+      "delta_loss": 0.03610500693321228,
+      "taylor": 0.005132482016195661
+    },
+    {
+      "unit": [
+        "head",
+        4,
+        2
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.2884501516819,
+      "logit": -0.9029231667518616,
+      "delta_loss": 0.01449739933013916,
+      "taylor": 0.004200844889805963
+    },
+    {
+      "unit": [
+        "head",
+        3,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.29108068346977234,
+      "logit": -0.8901411294937134,
+      "delta_loss": 0.010379001498222351,
+      "taylor": 0.002816492336119676
+    },
+    {
+      "unit": [
+        "head",
+        1,
+        2
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.29191258549690247,
+      "logit": -0.886113166809082,
+      "delta_loss": 0.025192737579345703,
+      "taylor": 0.0018993032988988104
+    },
+    {
+      "unit": [
+        "head",
+        2,
+        4
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.2981101870536804,
+      "logit": -0.8563132286071777,
+      "delta_loss": 0.007677048444747925,
+      "taylor": 0.0028230703545595224
+    },
+    {
+      "unit": [
+        "head",
+        2,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.30357077717781067,
+      "logit": -0.8303513526916504,
+      "delta_loss": 0.021180763840675354,
+      "taylor": 0.0026181148033563306
+    },
+    {
+      "unit": [
+        "head",
+        2,
+        5
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.31252676248550415,
+      "logit": -0.7883327007293701,
+      "delta_loss": 0.013314619660377502,
+      "taylor": 0.003146585265376603
+    },
+    {
+      "unit": [
+        "head",
+        5,
+        2
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.3158499300479889,
+      "logit": -0.7729101181030273,
+      "delta_loss": 0.016405805945396423,
+      "taylor": 0.0040133869414460295
+    },
+    {
+      "unit": [
+        "head",
+        8,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.31715884804725647,
+      "logit": -0.7668594717979431,
+      "delta_loss": 0.0027272850275039673,
+      "taylor": 0.0014794934853831383
+    },
+    {
+      "unit": [
+        "head",
+        2,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.32374870777130127,
+      "logit": -0.7365971207618713,
+      "delta_loss": 0.033606499433517456,
+      "taylor": 0.003935132381728498
+    },
+    {
+      "unit": [
+        "head",
+        3,
+        5
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.32549870014190674,
+      "logit": -0.7286151051521301,
+      "delta_loss": 0.014493584632873535,
+      "taylor": 0.002217292926720439
+    },
+    {
+      "unit": [
+        "head",
+        1,
+        0
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.32899293303489685,
+      "logit": -0.71274334192276,
+      "delta_loss": 0.023189276456832886,
+      "taylor": 0.003928585740168912
+    },
+    {
+      "unit": [
+        "head",
+        4,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.33742988109588623,
+      "logit": -0.6747686266899109,
+      "delta_loss": 0.013010144233703613,
+      "taylor": 0.0016033319591606107
+    },
+    {
+      "unit": [
+        "head",
+        3,
+        4
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.346492201089859,
+      "logit": -0.6344941854476929,
+      "delta_loss": 0.023125693202018738,
+      "taylor": 0.005192623498038309
+    },
+    {
+      "unit": [
+        "head",
+        5,
+        1
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.34917157888412476,
+      "logit": -0.6226826310157776,
+      "delta_loss": 0.022126540541648865,
+      "taylor": 0.003266735435838915
+    },
+    {
+      "unit": [
+        "head",
+        1,
+        4
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.35502317547798157,
+      "logit": -0.5970313549041748,
+      "delta_loss": 0.015251696109771729,
+      "taylor": 0.0022511560756232557
+    },
+    {
+      "unit": [
+        "head",
+        5,
+        3
+      ],
+      "kind": "head",
+      "status": "active",
+      "gate": 0.36398130655288696,
+      "logit": -0.5581254363059998,
+      "delta_loss": 0.02974763512611389,
+      "taylor": 0.0026975734549348233
+    },
+    {
+      "unit": [
+        "ffn_group",
+        0,
+        28
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.717588484287262,
+      "logit": 0.9325311183929443,
+      "delta_loss": 0.00038646161556243896,
+      "taylor": 0.00045246890842285347
+    },
+    {
+      "unit": [
+        "ffn_group",
+        11,
+        30
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.728394627571106,
+      "logit": 0.9864931106567383,
+      "delta_loss": 0.00020135939121246338,
+      "taylor": 0.0005308649018698856
+    },
+    {
+      "unit": [
+        "ffn_group",
+        0,
+        4
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7317201495170593,
+      "logit": 1.00336754322052,
+      "delta_loss": 0.00039014220237731934,
+      "taylor": 0.0005305742463855007
+    },
+    {
+      "unit": [
+        "ffn_group",
+        0,
+        44
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7345545291900635,
+      "logit": 1.0178546905517578,
+      "delta_loss": 0.00022926926612854004,
+      "taylor": 0.0003814776207480233
+    },
+    {
+      "unit": [
+        "ffn_group",
+        10,
+        46
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7365495562553406,
+      "logit": 1.0281113386154175,
+      "delta_loss": 0.0003319680690765381,
+      "taylor": 0.0003196328561396537
+    },
+    {
+      "unit": [
+        "ffn_group",
+        0,
+        45
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7380016446113586,
+      "logit": 1.0356078147888184,
+      "delta_loss": 0.0006126314401626587,
+      "taylor": 0.0009097600749396747
+    },
+    {
+      "unit": [
+        "ffn_group",
+        1,
+        62
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7398784756660461,
+      "logit": 1.0453368425369263,
+      "delta_loss": 0.0005350708961486816,
+      "taylor": 0.0005219154375785616
+    },
+    {
+      "unit": [
+        "ffn_group",
+        10,
+        52
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7424932718276978,
+      "logit": 1.0589679479599,
+      "delta_loss": 0.0002777278423309326,
+      "taylor": 0.000379172328801741
+    },
+    {
+      "unit": [
+        "ffn_group",
+        0,
+        17
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7444581389427185,
+      "logit": 1.0692706108093262,
+      "delta_loss": 0.0004371851682662964,
+      "taylor": 0.001236145680196715
+    },
+    {
+      "unit": [
+        "ffn_group",
+        2,
+        42
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.749687135219574,
+      "logit": 1.0969445705413818,
+      "delta_loss": 0.0012362897396087646,
+      "taylor": 0.0010488374374564204
+    },
+    {
+      "unit": [
+        "ffn_group",
+        9,
+        0
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7515959739685059,
+      "logit": 1.1071423292160034,
+      "delta_loss": 0.0002151578664779663,
+      "taylor": 0.0006208337437680195
+    },
+    {
+      "unit": [
+        "ffn_group",
+        2,
+        17
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7527952790260315,
+      "logit": 1.1135766506195068,
+      "delta_loss": 0.0012667924165725708,
+      "taylor": 0.0008788044996480161
+    },
+    {
+      "unit": [
+        "ffn_group",
+        10,
+        40
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7537454962730408,
+      "logit": 1.1186894178390503,
+      "delta_loss": 0.000235632061958313,
+      "taylor": 0.0002864241393586254
+    },
+    {
+      "unit": [
+        "ffn_group",
+        2,
+        0
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7553537487983704,
+      "logit": 1.1273726224899292,
+      "delta_loss": 0.0013704299926757812,
+      "taylor": 0.0006747830373950312
+    },
+    {
+      "unit": [
+        "ffn_group",
+        9,
+        35
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7583115100860596,
+      "logit": 1.143444538116455,
+      "delta_loss": 0.00035287439823150635,
+      "taylor": 0.00034221758972083073
+    },
+    {
+      "unit": [
+        "ffn_group",
+        3,
+        32
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7606436610221863,
+      "logit": 1.1562116146087646,
+      "delta_loss": 0.0013978183269500732,
+      "taylor": 0.0002589935573383103
+    },
+    {
+      "unit": [
+        "ffn_group",
+        3,
+        63
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.761963427066803,
+      "logit": 1.163474202156067,
+      "delta_loss": 0.0008357614278793335,
+      "taylor": 0.0012743168529511396
+    },
+    {
+      "unit": [
+        "ffn_group",
+        4,
+        62
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7627872228622437,
+      "logit": 1.168021559715271,
+      "delta_loss": 0.0005013793706893921,
+      "taylor": 0.0010490053107899844
+    },
+    {
+      "unit": [
+        "ffn_group",
+        3,
+        7
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.763565182685852,
+      "logit": 1.1723259687423706,
+      "delta_loss": 0.0008764415979385376,
+      "taylor": 0.0010493533589403853
+    },
+    {
+      "unit": [
+        "ffn_group",
+        8,
+        1
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.764302134513855,
+      "logit": 1.1764124631881714,
+      "delta_loss": 0.00027814507484436035,
+      "taylor": 0.0005285126009521219
+    },
+    {
+      "unit": [
+        "ffn_group",
+        8,
+        51
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7648840546607971,
+      "logit": 1.1796454191207886,
+      "delta_loss": 0.0005051493644714355,
+      "taylor": 0.0003025624978067771
+    },
+    {
+      "unit": [
+        "ffn_group",
+        8,
+        33
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7658948302268982,
+      "logit": 1.1852744817733765,
+      "delta_loss": 0.00045828521251678467,
+      "taylor": 0.00043994728459509434
+    },
+    {
+      "unit": [
+        "ffn_group",
+        8,
+        25
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7667126059532166,
+      "logit": 1.1898409128189087,
+      "delta_loss": 0.0004120469093322754,
+      "taylor": 0.0003999965855178166
+    },
+    {
+      "unit": [
+        "ffn_group",
+        4,
+        50
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7673072218894958,
+      "logit": 1.1931686401367188,
+      "delta_loss": 0.0008788257837295532,
+      "taylor": 0.0010072682325052268
+    },
+    {
+      "unit": [
+        "ffn_group",
+        4,
+        8
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7684389352798462,
+      "logit": 1.1995174884796143,
+      "delta_loss": 0.0010612457990646362,
+      "taylor": 0.000989828590266694
+    },
+    {
+      "unit": [
+        "ffn_group",
+        6,
+        2
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7694492340087891,
+      "logit": 1.2052040100097656,
+      "delta_loss": 0.0012664347887039185,
+      "taylor": 0.000782357588672342
+    },
+    {
+      "unit": [
+        "ffn_group",
+        7,
+        0
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7708695530891418,
+      "logit": 1.21322762966156,
+      "delta_loss": 0.0007269978523254395,
+      "taylor": 0.00047178612233784696
+    },
+    {
+      "unit": [
+        "ffn_group",
+        7,
+        13
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.772221028804779,
+      "logit": 1.2208952903747559,
+      "delta_loss": 0.000506967306137085,
+      "taylor": 0.0004149456074844594
+    },
+    {
+      "unit": [
+        "ffn_group",
+        7,
+        25
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.7735884785652161,
+      "logit": 1.228685736656189,
+      "delta_loss": 0.0002453327178955078,
+      "taylor": 0.0005505458552841724
+    },
+    {
+      "unit": [
+        "ffn_group",
+        8,
+        60
+      ],
+      "kind": "ffn_group",
+      "status": "active",
+      "gate": 0.781376838684082,
+      "logit": 1.2737081050872803,
+      "delta_loss": 0.0011928677558898926,
+      "taylor": 0.0007116290371390636
+    }
+  ]
+}

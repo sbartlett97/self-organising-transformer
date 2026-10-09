@@ -1,0 +1,105 @@
+Fetching 12 files:   0%|          | 0/12 [00:00<?, ?it/s]Fetching 12 files:  67%|██████▋   | 8/12 [00:00<00:00, 24.14it/s]Fetching 12 files:  92%|█████████▏| 11/12 [00:20<00:01,  1.82s/it]Fetching 12 files: 100%|██████████| 12/12 [00:53<00:00,  4.44s/it]Fetching 12 files: 100%|██████████| 12/12 [00:53<00:00,  4.44s/it]
+`torch_dtype` is deprecated! Use `dtype` instead!
+Generating test split:   0%|          | 0/4358 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 4358/4358 [00:00<00:00, 139533.71 examples/s]
+Generating train split:   0%|          | 0/1801350 [00:00<?, ? examples/s]Generating train split:  20%|██        | 366000/1801350 [00:00<00:00, 3631346.13 examples/s]Generating train split:  42%|████▏     | 749000/1801350 [00:00<00:00, 3685521.05 examples/s]Generating train split:  63%|██████▎   | 1134675/1801350 [00:00<00:00, 3746834.10 examples/s]Generating train split:  89%|████████▉ | 1603675/1801350 [00:00<00:00, 4017272.74 examples/s]Generating train split: 100%|██████████| 1801350/1801350 [00:00<00:00, 3979562.07 examples/s]
+Generating validation split:   0%|          | 0/3760 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 3760/3760 [00:00<00:00, 2734625.12 examples/s]
+baseline loss 3.2390 on 8x8x256 tokens
+[1/92] active  ('layer', 0, 0) gate=0.262 dloss=+5.00077 taylor=0.23511
+[2/92] active  ('layer', 1, 0) gate=0.261 dloss=+0.76265 taylor=0.05035
+[3/92] active  ('layer', 2, 0) gate=0.286 dloss=+0.44107 taylor=0.01887
+[4/92] active  ('layer', 3, 0) gate=0.332 dloss=+0.43005 taylor=0.02809
+[5/92] active  ('layer', 4, 0) gate=0.415 dloss=+0.20107 taylor=0.01497
+[6/92] active  ('layer', 5, 0) gate=0.463 dloss=+0.14279 taylor=0.00966
+[7/92] active  ('layer', 6, 0) gate=0.473 dloss=+0.12811 taylor=0.01064
+[8/92] active  ('layer', 7, 0) gate=0.404 dloss=+0.07334 taylor=0.00535
+[9/92] active  ('layer', 8, 0) gate=0.452 dloss=+0.07323 taylor=0.00748
+[10/92] active  ('layer', 9, 0) gate=0.478 dloss=+0.05971 taylor=0.00497
+[11/92] active  ('layer', 10, 0) gate=0.436 dloss=+0.04578 taylor=0.00637
+[12/92] active  ('layer', 11, 0) gate=0.389 dloss=+0.07467 taylor=0.00564
+[13/92] active  ('head', 0, 11) gate=0.242 dloss=+0.00230 taylor=0.00297
+[14/92] active  ('head', 2, 9) gate=0.254 dloss=+0.00575 taylor=0.00226
+[15/92] active  ('head', 0, 10) gate=0.257 dloss=-0.00015 taylor=0.00196
+[16/92] active  ('head', 2, 2) gate=0.260 dloss=+0.00668 taylor=0.00565
+[17/92] active  ('head', 0, 5) gate=0.261 dloss=+0.00057 taylor=0.00448
+[18/92] active  ('head', 0, 3) gate=0.262 dloss=+0.00338 taylor=0.00871
+[19/92] active  ('head', 5, 6) gate=0.267 dloss=+0.00247 taylor=0.00285
+[20/92] active  ('head', 3, 7) gate=0.268 dloss=+0.00202 taylor=0.00771
+[21/92] active  ('head', 5, 7) gate=0.269 dloss=+0.00561 taylor=0.00483
+[22/92] active  ('head', 0, 4) gate=0.269 dloss=-0.00197 taylor=0.05808
+[23/92] active  ('head', 7, 3) gate=0.270 dloss=+0.00166 taylor=0.00032
+[24/92] active  ('head', 11, 0) gate=0.272 dloss=+0.00018 taylor=0.00027
+[25/92] active  ('head', 1, 7) gate=0.275 dloss=+0.02270 taylor=0.00727
+[26/92] active  ('head', 11, 1) gate=0.277 dloss=+0.00006 taylor=0.00016
+[27/92] active  ('head', 11, 2) gate=0.280 dloss=+0.00046 taylor=0.00041
+[28/92] active  ('head', 11, 4) gate=0.283 dloss=+0.00031 taylor=0.00033
+[29/92] active  ('head', 2, 0) gate=0.285 dloss=+0.01724 taylor=0.00359
+[30/92] active  ('head', 10, 3) gate=0.287 dloss=+0.00156 taylor=0.00076
+[31/92] active  ('head', 8, 8) gate=0.289 dloss=+0.00418 taylor=0.00232
+[32/92] active  ('head', 9, 11) gate=0.290 dloss=+0.00076 taylor=0.00061
+[33/92] active  ('head', 1, 3) gate=0.294 dloss=+0.00389 taylor=0.00166
+[34/92] active  ('head', 8, 2) gate=0.295 dloss=+0.00351 taylor=0.00188
+[35/92] active  ('head', 11, 11) gate=0.298 dloss=+0.00029 taylor=0.00037
+[36/92] active  ('head', 10, 0) gate=0.301 dloss=+0.00038 taylor=0.00040
+[37/92] active  ('head', 5, 2) gate=0.306 dloss=+0.02954 taylor=0.00378
+[38/92] active  ('head', 3, 1) gate=0.315 dloss=+0.01950 taylor=0.00207
+[39/92] active  ('head', 6, 5) gate=0.333 dloss=+0.01096 taylor=0.00254
+[40/92] active  ('head', 5, 3) gate=0.347 dloss=+0.00661 taylor=0.00127
+[41/92] active  ('head', 9, 4) gate=0.399 dloss=+0.00219 taylor=0.00166
+[42/92] active  ('head', 5, 10) gate=0.416 dloss=+0.00792 taylor=0.00276
+[43/92] active  ('ffn_group', 7, 116) gate=0.252 dloss=+0.00018 taylor=0.00027
+[44/92] active  ('ffn_group', 7, 58) gate=0.262 dloss=+0.00046 taylor=0.00046
+[45/92] active  ('ffn_group', 7, 76) gate=0.267 dloss=+0.00045 taylor=0.00038
+[46/92] active  ('ffn_group', 1, 127) gate=0.270 dloss=+0.00070 taylor=0.00064
+[47/92] active  ('ffn_group', 1, 21) gate=0.272 dloss=+0.00078 taylor=0.00055
+[48/92] active  ('ffn_group', 3, 44) gate=0.276 dloss=+0.00046 taylor=0.00091
+[49/92] active  ('ffn_group', 0, 93) gate=0.281 dloss=+0.00240 taylor=0.00109
+[50/92] active  ('ffn_group', 0, 72) gate=0.282 dloss=+0.00251 taylor=0.00155
+[51/92] active  ('ffn_group', 2, 99) gate=0.283 dloss=+0.00029 taylor=0.00055
+[52/92] active  ('ffn_group', 0, 0) gate=0.285 dloss=+0.00094 taylor=0.00275
+[53/92] active  ('ffn_group', 2, 62) gate=0.287 dloss=+0.00082 taylor=0.00055
+[54/92] active  ('ffn_group', 3, 25) gate=0.293 dloss=+0.00153 taylor=0.00056
+[55/92] active  ('ffn_group', 3, 92) gate=0.295 dloss=+0.00101 taylor=0.00072
+[56/92] active  ('ffn_group', 4, 60) gate=0.301 dloss=+0.00090 taylor=0.00063
+[57/92] active  ('ffn_group', 5, 10) gate=0.304 dloss=+0.00076 taylor=0.00063
+[58/92] active  ('ffn_group', 5, 1) gate=0.305 dloss=+0.00104 taylor=0.00057
+[59/92] active  ('ffn_group', 5, 76) gate=0.307 dloss=+0.00092 taylor=0.00073
+[60/92] active  ('ffn_group', 6, 9) gate=0.319 dloss=+0.00097 taylor=0.00066
+[61/92] active  ('ffn_group', 6, 70) gate=0.323 dloss=+0.00076 taylor=0.00049
+[62/92] active  ('ffn_group', 8, 99) gate=0.333 dloss=+0.00030 taylor=0.00055
+[63/92] active  ('ffn_group', 11, 78) gate=0.338 dloss=+0.00060 taylor=0.00037
+[64/92] active  ('ffn_group', 9, 106) gate=0.339 dloss=+0.00052 taylor=0.00034
+[65/92] active  ('ffn_group', 9, 94) gate=0.342 dloss=+0.00052 taylor=0.00054
+[66/92] active  ('ffn_group', 8, 94) gate=0.343 dloss=+0.00085 taylor=0.00065
+[67/92] active  ('ffn_group', 9, 109) gate=0.344 dloss=+0.00028 taylor=0.00070
+[68/92] active  ('ffn_group', 7, 15) gate=0.346 dloss=+0.00093 taylor=0.00091
+[69/92] active  ('ffn_group', 7, 29) gate=0.348 dloss=+0.00079 taylor=0.00040
+[70/92] active  ('ffn_group', 9, 83) gate=0.349 dloss=+0.00054 taylor=0.00045
+[71/92] active  ('ffn_group', 7, 6) gate=0.352 dloss=+0.00096 taylor=0.00047
+[72/92] active  ('ffn_group', 11, 85) gate=0.364 dloss=+0.00043 taylor=0.00025
+[73/92] dormant ('ffn_group', 10, 92) gate=0.041 dloss=+0.00004 taylor=0.00014
+[74/92] dormant ('ffn_group', 4, 116) gate=0.046 dloss=+0.00034 taylor=0.00037
+[75/92] dormant ('ffn_group', 9, 98) gate=0.050 dloss=+0.00015 taylor=0.00022
+[76/92] dormant ('ffn_group', 11, 27) gate=0.045 dloss=+0.00003 taylor=0.00006
+[77/92] dormant ('ffn_group', 5, 37) gate=0.048 dloss=+0.00012 taylor=0.00039
+[78/92] dormant ('ffn_group', 0, 67) gate=0.037 dloss=-0.00016 taylor=0.00082
+[79/92] dormant ('ffn_group', 3, 22) gate=0.043 dloss=+0.00067 taylor=0.00071
+[80/92] dormant ('ffn_group', 6, 34) gate=0.048 dloss=+0.00034 taylor=0.00069
+[81/92] dormant ('ffn_group', 5, 123) gate=0.047 dloss=+0.00034 taylor=0.00035
+[82/92] dormant ('ffn_group', 5, 16) gate=0.047 dloss=+0.00033 taylor=0.00043
+[83/92] dormant ('head', 7, 11) gate=0.046 dloss=+0.00137 taylor=0.00138
+[84/92] dormant ('head', 10, 11) gate=0.031 dloss=+0.00006 taylor=0.00014
+[85/92] dormant ('head', 8, 11) gate=0.034 dloss=+0.00048 taylor=0.00051
+[86/92] dormant ('head', 6, 8) gate=0.035 dloss=+0.00014 taylor=0.00043
+[87/92] dormant ('head', 5, 1) gate=0.033 dloss=+0.00122 taylor=0.00060
+[88/92] dormant ('head', 5, 4) gate=0.032 dloss=+0.00045 taylor=0.00031
+[89/92] dormant ('head', 3, 2) gate=0.033 dloss=+0.00298 taylor=0.00143
+[90/92] dormant ('head', 9, 3) gate=0.034 dloss=+0.00003 taylor=0.00013
+[91/92] dormant ('head', 2, 8) gate=0.032 dloss=+0.00164 taylor=0.00087
+[92/92] dormant ('head', 8, 1) gate=0.035 dloss=+0.00004 taylor=0.00036
+
+kind       n   rho(dloss,gate)  rho(dloss,taylor)  dloss min/median/max         dormant dloss mean/max
+ffn_group   30  +0.015           +0.561             +0.0002/+0.0008/+0.0025   +0.00022/+0.00067
+head        30  +0.278           +0.464             -0.0020/+0.0024/+0.0295   +0.00084/+0.00298
+layer       12  -0.741           +0.909             +0.0458/+0.1354/+5.0008   n/a
+
+wrote results/ablation_phase2_v4.json

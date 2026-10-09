@@ -43,6 +43,19 @@ for the full phased research programme.
   `death_relative_margin` (tuned to the ~85-90% range this run actually
   showed) or a longer training budget is the right next move — see the
   2026-10-09 entry.
+- **Latest (2026-10-09, later): gate value is not importance — the
+  zero-deaths result is a design error, not a tuning problem.** An
+  ablation test on the attempt-4 checkpoint (`ablation_importance.py`,
+  two disjoint batch samples) found Δloss-vs-gate rank correlation of
+  −0.72 (layers), +0.2 (heads), ≈0 (FFN groups). Layer 0 has the lowest
+  gate and is the most important unit in the model. True importance *is*
+  widely spread, and a Taylor estimate `|g·∂L/∂g|` tracks it (ρ 0.93/
+  0.53/0.56 on unseen batches). Dormant units are not inert. All "cost"
+  figures to date are gate-magnitude proxies; real FLOPs equal the full
+  supernet for the gated models. Phase 1 cross-check: gate-based
+  materialisation dropped layer 0, the most important block (+3.0 loss
+  when zeroed), which accounts for most of the inherited-weight collapse.
+  See the final 2026-10-09 entry for the next-step plan.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2060,3 +2073,127 @@ simply not produce the degree of inter-unit differentiation needed for
 relative pruning to work within a 10000-step budget, which would argue
 for the "longer training budget" option from the previous entry instead.
 Not decided — flagging for the user.
+
+## 2026-10-09 (continued) — Gate value is not importance: ablation test on the attempt-4 checkpoint
+
+The previous entry found death never fires because mature gates sit in a
+narrow band. This entry tests a stronger hypothesis: **gate magnitude does
+not measure a unit's importance at all**, so no `death_relative_margin`
+value can fix death.
+
+### Why this was expected
+
+`architecture_cost()` and `sparsity_loss()` (`model.py:178-195`) push on
+sigmoid gate *magnitude*. Each gate multiplies an output that the next
+linear layer can rescale freely (`g·W` is what the forward pass sees), so
+the model can shrink every gate and grow the weights behind it at no loss
+cost. Nothing in the objective makes gates bimodal, and the gate
+temperature annealing from proposal §10 is not implemented. A uniform
+gate band around 0.3 is the expected equilibrium. A second consequence:
+every "cost" figure so far (Phase 1 ≈0.12, Phase 2 0.06-0.085) is a
+gate-magnitude proxy. Every unit runs in every forward pass, so real
+training and inference FLOPs of the gated `sot` and Phase 2 models equal
+the full supernet's. (Phase 1's `sot_compact` and `discovered_retrained`
+models are physically smaller and do save real compute.)
+
+### Method
+
+New script `ablation_importance.py`. For a sample of units on a trained
+checkpoint it:
+
+1. measures the true importance: the change in held-out loss when the
+   unit's gate is forced to exactly 0, on fixed validation batches;
+2. computes a first-order Taylor estimate `|g·∂L/∂g|` (Molchanov-style,
+   one backward pass);
+3. reports Spearman rank correlation of true Δloss against gate value and
+   against the Taylor estimate, per kind.
+
+Active units are sampled at evenly spaced gate quantiles (30 per kind, all
+12 layers). 10 dormant units per kind are ablated as a control. Ran
+locally on MPS (no pod, ~5 and ~10 minutes), twice on disjoint batch
+samples: `--batch_seed 1234` (8×8×256 tokens) and `--batch_seed 99`
+(16×8×256 tokens). Results in `results/ablation_phase2_v4*.json`.
+
+### Result
+
+| kind | ρ(Δloss, gate) run A / B | ρ(Δloss, Taylor) run A / B | Δloss test-retest ρ | Taylor(A) vs Δloss(B) ρ |
+|---|---:|---:|---:|---:|
+| layer (12) | **−0.74 / −0.72** | +0.91 / +0.91 | 0.99 | 0.93 |
+| head (30) | +0.28 / +0.20 | +0.46 / +0.64 | 0.95 | 0.53 |
+| ffn_group (30) | +0.02 / −0.22 | +0.56 / +0.68 | 0.60 | 0.56 |
+
+1. **Gate value does not predict importance.** For FFN groups the
+   correlation is zero. For heads it is weak. For layers it is strongly
+   *negative*: the early layers have the lowest gates (0.26) and are by far
+   the most important (zeroing layer 0 adds +5.0 to loss; layers 9-11 add
+   +0.05-0.07 with gates of 0.39-0.48). A gate-based death rule that
+   worked would kill layer 0 first.
+2. **Importance itself is strongly spread out.** The gates are uniform, but
+   true Δloss is not: layers span 0.046 to 5.0, heads span −0.007 to
+   +0.030 (some heads *hurt* — removing them lowers loss), FFN groups span
+   0.0002 to 0.0025. A death rule on real importance has plenty of signal
+   to rank with.
+3. **The Taylor estimate tracks true importance at about the noise
+   ceiling.** It predicts Δloss on *unseen* batches with ρ 0.93 / 0.53 /
+   0.56 (layer/head/FFN). For FFN groups that is close to the 0.60
+   test-retest ceiling of the Δloss measurement itself; single 24-channel
+   groups are too small to measure precisely on ~16-33k tokens.
+4. **Dormant units are not inert.** Dormant gates drifted from the 0.018
+   floor to 0.03-0.05 during training, and their output weights scale up
+   behind them. A dormant head's mean Δloss (0.0007-0.0008) is about a
+   third of an active head's median (0.0024-0.0028); 53% of sampled active
+   heads matter less than the most important dormant head. So "dormant"
+   units do part of the computation, and the population-level DORMANT /
+   MATURE split is partly fictional.
+
+### Conclusion
+
+The zero-deaths result is a design error, not a tuning problem: the death
+criterion reads a quantity (gate magnitude) that does not carry the
+information it needs. It also explains why "dormant" capacity still
+helps Phase 2's loss.
+
+### Cross-check on Phase 1: gate selection drops the most important block
+
+Same script on `sbartlett97/sot-phase1-tinystories-sot-seed42`
+(`results/ablation_phase1_tinystories_seed42.json`, `--dormant_per_kind 0`):
+
+| kind | ρ(Δloss, gate) | ρ(Δloss, Taylor) |
+|---|---:|---:|
+| layer (12) | +0.40 | +0.73 |
+| head (30) | +0.80 | +0.83 |
+| ffn_group (30) | +0.38 | +0.41 |
+
+Phase 1's gates carry more signal than Phase 2's (heads especially), so
+the effect is weaker there, not absent. The layer result is the important
+one. Layer 0 has one of the lowest gates (0.206) and is by far the most
+important block: zeroing it adds **+3.0** to loss (baseline 1.44), layer 1
+adds +0.58, every layer from 6 up adds under +0.12. Seed 42's
+materialisation kept `[2..8]`, so it dropped layers 0 and 1 — the two
+most important blocks in the model. Layer 0 alone is worth a factor of
+about e^3 ≈ 20 in perplexity, which accounts for most of seed 42's
+inherited-weight collapse (4.75 → 794.77 ppl after the gate-fold fix).
+All three TinyStories seeds excluded layer 0, so the same mechanism very
+probably drives the collapse in all of them (only seed 42 tested here).
+The fresh-retrain condition is not affected by this: it trains the kept
+shape from scratch, so it never depends on the dropped weights.
+
+### Recommended next steps
+
+1. If the gate substrate is kept at all, base death and materialisation
+   selection on an EMA of the Taylor importance `|g·∂L/∂g|`, not on gate
+   value. A cheap test: re-materialise Phase 1 seed 42 keeping layers 0-1
+   and see how much of the inherited-weight collapse disappears. It costs nothing extra: the gradient is already computed.
+2. Add real FLOP/parameter accounting for the active structure, and
+   compare growth runs against dense at matched *training FLOPs*.
+3. For the actual project goal (start from one block, no dormant slots),
+   replace the gated supernet with physical growth: resize tensors (with
+   AdamW state), zero-init new output projections so births are
+   function-preserving, and score candidate units by the gradient on
+   their zero-init output weights (GradMax-style). Prior work to check
+   first: GradMax (Evci et al. 2022), Net2Net (Chen et al. 2016),
+   progressive stacking (Gong et al. 2019), masked structural growth
+   (Yao et al. 2023), self-expanding networks (Mitchell et al. 2023).
+
+Caveat: two checkpoints (Phase 2 attempt 4, Phase 1 TinyStories seed 42).
+The Phase 1 768-wide `sot` checkpoint is not yet tested.
