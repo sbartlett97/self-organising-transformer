@@ -99,11 +99,15 @@ class CompactTransformer(PreTrainedModel):
         return {'loss':loss,'logits':logits}
 
 
-def build_from_sot(sot_model,threshold=0.5):
+def build_from_sot(sot_model,threshold=0.5,layer_indices=None):
+    # layer_indices, if given, replaces the gate-threshold layer choice with an explicit list.
+    # Gate value is a poor importance signal for layers (layer 0 has a low gate but is the most
+    # important block -- see RESEARCH_LOG.md 2026-10-09), so this allows selection by measured
+    # importance. Head/FFN-group selection inside each layer still uses the threshold.
     arch=sot_model.export_architecture(threshold)
     layers=[]
     for item in arch['layers']:
-        if item['active']:
+        if (item['index'] in layer_indices) if layer_indices is not None else item['active']:
             h=max(1,len(item['heads']))
             # Enforce a legal divisor of d_model. This matters if a threshold leaves an irregular head count.
             legal=[d for d in range(1,sot_model.config.max_heads+1) if sot_model.config.d_model%d==0]

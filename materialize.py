@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 
 import hub_utils
 
-p=argparse.ArgumentParser(); p.add_argument('sot_path'); p.add_argument('--threshold',type=float,default=None,help='Layer/head/ffn/skip gate cutoff for export_architecture(). Defaults to the median layer_gate of this checkpoint (a fixed 0.5 is not reachable under gate_init_logit=-1.0 -- it produces a zero-layer model)'); p.add_argument('--output_dir',default='./outputs/sot_compact')
+p=argparse.ArgumentParser(); p.add_argument('sot_path'); p.add_argument('--threshold',type=float,default=None,help='Layer/head/ffn/skip gate cutoff for export_architecture(). Defaults to the median layer_gate of this checkpoint (a fixed 0.5 is not reachable under gate_init_logit=-1.0 -- it produces a zero-layer model)'); p.add_argument('--output_dir',default='./outputs/sot_compact'); p.add_argument('--layers',default=None,help='Comma-separated layer indices to keep, replacing the gate-threshold layer choice (e.g. 0,1,2,3,4,5,6)')
 p.add_argument('--push_to_hub',action='store_true'); p.add_argument('--hub_model_id',default=None,help='Overrides the auto-generated repo id'); p.add_argument('--hub_private',action='store_true'); p.add_argument('--hub_phase',default='phase1'); p.add_argument('--hub_target_cost_tag',default=None)
 a=p.parse_args()
 model=SelfOrganizingTransformer.from_pretrained(a.sot_path)
@@ -17,7 +17,8 @@ if threshold is None:
     layer_gates,_,_,_=model._gates()
     threshold=statistics.median(layer_gates.detach().cpu().tolist())
     print(f'--threshold not given; using median layer_gate={threshold:.4f} of this checkpoint')
-compact=build_from_sot(model,threshold)
+layer_indices=[int(i) for i in a.layers.split(',')] if a.layers else None
+compact=build_from_sot(model,threshold,layer_indices)
 if len(compact.config.layers)==0:
     raise RuntimeError(
         f'threshold={threshold:.4f} produced a zero-layer compact model (no layer_gate in this '

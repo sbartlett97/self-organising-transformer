@@ -54,8 +54,10 @@ for the full phased research programme.
   figures to date are gate-magnitude proxies; real FLOPs equal the full
   supernet for the gated models. Phase 1 cross-check: gate-based
   materialisation dropped layer 0, the most important block (+3.0 loss
-  when zeroed), which accounts for most of the inherited-weight collapse.
-  See the final 2026-10-09 entry for the next-step plan.
+  when zeroed). Re-materialising seed 42 with layers 0-1 kept cut
+  inherited-weight ppl from 881 to 15.8; at equal size (6 layers),
+  importance-based selection gave 85.6 vs gate-based 881. See the final
+  2026-10-09 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2197,3 +2199,57 @@ shape from scratch, so it never depends on the dropped weights.
 
 Caveat: two checkpoints (Phase 2 attempt 4, Phase 1 TinyStories seed 42).
 The Phase 1 768-wide `sot` checkpoint is not yet tested.
+
+## 2026-10-09 (continued) — Re-materialising Phase 1 seed 42 with layers 0-1 kept
+
+Direct test of the previous entry's claim: gate-based materialisation
+dropped the most important blocks, and that caused most of the
+inherited-weight collapse.
+
+**Change**: `materialize.py --layers=<i,j,...>` (and a `layer_indices`
+argument on `compact_model.build_from_sot`) replaces the gate-threshold
+layer choice with an explicit list. Head and FFN-group choice inside each
+layer still uses the threshold. Default behaviour is unchanged.
+
+**Correction to an earlier figure**: the published gate-fix compact model
+(`sot-phase1-tinystories-sot_compact_gatefix-seed42`, the 794.77 ppl one)
+kept layers `[2..7]` (6 layers). `[2..8]` was the earlier, pre-fix compact
+model. Rebuilding with the default median threshold reproduces `[2..7]`
+exactly.
+
+**Result** (`evaluate.ppl`, TinyStories validation, 204k tokens, inherited
+weights, no retraining; `results/remat_phase1_tinystories_seed42.json`):
+
+| variant | layers kept | ppl |
+|---|---|---:|
+| sot (full gated model) | all 12 | 4.75 |
+| gate selection (previous method) | `[2..7]` (6) | 881.25 |
+| gate selection + layers 0-1 | `[0..7]` (8) | **15.83** |
+| top-6 by ablation Δloss (same size as gate) | `[0..5]` (6) | 85.59 |
+
+(The gate variant reads 881 here and 794.77 in the earlier run because
+this run uses twice as many tokens. Rows in this table share one
+measurement.)
+
+1. **Keeping layers 0-1 cuts inherited-weight perplexity by 56x** (881 →
+   15.8). The claim holds: dropping the low-gate, high-importance early
+   layers caused most of the collapse.
+2. **At equal size, importance-based selection beats gate-based by 10x**
+   (85.6 vs 881). This is the controlled comparison: same 6-layer budget,
+   only the selection signal differs.
+3. **Single-unit ablation scores are not additive.** The six layers
+   dropped from `[0..5]` each cost at most +0.11 loss alone (sum ≈0.40),
+   but dropping them together costs +2.89. Layers depend on each other, so
+   ranking by one-at-a-time importance is a good first signal, not a full
+   answer. Growth and pruning decisions should re-measure after each
+   change, not rank once.
+4. A gap to the full model remains (15.8 vs 4.75 at 8 of 12 layers). Some
+   is genuine capacity loss; some is that weights co-adapted with the
+   dropped layers 8-11. A short fine-tune of the compact model would
+   separate the two. Not run.
+
+The fresh-retrain condition (`discovered_retrained`) is unaffected by any
+of this; it never uses inherited weights. But the *architecture* it
+retrains was also chosen by gate, so it also excluded layer 0's position
+in the stack — whether that matters for a from-scratch retrain is a
+separate, open question (block position means less when weights are new).
