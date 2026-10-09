@@ -20,16 +20,22 @@ for the full phased research programme.
 - **Latest (2026-10-08): width scale-up (3.19x params, WikiText-103)
   resolved the capacity shortfall** — scaled dense ppl 21.98 vs. the old
   scale's 28.23, sot essentially matches dense (22.00) at ~12% of the
-  cost. Phase 2 at this scale went through three attempts fixing two real
-  bugs in `plasticity.py` (plateau-timing-dependent growth, then a NaN
-  poisoning growth mid-run) — both now fixed and verified at real scale,
-  but the fully-clean result still shows **zero deaths** across all three
-  attempts and the *best* result (fewest total growth events) had the
-  *best* ppl (27.27), while the fully-unblocked run grew the most (689
-  mature units, 160/160 possible births) and had the *worst* ppl (31.89)
-  — `birth_score_floor=0.0` apparently lets growth continue past the
-  point of being useful, with no death mechanism yet triggering to prune
-  it back. Open question, not yet decided — see the 2026-10-08 entries.
+  cost. Phase 2 at this scale went through **four** real-scale attempts,
+  fixing two real bugs in `plasticity.py` (plateau-timing-dependent
+  growth, then a NaN poisoning growth mid-run) and then tuning
+  birth/death looseness directly (tapered `birth_limit`, a real
+  `birth_score_floor`, loosened death eligibility) — **zero deaths in
+  all four**, regardless of configuration. The attempt with the *least*
+  total growth had the *best* ppl (27.27, though that was via an
+  accidental bug-induced early stop, not by design); the fully-unblocked
+  attempt grew the most (689 mature, 160/160 possible births) and had
+  the *worst* ppl (31.89); the deliberately-tuned attempt landed in
+  between (28.08) but still never triggered a single death despite every
+  eligibility knob loosened at once. Reading: probably not a
+  parameter-tuning problem anymore — population climbs every quartile in
+  every attempt and never plateaus on its own, so death's relative-median
+  comparison never gets a stable target to measure against. Open
+  question, not yet decided — see the 2026-10-08 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -1835,3 +1841,80 @@ accept that 10000 steps / this growth rate isn't enough budget for the
 population to reach a natural capacity ceiling where death would
 actually trigger, and extend training length instead. Flagging for the
 user's decision before further cloud spend.
+
+## 2026-10-08 (continued) — Tuning attempt: tapered growth + loosened death, still zero deaths
+
+User's call: implement all three candidates from the status above at
+once (raise `birth_score_floor`, taper `birth_limit`, loosen death
+eligibility), then run once rather than sweep them individually.
+
+**Implementation** (commit `db9f6d7`): `--birth_limit_end` linearly
+tapers `birth_limit` from its starting value to this one over training
+(`controller.birth_limit` mutated directly in `train_phase2.py`'s loop
+before each `controller.update()` call, logged as `birth_limit_used` in
+`growth_log.json` for visibility). `--birth_score_floor` and
+`--death_patience` were already real `StructuralController` parameters
+but had never been exposed via CLI — wired through now. Verified locally
+first (40-step/8-check smoke test): `birth_limit_used` tapered correctly
+4→3→3→2→2→2→1→1, the floor correctly blocked low-score checks,
+`nan_candidates` stayed 0 throughout.
+
+**Run config**: `birth_score_floor=0.005` (≈`contribution_ema`'s ceiling
+`sigmoid(dormant_floor_logit)`×`w_c` — a real structural quantity in this
+scoring scheme, not an arbitrary guess), `birth_limit` 4→1 tapered,
+`minimum_age=500` (halved from 1000), `death_relative_margin=0.6`
+(loosened from 0.5), `death_patience=2` (loosened from 3). Same scale as
+the prior three attempts (768d width, WikiText-103, `target_cost=0.13`).
+
+### Result: the taper worked exactly as designed, death still never fired
+
+`birth_limit_used` tapered cleanly across the run: 4, 4, 3, 3, 3, 2, 2,
+2, 2, 1 (sampled every 4th check) — mechanically verified at real scale,
+not just locally. `nan_candidates=0` and at least one birth occurred on
+every single one of the 40 checks (the floor thinned growth, never fully
+blocked it). Total births: **98** — well below the unconstrained
+attempt's 160, confirming the taper+floor combination measurably reduces
+indiscriminate late-stage growth.
+
+**But still zero deaths** — the fourth consecutive attempt, now with
+every death-eligibility knob loosened at once. Final ppl **28.08**.
+
+Full comparison across all four real-scale attempts, same seed/scale/dataset:
+
+| Attempt | Total births | Deaths | Final ppl |
+|---|---:|---:|---:|
+| 1 — plateau-gated (bug), stopped early by accident | 59 | 0 | **27.27** |
+| 2 — relative ranking fixed, NaN froze it at step 6500 | 100 | 0 | 25.77 |
+| 3 — both bugs fixed, fully unblocked (no taper/floor) | 160 | 0 | 31.89 |
+| 4 — tapered + floored + loosened death | 98 | 0 | 28.08 |
+
+Taper+floor helped *relative to the unconstrained case* (31.89→28.08,
+consistent with the "indiscriminate growth dilutes quality" reading from
+the prior entry) but still underperforms attempt 1 — which, despite
+having the *least* total growth of any attempt, got there by an
+accidental bug-induced early stop, not by design. Loosening every death
+knob simultaneously (halved `minimum_age`, raised `death_relative_margin`
+0.5→0.6, lowered `death_patience` 3→2) produced no deaths at all, same as
+every previous configuration.
+
+### Reading: this probably isn't a parameter-tuning problem anymore
+
+Four attempts, four different configurations spanning a wide range of
+birth/death looseness, zero deaths in all of them. Nudging
+`birth_score_floor`/`birth_limit_end`/`death_relative_margin`/
+`death_patience` further seems unlikely to change this on its own —
+these knobs have now been pushed a meaningful distance in the
+permissive direction without effect. More likely explanation: within a
+10000-step budget, this architecture appears to stay in "still growing
+into capacity" mode for the *entire* run rather than transitioning to
+"has enough, start pruning" — mature population climbed every single
+quartile in every attempt, never plateauing on its own the way it would
+need to for death's relative-median comparison to find a stable,
+sustained "behind its peers" signal (the median itself is a moving
+target while the population is still actively growing). Candidates for
+next time, not yet tried: a genuinely longer training budget (more steps
+for the population to reach a natural ceiling); or a different
+diagnostic pass over `growth_log.json`/`events.json` specifically
+checking whether individual units' death-streak counters are even
+starting to accumulate (vs. resetting every check) before assuming more
+loosening would help. Not decided — flagging for the user.
