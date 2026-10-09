@@ -56,8 +56,11 @@ for the full phased research programme.
   materialisation dropped layer 0, the most important block (+3.0 loss
   when zeroed). Re-materialising seed 42 with layers 0-1 kept cut
   inherited-weight ppl from 881 to 15.8; at equal size (6 layers),
-  importance-based selection gave 85.6 vs gate-based 881. See the final
-  2026-10-09 entries.
+  importance-based selection gave 85.6 vs gate-based 881. A 300-step
+  fine-tune recovers most of it (gate 6.47, importance 5.80, `[0..7]`
+  5.24), so the collapse was mostly co-adaptation. A second compaction
+  bug found: every compact model drops all skip edges (skip gates are not
+  stored). See the final 2026-10-09 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2174,7 +2177,8 @@ adds +0.58, every layer from 6 up adds under +0.12. Seed 42's
 materialisation kept `[2..8]`, so it dropped layers 0 and 1 — the two
 most important blocks in the model. Layer 0 alone is worth a factor of
 about e^3 ≈ 20 in perplexity, which accounts for most of seed 42's
-inherited-weight collapse (4.75 → 794.77 ppl after the gate-fold fix).
+inherited-weight collapse (4.75 → 881.24 ppl after the gate-fold fix,
+corrected clean figure).
 All three TinyStories seeds excluded layer 0, so the same mechanism very
 probably drives the collapse in all of them (only seed 42 tested here).
 The fresh-retrain condition is not affected by this: it trains the kept
@@ -2212,7 +2216,7 @@ layer choice with an explicit list. Head and FFN-group choice inside each
 layer still uses the threshold. Default behaviour is unchanged.
 
 **Correction to an earlier figure**: the published gate-fix compact model
-(`sot-phase1-tinystories-sot_compact_gatefix-seed42`, the 794.77 ppl one)
+(`sot-phase1-tinystories-sot_compact_gatefix-seed42`, 881.24 ppl clean)
 kept layers `[2..7]` (6 layers). `[2..8]` was the earlier, pre-fix compact
 model. Rebuilding with the default median threshold reproduces `[2..7]`
 exactly.
@@ -2227,9 +2231,11 @@ weights, no retraining; `results/remat_phase1_tinystories_seed42.json`):
 | gate selection + layers 0-1 | `[0..7]` (8) | **15.83** |
 | top-6 by ablation Δloss (same size as gate) | `[0..5]` (6) | 85.59 |
 
-(The gate variant reads 881 here and 794.77 in the earlier run because
-this run uses twice as many tokens. Rows in this table share one
-measurement.)
+(The gate variant's 881.25 matches the corrected clean figure for this
+checkpoint, 881.24, in the 2026-10-06 transformers-correction table. The
+794.77 cited in the entries above is the older, pre-correction number.
+Corrected 2026-10-09 — an earlier version of this note wrongly put the
+difference down to token count.)
 
 1. **Keeping layers 0-1 cuts inherited-weight perplexity by 56x** (881 →
    15.8). The claim holds: dropping the low-gate, high-importance early
@@ -2253,3 +2259,73 @@ of this; it never uses inherited weights. But the *architecture* it
 retrains was also chosen by gate, so it also excluded layer 0's position
 in the stack — whether that matters for a from-scratch retrain is a
 separate, open question (block position means less when weights are new).
+
+## 2026-10-09 (continued) — Short fine-tune of the re-materialised compact models
+
+Question: of the gap between each compact model (inherited weights) and the
+full model, how much is lost capacity and how much is weights that relied
+on the removed parts (co-adaptation)? A short fine-tune recovers
+co-adaptation loss quickly; lost capacity it cannot recover.
+
+**Change**: `retrain_compact.py --keep_weights` fine-tunes the inherited
+weights instead of reinitialising (Hub condition name `compact_finetuned`).
+
+**Run**: RunPod, Secure RTX 4090 ($0.89/hr, EU-RO-1, ~30 min, ≈$0.45,
+pod deleted on completion). Same seed-42 checkpoint revision as the
+previous entry. 300 steps each, lr 1e-4 (30 warmup, cosine), batch 16 ×
+grad_accum 8 × 256 tokens, 100k TinyStories train docs. Before/after ppl
+via `evaluate.ppl` (204k tokens). Script `results/finetune_logs/run_ft.sh`;
+results `results/finetune_phase1_tinystories_seed42.json`.
+
+**Control added**: all 12 layers with `--threshold 0.17` (keeps every head
+and FFN group, drops every skip edge, like the other variants). This
+isolates a second bug found while building it — see below.
+
+| variant | layers | ppl before | ppl after 300 steps | reference (10k steps from scratch) |
+|---|---|---:|---:|---|
+| all 12 layers, no skips | 12 | 10.55 | **4.92** | sot (with skips) 4.75 |
+| gate + layers 0-1 | `[0..7]` (8) | 15.83 | **5.24** | dense_8l 4.83 |
+| top-6 by ablation Δloss | `[0..5]` (6) | 85.61 | **5.80** | discovered_retrained `[2..7]` 4.89 |
+| gate selection | `[2..7]` (6) | 881.17 | **6.47** | discovered_retrained `[2..7]` 4.89 |
+
+(References are the corrected seed-42 numbers from the 2026-10-06 table.
+Validation loss was still falling at step 300 in every run, so "after"
+values are upper bounds.)
+
+1. **Most of the collapse was co-adaptation, not lost capacity.** 300
+   steps (3% of the original training budget) take gate selection from
+   881 to 6.5 and `[0..7]` from 15.8 to 5.2.
+2. **Selection still matters after the fine-tune.** At equal size (6
+   layers), importance selection reaches 5.80 against gate selection's
+   6.47 — about 10% lower ppl, down from 10x before fine-tuning. Choosing
+   by importance keeps more recoverable function.
+3. **Inherited weights + a short fine-tune do not yet beat a fresh
+   retrain.** The 6-layer variants (5.80 / 6.47) still trail the 6-layer
+   `discovered_retrained` (4.89 after 10k steps), and `[0..7]` (5.24)
+   trails `dense_8l` (4.83). With the curves still falling, a longer
+   fine-tune may close this; not tested.
+4. **The cost of removing 4 layers is small once co-adaptation is
+   recovered**: `[0..7]` 5.24 vs the 12-layer control 4.92 (+6.5% ppl)
+   under the same fine-tune.
+
+### Second compaction bug: skip edges are restored at full strength or dropped
+
+`CompactTransformer.forward` (`compact_model.py:91-93`) adds each kept
+skip edge as `previous[src]/sqrt(skip_span)`, without the trained skip
+gate. The SOT model scales each skip by its gate (`model.py`, ≈0.12 mean,
+0.16 max for this checkpoint). So:
+
+- at the usual median threshold (≈0.22), every skip gate falls below the
+  threshold and **every compact model built so far has silently lost all
+  skip paths**;
+- at threshold 0, every skip comes back at gate 1.0, about 8x too strong
+  (ppl 156,336).
+
+Dropping the skips alone, with all 12 layers kept, raises ppl from 4.75
+to 10.55. After 300 fine-tune steps it recovers to 4.92, so this bug is
+mostly co-adaptation too, but it inflates every inherited-weight compact
+number to date. Same class as the earlier gate-fold bug. **Not fixed
+yet.** Fix: store each kept edge's gate in the layer spec and multiply in
+`forward`, and keep skips by gate value relative to other skips rather
+than the layer threshold. `export_architecture`'s `skip_from` contract
+needs a matching update.

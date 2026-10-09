@@ -1,0 +1,18 @@
+{
+  "all 12 layers, no skips": {
+    "ppl_before": 10.551618884048494,
+    "ppl_after_300_steps": 4.922316715817416
+  },
+  "gate + layers 0-1 [0..7]": {
+    "ppl_before": 15.833824413801064,
+    "ppl_after_300_steps": 5.236863006860838
+  },
+  "importance top-6 [0..5]": {
+    "ppl_before": 85.6135658373966,
+    "ppl_after_300_steps": 5.796735544094741
+  },
+  "gate [2..7]": {
+    "ppl_before": 881.1694978531985,
+    "ppl_after_300_steps": 6.46552603174741
+  }
+}

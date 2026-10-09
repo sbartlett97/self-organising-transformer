@@ -34,6 +34,7 @@ p.add_argument('--hub_model_id',default=None,help='Overrides the auto-generated 
 p.add_argument('--hub_private',action='store_true')
 p.add_argument('--hub_phase',default='phase1')
 p.add_argument('--hub_target_cost_tag',default=None)
+p.add_argument('--keep_weights',action='store_true',help='Fine-tune the inherited weights instead of reinitialising (separates co-adaptation loss from capacity loss)')
 p.add_argument('--no_trackio',dest='use_trackio',action='store_false',help='Disable live Trackio metrics (on by default)')
 p.add_argument('--trackio_space_id',default=None,help='HF Space to sync live metrics to, e.g. username/sot-tracking -- defaults to <your HF username>/sot-tracking')
 a=p.parse_args()
@@ -42,10 +43,11 @@ set_seed(a.seed)
 tok=AutoTokenizer.from_pretrained(a.architecture_model)
 if tok.pad_token is None: tok.pad_token=tok.eos_token
 base=CompactTransformer.from_pretrained(a.architecture_model)
-# Fresh weights, identical architecture.
-model=CompactTransformer(base.config)
+# Fresh weights, identical architecture -- unless --keep_weights, which fine-tunes the inherited ones.
+model=base if a.keep_weights else CompactTransformer(base.config)
+condition='compact_finetuned' if a.keep_weights else 'discovered_retrained'
 device=pick_device(a.device); model.to(device).train()
-hub_utils.init_trackio(a, phase=a.hub_phase, condition='discovered_retrained')
+hub_utils.init_trackio(a, phase=a.hub_phase, condition=condition)
 train_data,val_data=load_tokens(TrainConfig(seq_len=base.config.max_position_embeddings,dataset_name=a.dataset_name,dataset_config=a.dataset_config,max_train_docs=a.max_train_docs),tok)
 opt=torch.optim.AdamW(model.parameters(),lr=a.learning_rate,weight_decay=a.weight_decay,betas=(.9,.95))
 sched=get_cosine_schedule_with_warmup(opt,a.warmup_steps,a.max_steps)
@@ -87,7 +89,7 @@ if a.push_to_hub:
     from huggingface_hub import HfApi
     username = HfApi().whoami()['name']
     dataset = hub_utils.dataset_tag(a.dataset_name)
-    repo_id = a.hub_model_id or hub_utils.repo_id_for(username, a.hub_phase, dataset, 'discovered_retrained', a.seed, a.hub_target_cost_tag)
-    hub_utils.push_checkpoint(out, repo_id, a.hub_private, a.hub_phase, dataset, 'discovered_retrained', a.seed)
+    repo_id = a.hub_model_id or hub_utils.repo_id_for(username, a.hub_phase, dataset, condition, a.seed, a.hub_target_cost_tag)
+    hub_utils.push_checkpoint(out, repo_id, a.hub_private, a.hub_phase, dataset, condition, a.seed)
     hub_utils.ensure_collection(username, a.hub_phase, dataset, repo_id)
 hub_utils.trackio_finish()
