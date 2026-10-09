@@ -88,9 +88,12 @@ class CompactTransformer(PreTrainedModel):
         skip_norm=math.sqrt(self.config.skip_span) if self.config.skip_span else 1.0
         for spec, block in zip(self.layer_specs, self.blocks):
             x=block(x)
-            for src_idx in spec.get('skip_from', []):
+            # skip_gate holds each edge's trained SOT gate (SOT scales every skip by its gate). Specs
+            # built before skip_gate existed have none, and keep their original unscaled behaviour.
+            skip_gates=spec.get('skip_gate', [1.0]*len(spec.get('skip_from', [])))
+            for src_idx, g in zip(spec.get('skip_from', []), skip_gates):
                 if src_idx in previous:
-                    x=x+previous[src_idx]/skip_norm
+                    x=x+g*previous[src_idx]/skip_norm
             previous[spec['original_index']]=x
         logits=self.lm_head(self.ln_f(x))
         loss=None
@@ -113,12 +116,17 @@ def build_from_sot(sot_model,threshold=0.5,layer_indices=None):
             legal=[d for d in range(1,sot_model.config.max_heads+1) if sot_model.config.d_model%d==0]
             h=min(legal,key=lambda d: abs(d-h))
             g=max(1,len(item['ffn_groups']))
-            layers.append({'original_index':item['index'],'heads':h,'head_dim':sot_model.config.d_model//sot_model.config.max_heads,'ffn_dim':g*arch['ffn_group_size'],'skip_from':item['skip_from'],'layer_gate':item['layer_gate']})
+            # Every skip edge, not the threshold-filtered item['skip_from']: skip gates train far below
+            # the layer threshold (~0.12 vs ~0.22), so filtering silently dropped all of them. The gate
+            # value travels with the edge so forward() reproduces SOT's scaled contribution.
+            edges=[(item['index']-s,v) for s,v in enumerate(item['skip_gate'],start=1) if s<=item['index']]
+            layers.append({'original_index':item['index'],'heads':h,'head_dim':sot_model.config.d_model//sot_model.config.max_heads,'ffn_dim':g*arch['ffn_group_size'],'skip_from':[e[0] for e in edges],'skip_gate':[e[1] for e in edges],'layer_gate':item['layer_gate']})
     # A skip source that was itself pruned inactive can never appear in `previous` at forward time;
     # drop those edges now so the stored spec matches what forward() will actually find.
     active_indices={l['original_index'] for l in layers}
     for l in layers:
-        l['skip_from']=[s for s in l['skip_from'] if s in active_indices]
+        kept=[(src,g) for src,g in zip(l['skip_from'],l['skip_gate']) if src in active_indices]
+        l['skip_from']=[src for src,_ in kept]; l['skip_gate']=[g for _,g in kept]
     cfg=CompactConfig(vocab_size=sot_model.config.vocab_size,max_position_embeddings=sot_model.config.max_position_embeddings,d_model=sot_model.config.d_model,layers=layers,dropout=sot_model.config.dropout,skip_span=sot_model.config.skip_span)
     compact=CompactTransformer(cfg)
     with torch.no_grad():

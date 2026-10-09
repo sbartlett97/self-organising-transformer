@@ -1,0 +1,18 @@
+{
+  "all 12 layers": {
+    "ppl_skips_dropped": 10.55,
+    "ppl_skips_fixed": 4.750547364181393
+  },
+  "gate + layers 0-1 [0..7]": {
+    "ppl_skips_dropped": 15.83,
+    "ppl_skips_fixed": 13.195340687769455
+  },
+  "importance top-6 [0..5]": {
+    "ppl_skips_dropped": 85.61,
+    "ppl_skips_fixed": 44.874294176471665
+  },
+  "gate [2..7]": {
+    "ppl_skips_dropped": 881.17,
+    "ppl_skips_fixed": 1727.388833273038
+  }
+}

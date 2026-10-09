@@ -59,8 +59,9 @@ for the full phased research programme.
   importance-based selection gave 85.6 vs gate-based 881. A 300-step
   fine-tune recovers most of it (gate 6.47, importance 5.80, `[0..7]`
   5.24), so the collapse was mostly co-adaptation. A second compaction
-  bug found: every compact model drops all skip edges (skip gates are not
-  stored). See the final 2026-10-09 entries.
+  bug (every compact model dropped all skip edges) is now fixed: a
+  compact model keeping every unit reproduces SOT's logits to 4e-5. See
+  the final 2026-10-09 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2324,8 +2325,54 @@ gate. The SOT model scales each skip by its gate (`model.py`, ≈0.12 mean,
 Dropping the skips alone, with all 12 layers kept, raises ppl from 4.75
 to 10.55. After 300 fine-tune steps it recovers to 4.92, so this bug is
 mostly co-adaptation too, but it inflates every inherited-weight compact
-number to date. Same class as the earlier gate-fold bug. **Not fixed
-yet.** Fix: store each kept edge's gate in the layer spec and multiply in
-`forward`, and keep skips by gate value relative to other skips rather
-than the layer threshold. `export_architecture`'s `skip_from` contract
-needs a matching update.
+number to date. Same class as the earlier gate-fold bug. Fixed in the
+next entry.
+
+## 2026-10-09 (continued) — Skip-edge compaction bug fixed
+
+**Fix** (`compact_model.py`):
+
+- `build_from_sot` now keeps every skip edge whose source layer is also
+  kept, and stores each edge's trained gate in a new per-layer `skip_gate`
+  list aligned with `skip_from`. It reads the raw `skip_gate` values from
+  `export_architecture()`'s output, so that JSON contract is unchanged.
+  Skips are no longer filtered by the layer threshold (skip gates train
+  at ~0.12, far below the ~0.22 layer threshold). A skip edge costs one
+  add, so keeping weak ones costs nothing.
+- `CompactTransformer.forward` multiplies each skip by its `skip_gate`.
+  Specs without `skip_gate` (every checkpoint built before this fix) keep
+  their old behaviour.
+
+**Verification** (Phase 1 TinyStories seed 42, revision `73d297f`):
+
+- Compact model keeping every layer, head and FFN group vs the SOT model,
+  same random batch: max |Δlogit| = 4.3e-5 (largest logit ≈15), both in
+  memory and after `save_pretrained`/`from_pretrained`. Materialisation
+  is now exact when nothing is pruned.
+- Published pre-fix checkpoint `sot_compact_gatefix-seed42` still
+  evaluates to 881.25 (backward compatible).
+
+**Inherited-weight ppl with skips restored** (no fine-tune;
+`results/skipfix_phase1_tinystories_seed42.json`):
+
+| variant | skips dropped (before fix) | skips kept with gates |
+|---|---:|---:|
+| all 12 layers | 10.55 | **4.75** (= sot) |
+| gate + layers 0-1 `[0..7]` | 15.83 | 13.20 |
+| top-6 by ablation `[0..5]` | 85.61 | 44.87 |
+| gate selection `[2..7]` | 881.17 | 1727.39 |
+
+Restoring skips helps every variant that keeps layers 0-1, and makes the
+gate-selected `[2..7]` worse. Likely reason: with layers 0-1 removed, the
+residual stream feeding layers 2+ is already wrong, and the restored
+skips add more of that wrong signal. Untested. For pruned models,
+inherited-weight ppl without a fine-tune measures mismatch, not quality.
+The fine-tuned numbers in the previous entry are the better comparison.
+Those runs used the pre-fix code (no skips), so the fine-tune table
+should be re-run with the fix before relying on it.
+
+**Side effect on future runs**: `retrain_compact.py` builds fresh models
+from the compact config, so `discovered_retrained` architectures now
+include skip edges with fixed (non-trainable) gate scales. Every earlier
+`discovered_retrained` run had no skips. New and old retrain numbers are
+not directly comparable.
