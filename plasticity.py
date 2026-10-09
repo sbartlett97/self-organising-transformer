@@ -122,6 +122,10 @@ class StructuralController:
         self._train_loss_ema: Optional[float] = None
         self._last_max_birth_score: float = 0.0
         self._last_nan_candidates: int = 0
+        self._last_below_floor_count: int = 0
+        self._last_death_eligible_pool: int = 0
+        self._last_max_death_streak: int = 0
+        self._last_gate_spread: dict = {}
         self.events: list[dict] = []
         self._death_streak: dict[tuple, int] = {}
         self._register_units()
@@ -243,6 +247,19 @@ class StructuralController:
                 mature_gates_by_kind[uid[0]].append(torch.sigmoid(torch.tensor(self._get_logit(uid))).item())
         kind_median = {kind: statistics.median(vals) for kind, vals in mature_gates_by_kind.items()}
 
+        # Diagnostic-only bookkeeping (2026-10-09): death_streak itself was
+        # never surfaced anywhere, so after four real-scale runs with zero
+        # deaths there was no way to tell "eligibility never fires" (gates
+        # never spread below their kind's relative floor) apart from
+        # "eligibility fires but the streak keeps resetting before
+        # death_patience completes" (recovery churn). These counters answer
+        # that directly from growth_log.json without changing any behavior.
+        below_floor_count = 0
+        current_streaks = []  # streak values for units actually in play this check -- a dead unit's
+        # frozen streak (last value before it died) must not leak into "current" state once it leaves
+        # the mature pool, or max_death_streak would stay pinned >= death_patience forever after a
+        # single death even though nothing is actively accumulating any more.
+
         eligible = []
         for uid, t in self.units.items():
             if t.state != LifecycleState.MATURE or t.steps_since_birth < self.minimum_age:
@@ -252,11 +269,21 @@ class StructuralController:
             death_score = relative_floor - gate_val  # positive = below its kind's relative floor
             if gate_val < relative_floor:
                 self._death_streak[uid] = self._death_streak.get(uid, 0) + 1
+                below_floor_count += 1
             else:
                 self._death_streak[uid] = 0
+            current_streaks.append(self._death_streak[uid])
             if self._death_streak.get(uid, 0) >= self.death_patience:
                 eligible.append((death_score, uid))
         eligible.sort(key=lambda x: -x[0])
+
+        self._last_below_floor_count = below_floor_count
+        self._last_death_eligible_pool = len(current_streaks)
+        self._last_max_death_streak = max(current_streaks, default=0)
+        self._last_gate_spread = {
+            kind: {"min": min(vals), "median": kind_median[kind], "max": max(vals)}
+            for kind, vals in mature_gates_by_kind.items()
+        }
 
         deaths = []
         for death_score, uid in eligible[: self.death_limit]:
@@ -351,6 +378,10 @@ class StructuralController:
             "max_dormant_birth_score": self._last_max_birth_score,
             "birth_score_floor": self.birth_score_floor,
             "nan_candidates": self._last_nan_candidates,
+            "below_floor_count": self._last_below_floor_count,
+            "death_eligible_pool": self._last_death_eligible_pool,
+            "max_death_streak": self._last_max_death_streak,
+            "gate_spread": self._last_gate_spread,
             "state_counts": self.state_counts(),
         }
 

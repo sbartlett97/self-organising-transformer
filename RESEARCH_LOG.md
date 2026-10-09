@@ -31,11 +31,18 @@ for the full phased research programme.
   attempt grew the most (689 mature, 160/160 possible births) and had
   the *worst* ppl (31.89); the deliberately-tuned attempt landed in
   between (28.08) but still never triggered a single death despite every
-  eligibility knob loosened at once. Reading: probably not a
-  parameter-tuning problem anymore — population climbs every quartile in
-  every attempt and never plateaus on its own, so death's relative-median
-  comparison never gets a stable target to measure against. Open
-  question, not yet decided — see the 2026-10-08 entries.
+  eligibility knob loosened at once. **Diagnosed (2026-10-09): confirmed
+  as a margin/homogeneity problem, not a patience/streak problem** — a
+  dedicated instrumented run showed death's eligibility condition
+  (`gate below its kind's relative-median floor`) never fired even once
+  across 2750 steps and a growing 545→570-unit eligible pool; the worst
+  unit of any kind still sat at 84-93% of its kind's median, far above
+  the 60% floor `death_relative_margin` set. `death_patience` was never
+  even exercised — there was no streak to reset because eligibility
+  itself never happened. Next question: whether a much looser
+  `death_relative_margin` (tuned to the ~85-90% range this run actually
+  showed) or a longer training budget is the right next move — see the
+  2026-10-09 entry.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -1918,3 +1925,138 @@ diagnostic pass over `growth_log.json`/`events.json` specifically
 checking whether individual units' death-streak counters are even
 starting to accumulate (vs. resetting every check) before assuming more
 loosening would help. Not decided — flagging for the user.
+
+## 2026-10-09 — Death-streak-accumulation diagnostic: eligibility never fires, not a patience/streak problem
+
+The user picked the second candidate from the entry above: check directly
+whether death's `death_patience`-based streak mechanism is the actual
+blocker, rather than guessing further.
+
+### Instrumentation
+
+`_death_streak` (`plasticity.py`) was already tracked per-unit but never
+surfaced anywhere — `events.json`/`growth_log.json`/Trackio only ever saw
+*births* and *deaths*, not the eligibility checks that produced neither.
+Added four fields to `_death_pass()`/`update()`'s returned dict, purely
+additive (no behavior change):
+
+- `below_floor_count` — how many old-enough mature units fail
+  `gate_val < kind_median * death_relative_margin` *this check*.
+- `death_eligible_pool` — the denominator (old-enough mature units
+  checked at all).
+- `max_death_streak` — the highest *current* streak across those units
+  this check (explicitly NOT a running historical peak — a unit that
+  dips below the floor then recovers must show this reset to 0, verified
+  by a dedicated local test).
+- `gate_spread` — per kind (`layer`/`head`/`ffn_group`), `{min, median,
+  max}` of mature gate values this check.
+
+Verified locally first (test13 added to the local `StructuralController`
+test suite, 13/13 passing, zero cost): a unit forced below its kind's
+floor shows `max_death_streak=1` after one check and `below_floor_count
+>= 1`; once it recovers, both report 0 on the very next check, confirming
+the fields track live state rather than a historical peak.
+
+### Run
+
+Reused attempt 4's exact config (768-width WikiText-103 scale,
+`birth_limit` 4→1 tapered, `birth_score_floor=0.005`, `minimum_age=500`,
+`death_relative_margin=0.6`, `death_patience=2`) so the diagnostic reads
+the same run shape that produced the zero-death result under
+investigation — just shortened to `--max_steps 3000` (~10 growth checks,
+enough to see the pattern settle) instead of a full 10000, since this
+only needed to observe a mechanism, not reproduce a full training
+trajectory. `--no_trackio`, no `--push_to_hub` (throwaway diagnostic).
+
+**Infrastructure note**: this run hit two unrelated container/host
+issues before it could start, both on RunPod's community cloud tier —
+worth recording since they'll recur. First pod: the account's previously-
+registered SSH key had no matching local private key (generated on a
+different machine/session), so `startSsh` access failed outright;
+regenerated a dedicated local keypair and registered it via `runpodctl
+ssh add-key`. Second, same pod, after fixing SSH: `torch.cuda.is_available()`
+returned `False` ("CUDA unknown error") despite `nvidia-smi` working
+fine — caused by the container exposing the physical GPU as
+`/dev/nvidia6` instead of `/dev/nvidia0`, which CUDA's runtime API (unlike
+NVML-based `nvidia-smi`) requires for sequential enumeration; a
+`ln -sf /dev/nvidia6 /dev/nvidia0` symlink didn't fix it on that host, so
+the pod was torn down and recreated (new host, same fix needed —
+`/dev/nvidia1 -> /dev/nvidia0` worked there). Third, same new pod: direct
+(non-proxy) SSH rejected the correct key with "Permission denied" because
+the container image ships `/root` as world-writable (`777`), which trips
+sshd's `StrictModes` pubkey-auth guard regardless of correct
+`authorized_keys` permissions — fixed with `chmod 755 /root` via the
+(separately-authenticating) `ssh.runpod.io` proxy shell, which uses
+account-level auth rather than the container's sshd and so wasn't
+affected by the same bug. None of these reflect a problem with this
+project's own setup — all three are quirks of the specific community-
+cloud host/image combination landed on. Total infra cost from two
+false-start pods before the real one: $0.21 (8¢ + 12¢), real diagnostic
+run: 2.1 hours, $0.46. Total: **$0.67**.
+
+### Result: eligibility never fires — not once, in 2750 steps of eligibility window
+
+| step | births | deaths | below_floor_count | eligible pool | max_death_streak |
+|---:|---:|---:|---:|---:|---:|
+| 250  | 4 | 0 | 0 | 0 (not yet aged in) | 0 |
+| 500  | 4 | 0 | 0 | 545 | 0 |
+| 750  | 3 | 0 | 0 | 545 | 0 |
+| 1000 | 3 | 0 | 0 | 549 | 0 |
+| 1250 | 3 | 0 | 0 | 553 | 0 |
+| 1500 | 2 | 0 | 0 | 556 | 0 |
+| 1750 | 2 | 0 | 0 | 559 | 0 |
+| 2000 | 2 | 0 | 0 | 562 | 0 |
+| 2250 | 2 | 0 | 0 | 564 | 0 |
+| 2500 | 2 | 0 | 0 | 566 | 0 |
+| 2750 | 1 | 0 | 0 | 568 | 0 |
+| 3000 | 1 | 0 | 0 | 570 | 0 |
+
+`below_floor_count` is **0 at every single check**, from the moment the
+eligible pool first populates (step 500, 545 units) through the end (step
+3000, 570 units). `max_death_streak` never leaves 0 — not one unit, in
+2750 steps of eligibility window across a growing population, has ever
+had its gate fall below `death_relative_margin(0.6) * its kind's median`,
+even for a single check.
+
+`gate_spread` at the final check explains why directly:
+
+```
+layer:     min=0.265  median=0.315  max=0.336   (min/median = 84%)
+head:      min=0.264  median=0.282  max=0.323   (min/median = 93%)
+ffn_group: min=0.262  median=0.299  max=0.310   (min/median = 88%)
+```
+
+The *worst* unit of any kind still sits at 84-93% of its kind's median —
+nowhere near the 60% floor `death_relative_margin=0.6` sets. The mature
+population's gate values are simply too homogeneous for a
+40%-below-median criterion to ever separate a "clear loser" from the
+pack, regardless of how lenient `death_patience` is.
+
+### Conclusion: this is failure mode (a), not (b) — a margin/homogeneity problem, not a streak-reset problem
+
+The two candidate explanations named when this diagnostic was proposed:
+(a) gates never spread enough for eligibility to fire at all, vs. (b)
+eligibility fires but streaks keep resetting before `death_patience`
+completes. The data is unambiguous: **(a)**. `death_patience`'s
+streak-accumulation mechanism was never even exercised in this run —
+eligibility itself (`below_floor_count > 0`) never happened once, so
+there was nothing for a streak to accumulate or reset. All four prior
+attempts' loosening of `death_patience` (3→2) and `minimum_age` (1000→
+500) could not possibly have helped, because neither knob is downstream
+of the actual blocker.
+
+This reframes the open question from "how should births/death timing be
+tuned" to a different, more basic one: **is a population-relative
+median threshold the right death criterion at all**, given that this
+architecture's gate values appear to converge to a narrow band (roughly
+±15% of the kind median, based on this run) rather than spreading out
+enough to expose clear underperformers. Candidates worth considering,
+not yet tried: a much less conservative `death_relative_margin` (e.g.
+0.85-0.9, tuned to what this run's actual spread shows, rather than the
+previous 0.5→0.6 progression which was never close to the real range);
+an absolute-ish criterion scaled to the observed spread rather than a
+flat fraction of the median; or accepting that this architecture may
+simply not produce the degree of inter-unit differentiation needed for
+relative pruning to work within a 10000-step budget, which would argue
+for the "longer training budget" option from the previous entry instead.
+Not decided — flagging for the user.
