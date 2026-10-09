@@ -2368,11 +2368,43 @@ residual stream feeding layers 2+ is already wrong, and the restored
 skips add more of that wrong signal. Untested. For pruned models,
 inherited-weight ppl without a fine-tune measures mismatch, not quality.
 The fine-tuned numbers in the previous entry are the better comparison.
-Those runs used the pre-fix code (no skips), so the fine-tune table
-should be re-run with the fix before relying on it.
+Those runs used the pre-fix code (no skips); re-run with the fix in the
+next entry — results unchanged within 0.02 ppl.
 
 **Side effect on future runs**: `retrain_compact.py` builds fresh models
 from the compact config, so `discovered_retrained` architectures now
 include skip edges with fixed (non-trainable) gate scales. Every earlier
 `discovered_retrained` run had no skips. New and old retrain numbers are
 not directly comparable.
+
+## 2026-10-09 (continued) — Fine-tune re-run with the skip fix
+
+Same protocol as the earlier fine-tune entry (300 steps, lr 1e-4, same
+checkpoint revision), re-run with the skip-gate fix (`9e199cc`). RunPod
+Secure RTX 4090, US-NC-1, ~35 min, ≈$0.52, pod deleted on completion.
+Results `results/finetune_skipfix_phase1_tinystories_seed42.json`.
+
+| variant | before (skips fixed) | after 300 steps (skips fixed) | after 300 steps (pre-fix run) |
+|---|---:|---:|---:|
+| all 12 layers | 4.75 | 4.87 | 4.92 |
+| gate + layers 0-1 `[0..7]` | 13.19 | **5.23** | 5.24 |
+| top-6 by ablation `[0..5]` | 44.88 | **5.82** | 5.80 |
+| gate selection `[2..7]` | 1726.66 | **6.46** | 6.47 |
+
+1. **After a fine-tune, the skip bug makes no measurable difference** for
+   the pruned variants (all within 0.02 ppl of the pre-fix run). The skip
+   paths are weak (gates ≈0.12) and 300 steps compensate either way. The
+   bug mattered for inherited-weight numbers without fine-tuning and for
+   exact reproduction, not for these conclusions. The earlier fine-tune
+   entry's findings stand.
+2. **The fine-tune protocol itself costs about 2.5%.** The 12-layer
+   control now starts exactly at sot's 4.75 and ends at 4.87. Re-warming
+   the learning rate on an already-converged model, on a 100k-doc subset,
+   perturbs it slightly. So the right baseline for the pruned variants is
+   4.87, not 4.75: removing 4 layers (`[0..7]`) costs +7.4% ppl
+   (5.23 vs 4.87); removing 6 costs +19.5% (`[0..5]`, importance) or
+   +32.6% (`[2..7]`, gate).
+3. Importance selection still beats gate selection at equal size after
+   fine-tuning (5.82 vs 6.46), and all fine-tuned variants still trail
+   fresh 10k-step retrains of similar size (`dense_8l` 4.83,
+   `discovered_retrained` 4.89).

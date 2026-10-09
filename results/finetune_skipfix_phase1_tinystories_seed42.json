@@ -1,0 +1,19 @@
+{
+  "all 12 layers (skips kept)": {
+    "ppl_before": 4.750695439401719,
+    "ppl_after_300_steps": 4.867393575640508
+  },
+  "gate + layers 0-1 [0..7]": {
+    "ppl_before": 13.192499356236544,
+    "ppl_after_300_steps": 5.233846542767391
+  },
+  "importance top-6 [0..5]": {
+    "ppl_before": 44.87789299115695,
+    "ppl_after_300_steps": 5.821696981819112
+  },
+  "gate [2..7]": {
+    "ppl_before": 1726.6619458189637,
+    "ppl_after_300_steps": 6.463442750662805
+  },
+  "_note": "Run 2026-10-09 with the skip-gate fix (commit 9e199cc). Same protocol as results/finetune_phase1_tinystories_seed42.json."
+}

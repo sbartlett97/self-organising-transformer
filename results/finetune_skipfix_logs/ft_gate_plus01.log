@@ -1,0 +1,6 @@
+step=100 train_loss=1.8392
+step=100 val_loss=1.7156 val_ppl=5.560
+step=200 train_loss=1.4386
+step=200 val_loss=1.6667 val_ppl=5.295
+step=300 train_loss=1.6480
+step=300 val_loss=1.6453 val_ppl=5.183
