@@ -24,6 +24,7 @@ class UnitTelemetry:
     state: LifecycleState = LifecycleState.DORMANT
     gradient_ema: float = 0.0
     contribution_ema: float = 0.0
+    importance_ema: float = 0.0
     age: int = 0
     steps_since_birth: int = 0
 
@@ -68,6 +69,17 @@ class StructuralController:
         # than a fixed magnitude this architecture may never reach.
         death_relative_margin: float = 0.5,
         death_patience: int = 3,
+        # What death compares against the kind median. "importance" (default)
+        # is an EMA of the first-order Taylor estimate |g * dL/dg| of the loss
+        # change from removing the unit. "gate" is the original gate-value
+        # rule, kept for comparison. Gate value does not track importance in
+        # this architecture: an ablation test on the Phase 2 attempt-4
+        # checkpoint (ablation_importance.py, RESEARCH_LOG.md 2026-10-09)
+        # found rank correlation with true loss change of -0.72 for layers
+        # and ~0 for FFN groups, and gates so uniform that the gate rule
+        # never fired in four runs. The Taylor estimate tracked true
+        # importance (0.93/0.53/0.56 on unseen batches) and is spread widely.
+        death_criterion: str = "importance",
         ema_decay: float = 0.98,
         birth_weight_gradient: float = 0.5,
         birth_weight_contribution: float = 0.3,
@@ -107,6 +119,9 @@ class StructuralController:
         self.minimum_age = minimum_age
         self.death_relative_margin = death_relative_margin
         self.death_patience = death_patience
+        if death_criterion not in ("importance", "gate"):
+            raise ValueError(f"unknown death_criterion {death_criterion!r} (expected 'importance' or 'gate')")
+        self.death_criterion = death_criterion
         self.ema_decay = ema_decay
         self.w_g = birth_weight_gradient
         self.w_c = birth_weight_contribution
@@ -126,6 +141,7 @@ class StructuralController:
         self._last_death_eligible_pool: int = 0
         self._last_max_death_streak: int = 0
         self._last_gate_spread: dict = {}
+        self._last_importance_spread: dict = {}
         self.events: list[dict] = []
         self._death_streak: dict[tuple, int] = {}
         self._register_units()
@@ -201,8 +217,13 @@ class StructuralController:
                 # overflow slipping through before the scaler catches it,
                 # a rare spike, whatever) take out a unit for the rest of
                 # training.
+                gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
                 if math.isfinite(g):
                     t.gradient_ema = self.ema_decay * t.gradient_ema + (1 - self.ema_decay) * abs(g)
+                    # Taylor importance |g * dL/dg|. dL/dlogit = dL/dg * g(1-g),
+                    # so g * dL/dg = dL/dlogit / (1-g): no extra backward pass.
+                    taylor = abs(g / max(1.0 - gate_val, 1e-6))
+                    t.importance_ema = self.ema_decay * t.importance_ema + (1 - self.ema_decay) * taylor
             gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
             t.contribution_ema = self.ema_decay * t.contribution_ema + (1 - self.ema_decay) * gate_val
             t.age += 1
@@ -237,15 +258,19 @@ class StructuralController:
         and remain eligible next call, so a real die-off still happens, just
         gradually.
 
-        Eligibility is relative, not absolute: a unit's gate is compared
-        against its own kind's (layer/head/ffn_group) current
+        Eligibility is relative, not absolute: a unit's death signal
+        (importance_ema, or gate value under death_criterion="gate") is
+        compared against its own kind's (layer/head/ffn_group) current
         mature-population median, recomputed fresh every call -- see
-        death_relative_margin's docstring in __init__ for why."""
+        death_relative_margin's and death_criterion's notes in __init__."""
         mature_gates_by_kind: dict = defaultdict(list)
+        mature_importance_by_kind: dict = defaultdict(list)
         for uid, t in self.units.items():
             if t.state == LifecycleState.MATURE:
                 mature_gates_by_kind[uid[0]].append(torch.sigmoid(torch.tensor(self._get_logit(uid))).item())
-        kind_median = {kind: statistics.median(vals) for kind, vals in mature_gates_by_kind.items()}
+                mature_importance_by_kind[uid[0]].append(t.importance_ema)
+        signal_by_kind = mature_importance_by_kind if self.death_criterion == "importance" else mature_gates_by_kind
+        kind_median = {kind: statistics.median(vals) for kind, vals in signal_by_kind.items()}
 
         # Diagnostic-only bookkeeping (2026-10-09): death_streak itself was
         # never surfaced anywhere, so after four real-scale runs with zero
@@ -264,10 +289,13 @@ class StructuralController:
         for uid, t in self.units.items():
             if t.state != LifecycleState.MATURE or t.steps_since_birth < self.minimum_age:
                 continue
-            gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
+            if self.death_criterion == "importance":
+                signal = t.importance_ema
+            else:
+                signal = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
             relative_floor = kind_median[uid[0]] * self.death_relative_margin
-            death_score = relative_floor - gate_val  # positive = below its kind's relative floor
-            if gate_val < relative_floor:
+            death_score = relative_floor - signal  # positive = below its kind's relative floor
+            if signal < relative_floor:
                 self._death_streak[uid] = self._death_streak.get(uid, 0) + 1
                 below_floor_count += 1
             else:
@@ -281,8 +309,12 @@ class StructuralController:
         self._last_death_eligible_pool = len(current_streaks)
         self._last_max_death_streak = max(current_streaks, default=0)
         self._last_gate_spread = {
-            kind: {"min": min(vals), "median": kind_median[kind], "max": max(vals)}
+            kind: {"min": min(vals), "median": statistics.median(vals), "max": max(vals)}
             for kind, vals in mature_gates_by_kind.items()
+        }
+        self._last_importance_spread = {
+            kind: {"min": min(vals), "median": statistics.median(vals), "max": max(vals)}
+            for kind, vals in mature_importance_by_kind.items()
         }
 
         deaths = []
@@ -381,7 +413,9 @@ class StructuralController:
             "below_floor_count": self._last_below_floor_count,
             "death_eligible_pool": self._last_death_eligible_pool,
             "max_death_streak": self._last_max_death_streak,
+            "death_criterion": self.death_criterion,
             "gate_spread": self._last_gate_spread,
+            "importance_spread": self._last_importance_spread,
             "state_counts": self.state_counts(),
         }
 

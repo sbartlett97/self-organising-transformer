@@ -2408,3 +2408,52 @@ Results `results/finetune_skipfix_phase1_tinystories_seed42.json`.
    fine-tuning (5.82 vs 6.46), and all fine-tuned variants still trail
    fresh 10k-step retrains of similar size (`dense_8l` 4.83,
    `discovered_retrained` 4.89).
+
+## 2026-10-09 (continued) — Importance-based death criterion
+
+Follows from the ablation finding that gate value does not track
+importance. Death now ranks units by measured importance instead of gate
+value.
+
+**Change** (`plasticity.py`, `train_phase2.py`):
+
+- `UnitTelemetry.importance_ema`: an EMA of the first-order Taylor
+  estimate `|g·∂L/∂g|`, the estimated loss change from removing the unit.
+  `record_step` computes it from the gradient it already reads:
+  `g·∂L/∂g = ∂L/∂logit / (1−g)`. No extra backward pass. Non-finite
+  gradients skip the update, like `gradient_ema`.
+- `StructuralController(death_criterion=...)`: `"importance"` (new
+  default) compares `importance_ema` against `death_relative_margin` × the
+  kind's mature-population median. `"gate"` keeps the original gate-value
+  rule for comparison runs. `death_patience`, `death_limit` and
+  `minimum_age` work as before.
+- `update()` now also reports `death_criterion` and `importance_spread`
+  (per-kind min/median/max of `importance_ema`) in `growth_log.json`.
+- CLI: `train_phase2.py --death_criterion {importance,gate}`.
+
+**Tests**: the controller suite now lives in the repo at
+`tests/phase2_controller_test.py` (it was previously only in a session
+scratchpad). Tests 1-13 pin `death_criterion="gate"` and still pass. New
+tests 14-18 cover the importance path: the EMA matches the Taylor formula
+on a real backward pass; a low-importance unit dies even with a high
+gate while a low-gate, high-importance peer survives; a gate-only dip no
+longer makes a unit eligible; diagnostics report the criterion and
+spread; an unknown criterion is rejected. 18/18 pass
+(`.venv/bin/python tests/phase2_controller_test.py`).
+
+**Smoke run** (local, tiny 4-layer/128-wide model, 400 steps, TinyStories
+3k docs, `growth_interval=25`, `minimum_age=50`, margin 0.5, patience 2):
+32 births, **4 deaths** — the first deaths in a real training loop since
+the relative-margin change. Importance min/median ratios ran 0.42-0.78
+by kind. Mechanism check only, not a quality result.
+
+**Expected behaviour at full scale**: the Taylor scores in the attempt-4
+ablation (`results/ablation_phase2_v4_batchseed99.json`) have min/median
+of 0.55 (layers), 0.12 (heads), 0.60 (FFN groups). At margin 0.5, about a
+third of mature heads would be eligible and no layers or FFN groups.
+That sample was chosen by gate quantile and estimated from 16 batches, so
+the training-time EMA spread may differ. `death_limit` caps the rate.
+
+**Next**: a real-scale Phase 2 run (attempt-4 config, 768-wide,
+WikiText-103) with `--death_criterion importance`, compared against
+attempt 4 (28.08 ppl, 0 deaths). Not run yet.
