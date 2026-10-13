@@ -62,6 +62,16 @@ for the full phased research programme.
   bug (every compact model dropped all skip edges) is now fixed: a
   compact model keeping every unit reproduces SOT's logits to 4e-5. See
   the final 2026-10-09 entries.
+- **Latest (2026-10-13): importance-based death works at full scale.**
+  Attempt 5 (attempt-4 config plus `--death_criterion importance`) gave
+  the first real-scale deaths: 48 by step 6500, and 4 whole layers
+  (7, 9, 10, 11). Layer 0 survives. Quality trails attempt 4 by 2-4%
+  between spikes (step 9500: 29.95 vs 28.6). Final 35.71 vs 28.08, but
+  layer 4 died at the last check, just before the final eval. 58 of 71
+  head/FFN deaths hit units in already-dead layers. Validation spikes
+  trace to one-step structure changes. Fixed: births ramp the gate in
+  (`birth_ramp_steps`). Open: skip dead-layer units; gradual death or
+  an end-of-training freeze. See the 2026-10-13 entry.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2457,3 +2467,111 @@ the training-time EMA spread may differ. `death_limit` caps the rate.
 **Next**: a real-scale Phase 2 run (attempt-4 config, 768-wide,
 WikiText-103) with `--death_criterion importance`, compared against
 attempt 4 (28.08 ppl, 0 deaths). Not run yet.
+
+## 2026-10-13 — Attempt 5: importance-based death at full scale
+
+**Run**: attempt 4's exact config (768-wide, WikiText-103, seed 42,
+`birth_limit` 4→1, `birth_score_floor=0.005`, `minimum_age=500`,
+`death_relative_margin=0.6`, `death_patience=2`, `death_limit=2`) with
+one change: `--death_criterion importance` (commit `4d3149d`). Hub tag
+`768d013-v5-imp`. RunPod community cloud, A100 SXM 80GB ($1.39/h), 1.27
+steps/s, so about 2.2 h for 10k steps. (No community 4090 stock. The one
+RTX 5080 host in stock failed `torch.cuda.is_available()` on two pods;
+both were deleted.) Checkpoint JSONs are copied to
+`results/phase2_v5_importance/` every 500 steps, because Phase 2 pushes
+to the Hub only at the end and the host has maintenance at 18:00 BST.
+
+### Deaths fire from the first eligible check
+
+At step 500, 232 of 545 old-enough mature units were below the floor.
+Under the gate rule this count was 0 at every check of the diagnostic
+run. The first deaths came at step 750, the earliest step that
+`death_patience=2` allows. Every check since then has used its full
+`death_limit` of 2.
+
+| step | births | deaths | dead layers | val ppl v5 | val ppl attempt 4 | gap |
+|---:|---:|---:|---|---:|---:|---:|
+| 1000 | 16 | 4 | — | 127.8 | 115.7 | +10.4% |
+| 2000 | 30 | 12 | 10, 9, 11 | 54.5 | 54.0 | +0.9% |
+| 3000 | 42 | 20 | 10, 9, 11 | 40.4 | 39.7 | +1.8% |
+| 4000 | 54 | 28 | 10, 9, 11 | 34.9 | 34.2 | +1.9% |
+| 4500 | 60 | 32 | + 7 | 35.9 | 32.4 | +10.8% |
+| 5000 | 65 | 36 | 10, 9, 11, 7 | 32.2 | 30.9 | +4.3% |
+| 5500 | 69 | 40 | 10, 9, 11, 7 | 30.7 | 29.7 | +3.3% |
+| 6000 | 73 | 44 | 10, 9, 11, 7 | **143.1** | 28.6 | — |
+| 6500 | 77 | 48 | 10, 9, 11, 7 | 34.4 | 90.5 (spike) | — |
+
+What died (by step 4000: 22 heads, 3 layers, 3 FFN groups):
+
+- **Late layers first**: layer 10 (step 1250), 9 (1500), 11 (1750), 7
+  (4500). This matches the ablation: late layers carried about +0.05
+  loss each, and layer 0 carried +5.0. Layer 0 is still alive.
+- **Heads**: most deaths. This matches the calibration estimate (head
+  importance min/median 0.12 vs 0.55-0.60 for the other kinds).
+- Births went mostly to FFN groups (39 of 54 by step 4000). The model
+  moves capacity from depth into width.
+
+### Three design faults found
+
+1. **Births are not function-preserving** (the step-6000 spike). Birth
+   sets the logit from about -4 to -1 in one step, so the gate jumps from
+   about 0.02 to 0.27. The unit's weights were never trained to
+   contribute at that scale. At step 6000 the controller gave birth to
+   heads 0.3 and 1.10, the first head births in the two most important
+   layers. Train loss stayed flat at 3.40 (logged before the update), but
+   val ppl measured just after the update was 143.1. It recovered to 34.4
+   within 500 steps. Attempt 4's unexplained step-6500 spike (90.5) is
+   probably the same effect.
+2. **Death is a one-step cut.** Layer 7's death at step 4500 matches a
+   val ppl rise from 34.9 to 35.9 while attempt 4 fell to 32.4. Recovery
+   took about 1000 steps.
+3. **The lifecycle ignores the parent layer.** After layer 11 died
+   (step 1750), the controller spent death slots on FFN groups inside it
+   (11.79, 11.97, 11.66, 11.93, 11.20). These deaths change nothing.
+   It also gave birth to 6 FFN groups in layer 7 at steps 4250-4500
+   (layer 7 died at step 4500), 2 more at step 5750, and killed 4 FFN
+   groups inside dead layer 7 at steps 5750-6000. Units inside a dead
+   layer must be neither born nor killed.
+
+### Next
+
+- Fix 1 (this entry's follow-up): ramp a born unit's gate in over
+  `birth_ramp_steps` instead of one step.
+- Fixes 2 and 3 are not started.
+
+### Final result (step 10000)
+
+Run time 2.2 h. Pod cost about $4.70 (A100, 3.4 h including setup),
+plus $0.05 for the two failed RTX 5080 pods. Model:
+`sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v5-imp`.
+
+| | attempt 4 (gate death) | attempt 5 (importance death) |
+|---|---:|---:|
+| births / deaths | 98 / 0 | 98 / 76 |
+| deaths by kind | — | 46 FFN groups, 25 heads, 5 layers |
+| dead layers | none | 4, 7, 9, 10, 11 |
+| mature units at end | 641 | 565 |
+| cost proxy at end | 0.0777 | 0.0523 |
+| val ppl, step 9500 | 28.6 | 29.95 (+4.7%) |
+| val ppl, step 10000 | **28.08** | **35.71** |
+
+- **The final number is not a fair reading.** Layer 4 died at the
+  step-10000 check, just before the final eval. Val ppl went 29.95 →
+  35.71 with no steps left to recover. Step 9500 is the fair comparison:
+  +4.7% ppl for a 33% lower cost proxy and 5 of 12 layers removed. The
+  cost proxy is gate-weighted, not real compute (see
+  the 2026-10-09 ablation entry).
+- **Fault 3 is the largest waste.** 58 of the 71 head/FFN deaths hit
+  units inside a layer that was already dead. Only 13 deaths removed
+  live capacity. The `death_limit` budget went mostly to no-ops.
+- Every structure change at a check right before an eval shows up as a
+  spike (steps 4500, 6000, 8500, 10000). A death or birth with no
+  recovery time is the common cause.
+
+### Next
+
+1. Fix fault 3: skip units in a dead layer for both birth and death.
+2. Fix fault 2: ramp death down like birth, or stop structural changes
+   in the last part of training (a freeze window before the end).
+3. Re-run attempt 5 with fixes 1-3 (the ramp-up is already in the code).
+

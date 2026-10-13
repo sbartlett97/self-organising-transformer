@@ -31,6 +31,7 @@ class Phase2Config(TrainConfig):
     death_patience: int = 3
     death_criterion: str = "importance"
     birth_score_floor: float = 0.0
+    birth_ramp_steps: int = 250
     output_dir: str = "./outputs/phase2"
 
 
@@ -107,6 +108,7 @@ def train(cfg: Phase2Config):
         death_patience=cfg.death_patience,
         death_criterion=cfg.death_criterion,
         birth_score_floor=cfg.birth_score_floor,
+        birth_ramp_steps=cfg.birth_ramp_steps,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -259,6 +261,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--death_criterion", choices=["importance", "gate"], default="importance", help="Signal compared against the kind median for death: EMA of Taylor importance |g*dL/dg| (default), or the original gate value")
     p.add_argument("--death_patience", type=int, default=3, help="Consecutive growth checks a unit must stay below death_relative_margin before it actually dies")
     p.add_argument("--birth_score_floor", type=float, default=0.0, help="A dormant candidate is birth-eligible only if its raw score exceeds this -- excludes genuinely zero-signal candidates from filling the birth_limit quota, see plasticity.py's StructuralController docstring")
+    p.add_argument("--birth_ramp_steps", type=int, default=250, help="Steps over which a born unit's gate logit climbs from its dormant value to the active init. 0 = one-step jump (the original rule).")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)

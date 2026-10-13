@@ -83,6 +83,7 @@ controller = StructuralController(
     death_relative_margin=cfg.death_relative_margin,
     death_patience=cfg.death_patience,
     death_criterion="gate",  # tests 1-13 drive death through gate values (the original rule)
+    birth_ramp_steps=0,  # tests 1-13 expect the original one-step birth
     seed=0,
 )
 
@@ -449,5 +450,60 @@ try:
     raise AssertionError("expected ValueError for unknown death_criterion")
 except ValueError:
     print("test18: PASS (unknown death_criterion rejected)")
+
+
+# ===== birth_ramp_steps (tests 19-21) =====
+# A fresh model with no gradients: record_step then only advances the ramp.
+torch.manual_seed(2)
+ramp_model = PlasticTransformer(cfg)
+ramp = StructuralController(ramp_model, birth_limit=1, minimum_age=cfg.minimum_age, birth_ramp_steps=10, seed=0)
+assert ramp.birth_ramp_steps == 10
+ramp.seed_architecture()
+born = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT)
+ramp.units[born].gradient_ema = 10.0
+start = ramp._get_logit(born)
+
+# ---- test 19: birth does not move the logit; it climbs linearly to birth_init_logit ----
+res19 = ramp.update(step=5, mode="heuristic")
+assert res19["births"] == [born], res19["births"]
+assert ramp.units[born].state == LifecycleState.PROTECTED
+assert abs(ramp._get_logit(born) - start) < 1e-6, "birth must not jump the logit when ramping"
+assert res19["ramping"] == 1
+for _ in range(5):
+    ramp.record_step()
+mid = ramp._get_logit(born)
+assert abs(mid - (start + ramp.birth_init_logit) / 2) < 1e-4, (start, mid)
+for _ in range(5):
+    ramp.record_step()
+end = ramp._get_logit(born)
+for _ in range(3):
+    ramp.record_step()
+print(f"test19: start={start:.3f} mid={mid:.3f} end={end:.3f} after={ramp._get_logit(born):.3f}")
+assert abs(end - ramp.birth_init_logit) < 1e-4 and ramp.units[born].ramp_remaining == 0
+assert abs(ramp._get_logit(born) - end) < 1e-6, "logit must stop moving once the ramp ends"
+print("test19: PASS (born logit ramps linearly to birth_init_logit, then stops)")
+
+# ---- test 20: the ramp adds to the optimizer's updates instead of overwriting them ----
+ramp.units[born].gradient_ema = 0.0
+born2 = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT)
+ramp.units[born2].gradient_ema = 10.0
+res20 = ramp.update(step=10, mode="heuristic")
+assert res20["births"] == [born2], res20["births"]
+start2 = ramp._get_logit(born2)
+for i in range(10):
+    ramp.record_step()
+    if i == 3:
+        ramp._set_logit(born2, ramp._get_logit(born2) + 0.5)  # stand-in for an optimizer step
+got20 = ramp._get_logit(born2)
+print(f"test20: start={start2:.3f} end={got20:.3f} expected={ramp.birth_init_logit + 0.5:.3f}")
+assert abs(got20 - (ramp.birth_init_logit + 0.5)) < 1e-4
+print("test20: PASS (optimizer movement during the ramp is kept)")
+
+# ---- test 21: a negative ramp length is rejected ----
+try:
+    StructuralController(ramp_model, birth_ramp_steps=-1)
+    raise AssertionError("expected ValueError for negative birth_ramp_steps")
+except ValueError:
+    print("test21: PASS (negative birth_ramp_steps rejected)")
 
 print("\nALL TESTS PASSED")

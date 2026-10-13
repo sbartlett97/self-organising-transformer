@@ -27,6 +27,8 @@ class UnitTelemetry:
     importance_ema: float = 0.0
     age: int = 0
     steps_since_birth: int = 0
+    ramp_remaining: int = 0
+    ramp_delta: float = 0.0
 
 
 class StructuralController:
@@ -110,6 +112,15 @@ class StructuralController:
         dormant_floor_logit: float = -4.0,
         birth_init_logit: float = -1.0,
         dead_logit: float = -8.0,
+        # Steps over which a born unit's logit climbs from its dormant value
+        # to birth_init_logit. 0 = jump in one step (the original rule). A
+        # one-step jump moves the gate from ~0.02 to ~0.27 with weights that
+        # were never trained at that scale: attempt 5 (RESEARCH_LOG.md
+        # 2026-10-13) saw val ppl go 30.7 -> 143 right after two head births
+        # in layers 0-1. The ramp adds a fixed increment each record_step, on
+        # top of the optimizer's own update, so learning during the ramp is
+        # kept.
+        birth_ramp_steps: int = 250,
         seed: int = 0,
     ):
         self.model = model
@@ -130,6 +141,9 @@ class StructuralController:
         self.dormant_floor_logit = dormant_floor_logit
         self.birth_init_logit = birth_init_logit
         self.dead_logit = dead_logit
+        if birth_ramp_steps < 0:
+            raise ValueError(f"birth_ramp_steps must be >= 0, got {birth_ramp_steps}")
+        self.birth_ramp_steps = birth_ramp_steps
         self._rng = random.Random(seed)
 
         self.units: dict[tuple, UnitTelemetry] = {}
@@ -225,6 +239,9 @@ class StructuralController:
                     taylor = abs(g / max(1.0 - gate_val, 1e-6))
                     t.importance_ema = self.ema_decay * t.importance_ema + (1 - self.ema_decay) * taylor
             gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
+            if t.ramp_remaining > 0:
+                self._set_logit(uid, self._get_logit(uid) + t.ramp_delta)
+                t.ramp_remaining -= 1
             t.contribution_ema = self.ema_decay * t.contribution_ema + (1 - self.ema_decay) * gate_val
             t.age += 1
             t.steps_since_birth += 1
@@ -388,7 +405,11 @@ class StructuralController:
             t = self.units[uid]
             t.state = LifecycleState.PROTECTED
             t.steps_since_birth = 0
-            self._set_logit(uid, self.birth_init_logit)
+            if self.birth_ramp_steps > 0:
+                t.ramp_remaining = self.birth_ramp_steps
+                t.ramp_delta = (self.birth_init_logit - self._get_logit(uid)) / self.birth_ramp_steps
+            else:
+                self._set_logit(uid, self.birth_init_logit)
             births.append(uid)
             self.events.append({"step": step, "unit": uid, "event": "birth", "score": score})
         return births, plateau
@@ -416,6 +437,7 @@ class StructuralController:
             "death_criterion": self.death_criterion,
             "gate_spread": self._last_gate_spread,
             "importance_spread": self._last_importance_spread,
+            "ramping": sum(1 for t in self.units.values() if t.ramp_remaining > 0),
             "state_counts": self.state_counts(),
         }
 
