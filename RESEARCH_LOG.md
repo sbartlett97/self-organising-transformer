@@ -72,8 +72,13 @@ for the full phased research programme.
   trace to one-step structure changes. Fixed: births ramp the gate in
   (`birth_ramp_steps`); birth and death skip units in dead layers; death
   ramps the gate out (`death_ramp_steps`, 2026-10-14); no growth check
-  runs unless its ramps finish before training ends. Next: re-run attempt
-  5 with all fixes. See the 2026-10-13 and 2026-10-14 entries.
+  runs unless its ramps finish before training ends.
+- **Latest (2026-10-14): attempt 6 (all four fixes) beats attempt 4 until
+  late deaths at near-zero LR.** Val ppl falls smoothly with no spikes:
+  27.29 at step 9000 (best of any Phase 2 run) at cost proxy 0.053 vs
+  attempt 4's 0.078. Deaths at steps 9250-9750, with LR <= 5e-6, push the
+  final value to 29.28 (attempt 4: 28.08). Next: stop deaths in the LR
+  tail. See the 2026-10-14 attempt-6 entry.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2680,3 +2685,53 @@ and 50 only. In the final `architecture.json`, all 4 dead units have gate
 states.
 
 **Next**: re-run attempt 5 with all four fixes.
+
+## 2026-10-14 (continued) — Phase 2 attempt 6: all four fixes at full scale
+
+Attempt-5 config plus all four controller fixes: birth ramp, dead-layer
+rule, gate-linear death ramp, and no check whose ramps cannot finish
+(ramps 250, so the last check is step 9750). Secure Cloud A100 SXM 80GB,
+Trackio on. Run time about 2.2 h at 1.29 steps/s; Trackio did not slow
+the loop. Pod cost about $4.40. Model:
+`sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v6-allfixes`.
+Logs: `results/phase2_v6_allfixes/`.
+
+| | attempt 4 | attempt 5 | attempt 6 |
+|---|---:|---:|---:|
+| births / deaths | 98 / 0 | 98 / 76 | 97 / 28 |
+| deaths by kind | — | 46 FFN, 25 heads, 5 layers | 2 FFN, 23 heads, 3 layers |
+| dead layers | none | 4, 7, 9, 10, 11 | 9, 10, 11 |
+| deaths inside dead layers | — | 58 | 0 |
+| mature units at end | 641 | 565 | 612 |
+| cost proxy at end | 0.0777 | 0.0523 | 0.0536 |
+| val ppl, step 6000 | 28.6 | 143.1 (spike) | 29.66 |
+| val ppl, step 9000 | — | — | **27.29** |
+| val ppl, step 9500 | 28.6 | 29.95 | 27.90 |
+| val ppl, step 10000 | **28.08** | 35.71 | 29.28 |
+
+**What the fixes did:**
+
+- **No spikes.** Val ppl falls every eval from step 500 to step 9000.
+  Attempt 5 had spikes at steps 4500, 6000, 8500 and 10000. The layer
+  deaths (10 at step 1250, 9 and 11 at step 1750) left no mark.
+- **No wasted deaths.** 0 deaths and 0 births inside dead layers
+  (attempt 5: 58 deaths). With the orphans out of the medians, the death
+  rule fired less: 28 deaths, against 76.
+- **Best quality per cost so far.** At step 9000, val ppl 27.29 at cost
+  proxy 0.053. Attempt 4 never went below 28.08, at cost 0.078.
+- Capacity moved into layer 7: 57 of 66 FFN births went there. Layer 7
+  died at step 4500 in attempt 5; here it became the widest layer.
+
+**New fault — deaths in the LR tail.** Val ppl rose from 27.29 (step
+9000) to 27.90 (9500) and 29.28 (10000). Train loss rose too, from 3.20
+to 3.29 in the last 250 steps. Five deaths came at steps 9250-9750:
+heads 8.10, 0.6 and 0.7, and FFN groups 7.71 and 7.122. Heads 0.6 and
+0.7 are in layer 0, the most important layer. At these steps the cosine
+LR was 4.6e-6 to 5e-7 (peak 3e-4), so the rest of the network could not
+adapt. The death ramp spreads the cut but cannot replace the learning
+the network needs to recover. Head 0.7 was born at step 6250 and killed
+at step 9750: it never got enough training at a useful LR.
+
+**Next**: stop deaths (and possibly births) once LR falls below a set
+fraction of its peak, or in the last N% of steps. In this run, a stop
+after step 9000 would have given about 27.3. Then re-run.
