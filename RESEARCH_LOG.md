@@ -70,9 +70,10 @@ for the full phased research programme.
   layer 4 died at the last check, just before the final eval. 58 of 71
   head/FFN deaths hit units in already-dead layers. Validation spikes
   trace to one-step structure changes. Fixed: births ramp the gate in
-  (`birth_ramp_steps`); birth and death skip units in dead layers. Open:
-  gradual death or an end-of-training freeze. See the 2026-10-13
-  entries.
+  (`birth_ramp_steps`); birth and death skip units in dead layers; death
+  ramps the gate out (`death_ramp_steps`, 2026-10-14). Open: births and
+  deaths at the final check never ramp. See the 2026-10-13 and
+  2026-10-14 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2611,3 +2612,47 @@ later deaths hit live layers. `in_dead_layers` = 18.
 **Next**: gradual death (or a structure freeze before the end), then
 re-run attempt 5 with all three fixes.
 
+## 2026-10-14 — Gradual death: the gate ramps out
+
+Fixes fault 2 from attempt 5: death cut the logit to -8 in one step.
+Layer 7's death at step 4500 cost about 1000 steps of val recovery.
+
+**Change** (`plasticity.py`, `train_phase2.py`):
+
+- `death_ramp_steps` (default 250, one growth interval; CLI
+  `--death_ramp_steps`). 0 restores the one-step cut.
+- The unit becomes DEAD at the decision. So it leaves the medians, birth
+  and death at once, and a dying layer's heads and FFN groups count as in
+  a dead layer at once.
+- Over the next `death_ramp_steps` calls to `record_step`, the gate falls
+  linearly from its value at the decision to sigmoid(`dead_logit`). The
+  last step sets the logit to exactly `dead_logit`.
+- The ramp is linear in gate, not in logit. The unit's output scales with
+  its gate. A logit-linear ramp from -1 makes about 85% of the gate drop
+  in the first quarter of the ramp, which is close to a cut.
+- The controller sets the logit exactly at each step. The optimizer can
+  not hold up a unit that is chosen to die. This differs from the birth
+  ramp, which adds to the optimizer's update.
+- `update()` reports `dying`. `ramping` now counts births only.
+
+**Tests**: 30/30 pass. Tests 1-25 pin `death_ramp_steps=0`. New tests
+26-30 cover: the decision is immediate and the logit does not move; the
+gate falls linearly and ends at exactly `dead_logit`; an optimizer push
+against the ramp is overridden; a dying layer's units are excluded at
+once; a negative ramp length is rejected. Tests 26, 27, 28 and 30 fail on
+the old controller. Test 29 passes there too: it guards the dead-layer
+rule during the ramp.
+
+**Smoke run** (local, tiny model, 400 steps, ramp 20): 8 deaths. Each
+dying gate fell evenly, for example 0.256 → 0.202 → 0.135 → 0.068 at
+ramp steps 0, 5, 10, 15. Each logit ended at exactly -8.000. Layer 3
+died at step 150, and its units then counted as `in_dead_layers` (18).
+
+**Open — final-check interaction**: the last growth check fires on the
+final step (attempt 5: deaths at step 10000 = `max_steps`). A birth or a
+death that starts at that check never ramps. The final `architecture.json`
+reads gates, so it disagrees with `state_counts`, which reads states. The
+birth ramp has the same problem. A possible guard: skip `update()` when
+fewer than the ramp length of steps remain.
+
+**Next**: re-run attempt 5 with all three fixes.

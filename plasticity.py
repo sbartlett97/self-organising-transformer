@@ -29,14 +29,15 @@ class UnitTelemetry:
     steps_since_birth: int = 0
     ramp_remaining: int = 0
     ramp_delta: float = 0.0
+    death_start_gate: float = 0.0
 
 
 class StructuralController:
     """Implements proposal §11's discrete birth/death lifecycle
     (DORMANT -> PROTECTED -> MATURE -> DEAD) on top of a PlasticTransformer's
-    continuous gate substrate. Mutates gate logits directly -- birth resets a
-    logit to a normal active init, death hard-clamps it to a strongly negative
-    value -- but never touches the forward pass itself; see the Phase 2 plan's
+    continuous gate substrate. Mutates gate logits directly -- birth ramps a
+    logit up to a normal active init, death ramps it down to a strongly
+    negative value -- but never touches the forward pass itself; see the Phase 2 plan's
     "hybrid continuous substrate, discrete lifecycle overlay" design note for
     why (early phases may use cost proxies rather than real sparse compute,
     proposal §9).
@@ -121,6 +122,15 @@ class StructuralController:
         # top of the optimizer's own update, so learning during the ramp is
         # kept.
         birth_ramp_steps: int = 250,
+        # Steps over which a dying unit's gate falls from its value at the
+        # death decision to sigmoid(dead_logit). 0 = cut in one step (the
+        # original rule). Attempt 5 (RESEARCH_LOG.md 2026-10-13): layer 7's
+        # one-step death at step 4500 cost about 1000 steps of val recovery.
+        # The ramp is linear in gate, not logit: the unit's output scales
+        # with its gate, and a logit-linear ramp from -1 makes ~85% of the
+        # gate drop in the first quarter. The logit is set exactly each
+        # step, so the optimizer cannot hold up a unit chosen to die.
+        death_ramp_steps: int = 250,
         seed: int = 0,
     ):
         self.model = model
@@ -144,6 +154,9 @@ class StructuralController:
         if birth_ramp_steps < 0:
             raise ValueError(f"birth_ramp_steps must be >= 0, got {birth_ramp_steps}")
         self.birth_ramp_steps = birth_ramp_steps
+        if death_ramp_steps < 0:
+            raise ValueError(f"death_ramp_steps must be >= 0, got {death_ramp_steps}")
+        self.death_ramp_steps = death_ramp_steps
         self._rng = random.Random(seed)
 
         self.units: dict[tuple, UnitTelemetry] = {}
@@ -249,8 +262,18 @@ class StructuralController:
                     t.importance_ema = self.ema_decay * t.importance_ema + (1 - self.ema_decay) * taylor
             gate_val = torch.sigmoid(torch.tensor(self._get_logit(uid))).item()
             if t.ramp_remaining > 0:
-                self._set_logit(uid, self._get_logit(uid) + t.ramp_delta)
-                t.ramp_remaining -= 1
+                if t.state == LifecycleState.DEAD:
+                    t.ramp_remaining -= 1
+                    if t.ramp_remaining == 0:
+                        self._set_logit(uid, self.dead_logit)
+                    else:
+                        done = 1.0 - t.ramp_remaining / self.death_ramp_steps
+                        dead_gate = 1.0 / (1.0 + math.exp(-self.dead_logit))
+                        g = t.death_start_gate + (dead_gate - t.death_start_gate) * done
+                        self._set_logit(uid, math.log(g / (1.0 - g)))
+                else:
+                    self._set_logit(uid, self._get_logit(uid) + t.ramp_delta)
+                    t.ramp_remaining -= 1
             t.contribution_ema = self.ema_decay * t.contribution_ema + (1 - self.ema_decay) * gate_val
             t.age += 1
             t.steps_since_birth += 1
@@ -351,7 +374,12 @@ class StructuralController:
                 continue
             t = self.units[uid]
             t.state = LifecycleState.DEAD
-            self._set_logit(uid, self.dead_logit)
+            if self.death_ramp_steps > 0:
+                t.ramp_remaining = self.death_ramp_steps
+                t.death_start_gate = 1.0 / (1.0 + math.exp(-self._get_logit(uid)))
+            else:
+                t.ramp_remaining = 0
+                self._set_logit(uid, self.dead_logit)
             deaths.append(uid)
             self.events.append({"step": step, "unit": uid, "event": "death", "score": death_score})
         return deaths
@@ -451,7 +479,8 @@ class StructuralController:
             "gate_spread": self._last_gate_spread,
             "importance_spread": self._last_importance_spread,
             "in_dead_layers": sum(1 for uid, t in self.units.items() if t.state != LifecycleState.DEAD and self._in_dead_layer(uid)),
-            "ramping": sum(1 for t in self.units.values() if t.ramp_remaining > 0),
+            "ramping": sum(1 for t in self.units.values() if t.ramp_remaining > 0 and t.state != LifecycleState.DEAD),
+            "dying": sum(1 for t in self.units.values() if t.ramp_remaining > 0 and t.state == LifecycleState.DEAD),
             "state_counts": self.state_counts(),
         }
 

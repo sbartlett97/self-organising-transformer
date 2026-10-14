@@ -41,6 +41,7 @@ in this project. Verifies:
      growth froze for 1250+ steps once a NaN appeared.
 """
 import json
+import math
 import sys
 
 from pathlib import Path
@@ -84,6 +85,7 @@ controller = StructuralController(
     death_patience=cfg.death_patience,
     death_criterion="gate",  # tests 1-13 drive death through gate values (the original rule)
     birth_ramp_steps=0,  # tests 1-13 expect the original one-step birth
+    death_ramp_steps=0,  # ... and the original one-step death
     seed=0,
 )
 
@@ -370,6 +372,7 @@ imp = StructuralController(
     minimum_age=cfg.minimum_age,
     death_relative_margin=cfg.death_relative_margin,
     death_patience=cfg.death_patience,
+    death_ramp_steps=0,
     seed=0,
 )
 assert imp.death_criterion == "importance", "importance must be the default criterion"
@@ -513,7 +516,7 @@ except ValueError:
 torch.manual_seed(3)
 dl_model = PlasticTransformer(cfg)
 dl = StructuralController(dl_model, birth_limit=1, death_limit=2, minimum_age=cfg.minimum_age,
-                          death_relative_margin=0.5, death_patience=1, birth_ramp_steps=0, seed=0)
+                          death_relative_margin=0.5, death_patience=1, birth_ramp_steps=0, death_ramp_steps=0, seed=0)
 dl.seed_architecture()
 for t in dl.units.values():  # every unit MATURE, old enough, equal importance
     t.state = LifecycleState.MATURE
@@ -570,5 +573,86 @@ expected = sum(1 for uid, t in dl.units.items() if t.state != LifecycleState.DEA
 print(f"test25: in_dead_layers={res25['in_dead_layers']} expected={expected}")
 assert res25["in_dead_layers"] == expected and expected > 0
 print("test25: PASS (in_dead_layers reported)")
+
+# ===== death_ramp_steps (tests 26-30) =====
+# A fresh model with no gradients: record_step then only advances the ramp.
+torch.manual_seed(4)
+dr_model = PlasticTransformer(cfg)
+dr = StructuralController(dr_model, birth_limit=0, death_limit=1, minimum_age=cfg.minimum_age,
+                          death_relative_margin=0.5, death_patience=1, death_ramp_steps=10, seed=0)
+assert dr.death_ramp_steps == 10
+dr.seed_architecture()
+for uid, t in dr.units.items():  # every unit MATURE, old enough, equal importance
+    t.state = LifecycleState.MATURE
+    t.steps_since_birth = cfg.minimum_age + 1
+    t.importance_ema = 1.0
+dying = ("layer", 1, 0)
+dr.units[dying].importance_ema = 0.0
+dr._set_logit(dying, 1.0)
+
+
+def gate_of(uid):
+    return 1.0 / (1.0 + math.exp(-dr._get_logit(uid)))
+
+
+start_gate = gate_of(dying)
+dead_gate = 1.0 / (1.0 + math.exp(-dr.dead_logit))
+
+# ---- test 26: death sets DEAD at once but does not move the logit ----
+res26 = dr.update(step=5, mode="heuristic")
+print(f"test26: deaths={res26['deaths']} dying={res26['dying']} ramping={res26['ramping']}")
+assert res26["deaths"] == [dying]
+assert dr.units[dying].state == LifecycleState.DEAD
+assert abs(dr._get_logit(dying) - 1.0) < 1e-6, "death must not cut the logit when ramping"
+assert res26["dying"] == 1 and res26["ramping"] == 0
+print("test26: PASS (death decision is immediate, the cut is not)")
+
+# ---- test 27: the gate falls linearly to sigmoid(dead_logit), then the logit stays at dead_logit ----
+for _ in range(5):
+    dr.record_step()
+mid_gate = gate_of(dying)
+assert abs(mid_gate - (start_gate + dead_gate) / 2) < 1e-5, (start_gate, mid_gate)
+for _ in range(5):
+    dr.record_step()
+end_logit = dr._get_logit(dying)
+for _ in range(3):
+    dr.record_step()
+print(f"test27: start_gate={start_gate:.4f} mid_gate={mid_gate:.4f} end_logit={end_logit:.3f}")
+assert end_logit == dr.dead_logit and dr.units[dying].ramp_remaining == 0
+assert dr._get_logit(dying) == dr.dead_logit, "logit must stop moving once the ramp ends"
+print("test27: PASS (dying gate ramps linearly to the dead gate, then stops)")
+
+# ---- test 28: the optimizer cannot hold up a dying unit ----
+dying2 = ("head", 0, 1)
+dr.units[dying2].importance_ema = 0.0
+dr._set_logit(dying2, 0.0)
+res28 = dr.update(step=10, mode="heuristic")
+assert res28["deaths"] == [dying2], res28["deaths"]
+for i in range(10):
+    dr.record_step()
+    if i == 3:
+        dr._set_logit(dying2, dr._get_logit(dying2) + 2.0)  # stand-in for an optimizer step against the ramp
+    if i == 4:
+        on_schedule = 0.5 + (dead_gate - 0.5) * 0.5
+        assert abs(gate_of(dying2) - on_schedule) < 1e-5, "ramp must follow its schedule, not the optimizer"
+print(f"test28: end_logit={dr._get_logit(dying2):.3f}")
+assert dr._get_logit(dying2) == dr.dead_logit
+print("test28: PASS (optimizer movement against the death ramp is overridden)")
+
+# ---- test 29: units in a dying layer are out of birth, death and the medians at once ----
+orphan29 = ("head", 1, 0)
+dr.units[orphan29].importance_ema = 0.0  # would die next if its layer were still live
+res29 = dr.update(step=15, mode="heuristic")
+print(f"test29: deaths={res29['deaths']} in_dead_layers={res29['in_dead_layers']}")
+assert orphan29 not in res29["deaths"] and dr.units[orphan29].state == LifecycleState.MATURE
+assert res29["in_dead_layers"] == cfg.max_heads + cfg.ffn_groups
+print("test29: PASS (a dying layer's units count as in a dead layer)")
+
+# ---- test 30: a negative death ramp length is rejected ----
+try:
+    StructuralController(dr_model, death_ramp_steps=-1)
+    raise AssertionError("expected ValueError for negative death_ramp_steps")
+except ValueError:
+    print("test30: PASS (negative death_ramp_steps rejected)")
 
 print("\nALL TESTS PASSED")
