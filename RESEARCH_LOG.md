@@ -70,8 +70,9 @@ for the full phased research programme.
   layer 4 died at the last check, just before the final eval. 58 of 71
   head/FFN deaths hit units in already-dead layers. Validation spikes
   trace to one-step structure changes. Fixed: births ramp the gate in
-  (`birth_ramp_steps`). Open: skip dead-layer units; gradual death or
-  an end-of-training freeze. See the 2026-10-13 entry.
+  (`birth_ramp_steps`); birth and death skip units in dead layers. Open:
+  gradual death or an end-of-training freeze. See the 2026-10-13
+  entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2574,4 +2575,39 @@ plus $0.05 for the two failed RTX 5080 pods. Model:
 2. Fix fault 2: ramp death down like birth, or stop structural changes
    in the last part of training (a freeze window before the end).
 3. Re-run attempt 5 with fixes 1-3 (the ramp-up is already in the code).
+
+## 2026-10-13 (continued) — Birth and death skip units in dead layers
+
+Fixes fault 3 from attempt 5: 58 of its 71 head/FFN deaths hit units in
+layers that were already dead.
+
+**Change** (`plasticity.py`):
+
+- `_in_dead_layer(uid)`: true for a head or FFN group whose layer is
+  DEAD. DEAD is final and the layer's output is gated off, so such a unit
+  can never affect the loss again.
+- Death skips these units. They also leave the kind-median pools: their
+  importance is about 0, so they pulled the median down and made live
+  units harder to kill.
+- If a layer dies in a pass, its own units cannot take the remaining
+  death slots of that pass. The slots go to the next live eligible units.
+- Birth (heuristic and random) skips dormant units in dead layers.
+- `update()` reports `in_dead_layers`: non-dead units stranded in dead
+  layers.
+
+Units in a *dormant* layer are not changed. A dormant layer can still be
+born, so its units can matter later.
+
+**Tests**: 25/25 pass. New tests 22-25 cover: no birth in a dead layer
+(heuristic and random); no death in a dead layer and no orphan in the
+median; a same-pass layer death does not give its slots to its own
+units; the diagnostic count. Each new test fails on the old controller.
+Test 24 also fails with only the same-pass guard removed.
+
+**Smoke run** (local, tiny model, 400 steps): layer 3 died at step 150.
+After that, the controller made no births or deaths in layer 3. All 7
+later deaths hit live layers. `in_dead_layers` = 18.
+
+**Next**: gradual death (or a structure freeze before the end), then
+re-run attempt 5 with all three fixes.
 

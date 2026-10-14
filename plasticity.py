@@ -192,6 +192,15 @@ class StructuralController:
             else:
                 param[idx] = value
 
+    def _in_dead_layer(self, uid: tuple) -> bool:
+        """True for a head or FFN group whose layer is DEAD. Death is final and
+        the dead layer's output is gated off, so such a unit can never affect
+        the loss again: birth and death skip it, and it stays out of the kind
+        medians (its importance is ~0 and would drag the median down). In
+        attempt 5 (RESEARCH_LOG.md 2026-10-13), 58 of 71 head/FFN deaths hit
+        units like this."""
+        return uid[0] != "layer" and self.units[("layer", uid[1], 0)].state == LifecycleState.DEAD
+
     def seed_architecture(self, active_fraction: Optional[float] = None) -> None:
         """Apply Phase 2's small-seed split: a minority of units start MATURE
         (active init), the rest DORMANT (suppressed floor). Call once, right
@@ -283,7 +292,7 @@ class StructuralController:
         mature_gates_by_kind: dict = defaultdict(list)
         mature_importance_by_kind: dict = defaultdict(list)
         for uid, t in self.units.items():
-            if t.state == LifecycleState.MATURE:
+            if t.state == LifecycleState.MATURE and not self._in_dead_layer(uid):
                 mature_gates_by_kind[uid[0]].append(torch.sigmoid(torch.tensor(self._get_logit(uid))).item())
                 mature_importance_by_kind[uid[0]].append(t.importance_ema)
         signal_by_kind = mature_importance_by_kind if self.death_criterion == "importance" else mature_gates_by_kind
@@ -304,7 +313,7 @@ class StructuralController:
 
         eligible = []
         for uid, t in self.units.items():
-            if t.state != LifecycleState.MATURE or t.steps_since_birth < self.minimum_age:
+            if t.state != LifecycleState.MATURE or t.steps_since_birth < self.minimum_age or self._in_dead_layer(uid):
                 continue
             if self.death_criterion == "importance":
                 signal = t.importance_ema
@@ -335,7 +344,11 @@ class StructuralController:
         }
 
         deaths = []
-        for death_score, uid in eligible[: self.death_limit]:
+        for death_score, uid in eligible:
+            if len(deaths) >= self.death_limit:
+                break
+            if self._in_dead_layer(uid):  # its layer died earlier in this same pass
+                continue
             t = self.units[uid]
             t.state = LifecycleState.DEAD
             self._set_logit(uid, self.dead_logit)
@@ -350,7 +363,7 @@ class StructuralController:
 
     def _birth_pass(self, step: int, mode: str) -> tuple[list, float]:
         plateau = self._plateau_score()
-        dormant = [uid for uid, t in self.units.items() if t.state == LifecycleState.DORMANT]
+        dormant = [uid for uid, t in self.units.items() if t.state == LifecycleState.DORMANT and not self._in_dead_layer(uid)]
 
         if mode == "heuristic":
             # plateau (P_i in proposal §11) must be per-candidate, not a flat
@@ -437,6 +450,7 @@ class StructuralController:
             "death_criterion": self.death_criterion,
             "gate_spread": self._last_gate_spread,
             "importance_spread": self._last_importance_spread,
+            "in_dead_layers": sum(1 for uid, t in self.units.items() if t.state != LifecycleState.DEAD and self._in_dead_layer(uid)),
             "ramping": sum(1 for t in self.units.values() if t.ramp_remaining > 0),
             "state_counts": self.state_counts(),
         }

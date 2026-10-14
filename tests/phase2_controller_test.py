@@ -506,4 +506,69 @@ try:
 except ValueError:
     print("test21: PASS (negative birth_ramp_steps rejected)")
 
+
+# ===== units inside a dead layer (tests 22-25) =====
+# Death is final, so a head/FFN group whose layer is DEAD can never matter
+# again: birth and death must skip it, and it must stay out of the medians.
+torch.manual_seed(3)
+dl_model = PlasticTransformer(cfg)
+dl = StructuralController(dl_model, birth_limit=1, death_limit=2, minimum_age=cfg.minimum_age,
+                          death_relative_margin=0.5, death_patience=1, birth_ramp_steps=0, seed=0)
+dl.seed_architecture()
+for t in dl.units.values():  # every unit MATURE, old enough, equal importance
+    t.state = LifecycleState.MATURE
+    t.steps_since_birth = cfg.minimum_age + 1
+    t.importance_ema = 1.0
+dead_li = 2
+dl.units[("layer", dead_li, 0)].state = LifecycleState.DEAD
+
+# ---- test 22: a dormant unit in a dead layer is never born ----
+inside = ("head", dead_li, 0)
+outside = ("head", 0, 0)
+for uid in (inside, outside):
+    dl.units[uid].state = LifecycleState.DORMANT
+dl.units[inside].gradient_ema = 100.0  # by far the best raw score
+dl.units[outside].gradient_ema = 1.0
+births22, _ = dl._birth_pass(step=10, mode="heuristic")
+print(f"test22: births={births22}")
+assert births22 == [outside], births22
+assert dl.units[inside].state == LifecycleState.DORMANT
+births22r, _ = dl._birth_pass(step=11, mode="random")
+assert inside not in births22r, "random mode must skip dead-layer units too"
+print("test22: PASS (dead-layer candidate skipped by heuristic and random birth)")
+
+# ---- test 23: a mature unit in a dead layer is never killed, and is out of the median ----
+orphan = ("ffn_group", dead_li, 0)
+dl.units[orphan].importance_ema = 0.0  # would be the first to die if it were counted
+for uid, t in dl.units.items():
+    if uid[1] == dead_li and uid[0] != "layer" and t.state == LifecycleState.MATURE:
+        t.importance_ema = 0.0  # all orphans look dead: would drag the FFN median to ~0
+deaths23 = dl._death_pass(step=12)
+print(f"test23: deaths={deaths23} ffn median={dl._last_importance_spread['ffn_group']['median']}")
+assert not any(dl._in_dead_layer(u) for u in deaths23), deaths23
+assert dl._last_importance_spread["ffn_group"]["min"] == 1.0, "orphans must not enter the median pool"
+assert deaths23 == [], "no live unit is below 0.5 x median"
+print("test23: PASS (dead-layer units neither killed nor counted in the median)")
+
+# ---- test 24: a layer and its own units die in the same pass -> its units do not take the slots ----
+li = 1
+dl.units[("layer", li, 0)].importance_ema = 0.0
+for hi in range(cfg.max_heads):
+    dl.units[("head", li, hi)].importance_ema = 0.0  # in the same pass, these would fill the other slot
+victim = ("head", 3, 1)
+dl.units[victim].importance_ema = 0.1
+deaths24 = dl._death_pass(step=13)
+print(f"test24: deaths={deaths24}")
+assert ("layer", li, 0) in deaths24
+assert victim in deaths24, "the second slot must go to a live unit, not to a head inside the layer that just died"
+assert not any(u[0] == "head" and u[1] == li for u in deaths24)
+print("test24: PASS (same-pass layer death does not leak slots to its own units)")
+
+# ---- test 25: update() reports the units stranded in dead layers ----
+res25 = dl.update(step=14, mode="heuristic")
+expected = sum(1 for uid, t in dl.units.items() if t.state != LifecycleState.DEAD and uid[0] != "layer" and uid[1] in (dead_li, li))
+print(f"test25: in_dead_layers={res25['in_dead_layers']} expected={expected}")
+assert res25["in_dead_layers"] == expected and expected > 0
+print("test25: PASS (in_dead_layers reported)")
+
 print("\nALL TESTS PASSED")
