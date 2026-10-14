@@ -655,4 +655,12 @@ try:
 except ValueError:
     print("test30: PASS (negative death_ramp_steps rejected)")
 
+# ---- test 31: structure changes stop when a ramp cannot finish before training ends ----
+fit = StructuralController(dr_model, birth_ramp_steps=10, death_ramp_steps=20)
+assert fit.ramps_fit(20) and fit.ramps_fit(100)
+assert not fit.ramps_fit(19) and not fit.ramps_fit(0)
+no_ramp = StructuralController(dr_model, birth_ramp_steps=0, death_ramp_steps=0)
+assert no_ramp.ramps_fit(0), "without ramps, a check on the final step is still allowed"
+print("test31: PASS (ramps_fit uses the longer ramp; no ramps -> no freeze)")
+
 print("\nALL TESTS PASSED")

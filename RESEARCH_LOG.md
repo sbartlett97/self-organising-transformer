@@ -71,9 +71,9 @@ for the full phased research programme.
   head/FFN deaths hit units in already-dead layers. Validation spikes
   trace to one-step structure changes. Fixed: births ramp the gate in
   (`birth_ramp_steps`); birth and death skip units in dead layers; death
-  ramps the gate out (`death_ramp_steps`, 2026-10-14). Open: births and
-  deaths at the final check never ramp. See the 2026-10-13 and
-  2026-10-14 entries.
+  ramps the gate out (`death_ramp_steps`, 2026-10-14); no growth check
+  runs unless its ramps finish before training ends. Next: re-run attempt
+  5 with all fixes. See the 2026-10-13 and 2026-10-14 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2656,3 +2656,27 @@ birth ramp has the same problem. A possible guard: skip `update()` when
 fewer than the ramp length of steps remain.
 
 **Next**: re-run attempt 5 with all three fixes.
+
+## 2026-10-14 (continued) — No growth check whose ramps cannot finish
+
+Fixes the final-check interaction from the entry above.
+
+**Change**: `StructuralController.ramps_fit(steps_remaining)` is true
+when `steps_remaining >= max(birth_ramp_steps, death_ramp_steps)`. A ramp
+starts at the next `record_step`, so a check at step s finishes its ramps
+at step s + N. `train_phase2.py` skips `update()` when `ramps_fit` is
+false. With ramps of 0, a check on the final step is still allowed (the
+old behavior).
+
+For the attempt-5 config (10000 steps, interval 250, ramps 250), the last
+check is now step 9750, and its ramps end on step 10000.
+
+**Tests**: 31/31 pass. Test 31 covers the boundary, the longer of the two
+ramps, and ramps of 0.
+
+**Smoke run** (100 steps, interval 25, ramps 30): checks ran at steps 25
+and 50 only. In the final `architecture.json`, all 4 dead units have gate
+0.0003 and all 4 born units have gate about 0.27, so gates agree with
+states.
+
+**Next**: re-run attempt 5 with all four fixes.

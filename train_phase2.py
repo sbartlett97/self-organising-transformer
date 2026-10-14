@@ -172,7 +172,8 @@ def train(cfg: Phase2Config):
         pbar.update(1)
         pbar.set_postfix(loss=f"{train_loss:.3f}", cost=f"{mean_cost:.3f}", lgr=f"{float(lagrange.item()):.3f}")
 
-        if cfg.birth_mode != "none" and global_step % cfg.growth_interval == 0:
+        if (cfg.birth_mode != "none" and global_step % cfg.growth_interval == 0
+                and controller.ramps_fit(cfg.max_steps - global_step)):
             if cfg.birth_limit_end is not None:
                 # Linear taper birth_limit -> birth_limit_end over training:
                 # aggressive early growth while the dormant pool is full of

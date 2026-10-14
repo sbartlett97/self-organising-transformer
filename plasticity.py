@@ -455,6 +455,16 @@ class StructuralController:
             self.events.append({"step": step, "unit": uid, "event": "birth", "score": score})
         return births, plateau
 
+    def ramps_fit(self, steps_remaining: int) -> bool:
+        """True when a birth or death started now finishes its ramp before
+        training ends. A ramp starts at the next record_step, so it needs
+        steps_remaining >= its length. Attempt 5 (RESEARCH_LOG.md
+        2026-10-13) ran its last check on the final step: births and deaths
+        there kept their old gates, so architecture.json (gates) disagreed
+        with state_counts (states). The training loop skips update() when
+        this is False."""
+        return steps_remaining >= max(self.birth_ramp_steps, self.death_ramp_steps)
+
     def update(self, step: int, mode: str = "heuristic") -> dict:
         """Call every growth_interval steps from the training loop. `mode` is
         'heuristic' (the real B_i-ranked controller) or 'random' (same
