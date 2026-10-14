@@ -33,6 +33,7 @@ class Phase2Config(TrainConfig):
     birth_score_floor: float = 0.0
     birth_ramp_steps: int = 250
     death_ramp_steps: int = 250
+    death_freeze_lr_fraction: float = 0.05
     output_dir: str = "./outputs/phase2"
 
 
@@ -111,6 +112,7 @@ def train(cfg: Phase2Config):
         birth_score_floor=cfg.birth_score_floor,
         birth_ramp_steps=cfg.birth_ramp_steps,
         death_ramp_steps=cfg.death_ramp_steps,
+        death_freeze_lr_fraction=cfg.death_freeze_lr_fraction,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -185,7 +187,8 @@ def train(cfg: Phase2Config):
                 # entries in RESEARCH_LOG.md for why this was added.
                 progress = min(1.0, global_step / cfg.max_steps)
                 controller.birth_limit = round(cfg.birth_limit + (cfg.birth_limit_end - cfg.birth_limit) * progress)
-            event = controller.update(global_step, mode=cfg.birth_mode)
+            event = controller.update(global_step, mode=cfg.birth_mode,
+                                      lr_fraction=scheduler.get_last_lr()[0] / cfg.learning_rate)
             event["birth_limit_used"] = controller.birth_limit
             pbar.write(json.dumps({"step": global_step, "plasticity_event": event}))
             growth_log.append(event)
@@ -266,6 +269,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--birth_score_floor", type=float, default=0.0, help="A dormant candidate is birth-eligible only if its raw score exceeds this -- excludes genuinely zero-signal candidates from filling the birth_limit quota, see plasticity.py's StructuralController docstring")
     p.add_argument("--birth_ramp_steps", type=int, default=250, help="Steps over which a born unit's gate logit climbs from its dormant value to the active init. 0 = one-step jump (the original rule).")
     p.add_argument("--death_ramp_steps", type=int, default=250, help="Steps over which a dying unit's gate falls linearly to sigmoid(dead_logit). 0 = one-step cut (the original rule).")
+    p.add_argument("--death_freeze_lr_fraction", type=float, default=0.05, help="No death once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)

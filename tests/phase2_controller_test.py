@@ -663,4 +663,54 @@ no_ramp = StructuralController(dr_model, birth_ramp_steps=0, death_ramp_steps=0)
 assert no_ramp.ramps_fit(0), "without ramps, a check on the final step is still allowed"
 print("test31: PASS (ramps_fit uses the longer ramp; no ramps -> no freeze)")
 
+# ===== death_freeze_lr_fraction (tests 32-35) =====
+torch.manual_seed(5)
+fz_model = PlasticTransformer(cfg)
+fz = StructuralController(fz_model, birth_limit=0, death_limit=1, minimum_age=cfg.minimum_age,
+                          death_relative_margin=0.5, death_patience=1, death_ramp_steps=0, seed=0)
+assert fz.death_freeze_lr_fraction == 0.05, "0.05 must be the default"
+fz.seed_architecture()
+for t in fz.units.values():  # every unit MATURE, old enough, equal importance
+    t.state = LifecycleState.MATURE
+    t.steps_since_birth = cfg.minimum_age + 1
+    t.importance_ema = 1.0
+weak_fz = ("head", 1, 2)
+fz.units[weak_fz].importance_ema = 0.0
+
+# ---- test 32: below the LR fraction, an eligible unit does not die, but its streak still counts ----
+res32 = fz.update(step=5, mode="heuristic", lr_fraction=0.01)
+print(f"test32: deaths={res32['deaths']} frozen={res32['deaths_frozen']} streak={fz._death_streak[weak_fz]}")
+assert res32["deaths"] == [] and res32["deaths_frozen"] is True
+assert fz.units[weak_fz].state == LifecycleState.MATURE
+assert fz._death_streak[weak_fz] >= 1 and res32["below_floor_count"] >= 1, "diagnostics must still update while frozen"
+print("test32: PASS (no death in the LR tail; streaks and diagnostics still update)")
+
+# ---- test 33: at or above the LR fraction, the same unit dies ----
+res33 = fz.update(step=10, mode="heuristic", lr_fraction=0.05)
+print(f"test33: deaths={res33['deaths']} frozen={res33['deaths_frozen']}")
+assert res33["deaths"] == [weak_fz] and res33["deaths_frozen"] is False
+print("test33: PASS (deaths resume at the threshold)")
+
+# ---- test 34: no LR given, or a threshold of 0, never freezes ----
+weak_fz2 = ("head", 2, 1)
+fz.units[weak_fz2].importance_ema = 0.0
+res34 = fz.update(step=15, mode="heuristic")
+assert res34["deaths"] == [weak_fz2] and res34["deaths_frozen"] is False
+fz.death_freeze_lr_fraction = 0.0
+weak_fz3 = ("head", 3, 0)
+fz.units[weak_fz3].importance_ema = 0.0
+res34b = fz.update(step=20, mode="heuristic", lr_fraction=0.0)
+print(f"test34: deaths={res34['deaths']} / {res34b['deaths']}")
+assert res34b["deaths"] == [weak_fz3] and res34b["deaths_frozen"] is False
+print("test34: PASS (lr_fraction=None or threshold 0 -> no freeze)")
+
+# ---- test 35: a threshold outside [0, 1) is rejected ----
+for bad in (-0.1, 1.0):
+    try:
+        StructuralController(fz_model, death_freeze_lr_fraction=bad)
+        raise AssertionError(f"expected ValueError for death_freeze_lr_fraction={bad}")
+    except ValueError:
+        pass
+print("test35: PASS (death_freeze_lr_fraction outside [0, 1) rejected)")
+
 print("\nALL TESTS PASSED")

@@ -131,6 +131,14 @@ class StructuralController:
         # gate drop in the first quarter. The logit is set exactly each
         # step, so the optimizer cannot hold up a unit chosen to die.
         death_ramp_steps: int = 250,
+        # No death once the LR falls below this fraction of its peak (pass
+        # the fraction to update()). 0 = never freeze. Attempt 6
+        # (RESEARCH_LOG.md 2026-10-14) killed 5 units, layer-0 heads among
+        # them, at LR 0.2-1.5% of peak: val ppl went 27.29 -> 29.28, since the
+        # rest of the network could not adapt. Deaths at 16-23% of peak did
+        # no harm. 0.05 stops deaths from step 8750 of 10000 on that schedule.
+        # Streaks and diagnostics still update while frozen.
+        death_freeze_lr_fraction: float = 0.05,
         seed: int = 0,
     ):
         self.model = model
@@ -157,6 +165,9 @@ class StructuralController:
         if death_ramp_steps < 0:
             raise ValueError(f"death_ramp_steps must be >= 0, got {death_ramp_steps}")
         self.death_ramp_steps = death_ramp_steps
+        if not 0.0 <= death_freeze_lr_fraction < 1.0:
+            raise ValueError(f"death_freeze_lr_fraction must be in [0, 1), got {death_freeze_lr_fraction}")
+        self.death_freeze_lr_fraction = death_freeze_lr_fraction
         self._rng = random.Random(seed)
 
         self.units: dict[tuple, UnitTelemetry] = {}
@@ -297,7 +308,7 @@ class StructuralController:
         slope = (hist[-1] - hist[0]) / max(len(hist), 1)
         return float(max(0.0, 1.0 - min(abs(slope) * 50.0, 1.0)))
 
-    def _death_pass(self, step: int) -> list:
+    def _death_pass(self, step: int, frozen: bool = False) -> list:
         """Rate-limited to death_limit per call (symmetric to birth_limit) --
         an uncapped death pass can kill every eligible unit in one event if
         they share similar init/regularizer pressure (observed in local
@@ -368,7 +379,7 @@ class StructuralController:
 
         deaths = []
         for death_score, uid in eligible:
-            if len(deaths) >= self.death_limit:
+            if frozen or len(deaths) >= self.death_limit:
                 break
             if self._in_dead_layer(uid):  # its layer died earlier in this same pass
                 continue
@@ -465,19 +476,22 @@ class StructuralController:
         this is False."""
         return steps_remaining >= max(self.birth_ramp_steps, self.death_ramp_steps)
 
-    def update(self, step: int, mode: str = "heuristic") -> dict:
+    def update(self, step: int, mode: str = "heuristic", lr_fraction: Optional[float] = None) -> dict:
         """Call every growth_interval steps from the training loop. `mode` is
         'heuristic' (the real B_i-ranked controller) or 'random' (same
         timing/budget, uniform-random candidate selection) -- proposal §11's
         two growth conditions. The third required condition, "no growth", is
-        simply never calling update() at all."""
-        deaths = self._death_pass(step)
+        simply never calling update() at all. `lr_fraction` is the current
+        LR / peak LR; None means unknown, and deaths are never frozen."""
+        deaths_frozen = lr_fraction is not None and lr_fraction < self.death_freeze_lr_fraction
+        deaths = self._death_pass(step, frozen=deaths_frozen)
         self._promote_pass()
         births, plateau = self._birth_pass(step, mode)
         return {
             "step": step,
             "births": births,
             "deaths": deaths,
+            "deaths_frozen": deaths_frozen,
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
             "birth_score_floor": self.birth_score_floor,

@@ -77,8 +77,9 @@ for the full phased research programme.
   late deaths at near-zero LR.** Val ppl falls smoothly with no spikes:
   27.29 at step 9000 (best of any Phase 2 run) at cost proxy 0.053 vs
   attempt 4's 0.078. Deaths at steps 9250-9750, with LR <= 5e-6, push the
-  final value to 29.28 (attempt 4: 28.08). Next: stop deaths in the LR
-  tail. See the 2026-10-14 attempt-6 entry.
+  final value to 29.28 (attempt 4: 28.08). Fixed: no death once LR falls
+  below 5% of peak (`death_freeze_lr_fraction`). Next: re-run. See the
+  2026-10-14 entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2735,3 +2736,47 @@ at step 9750: it never got enough training at a useful LR.
 **Next**: stop deaths (and possibly births) once LR falls below a set
 fraction of its peak, or in the last N% of steps. In this run, a stop
 after step 9000 would have given about 27.3. Then re-run.
+
+## 2026-10-14 (continued) — No death in the LR tail
+
+Fixes the attempt-6 fault: 5 deaths at LR 0.2-1.5% of peak cost about 2
+ppl at the end of training.
+
+**Change** (`plasticity.py`, `train_phase2.py`):
+
+- `death_freeze_lr_fraction` (default 0.05; CLI
+  `--death_freeze_lr_fraction`, 0 = never freeze).
+- `update(step, mode, lr_fraction)`: the training loop passes the
+  current LR / peak LR. Below the threshold, the death pass kills
+  nothing. It still updates streaks and diagnostics, so `growth_log.json`
+  shows what would have died. `update()` reports `deaths_frozen`.
+- `lr_fraction=None` (the default) never freezes. Births are not frozen.
+
+**Why 5%**: attempt 6's LR fraction at each death check:
+
+| step | 7000 | 7500 | 8000 | 8500 | 8750 | 9000 | 9250 | 9500 | 9750 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| LR / peak | 0.227 | 0.161 | 0.105 | 0.060 | 0.042 | 0.027 | 0.015 | 0.007 | 0.002 |
+
+Deaths at steps 7000-7500 did no harm: val ppl kept falling, 28.30 to
+27.51. The harmful deaths came at 0.015 or lower. With 0.05, the last
+death check is step 8500. That unit's ramp ends at step 8750, with about
+1250 steps of training left.
+
+**Tests**: 35/35 pass. New tests 32-35 cover: no death below the
+threshold, with streaks and diagnostics still updated; deaths resume at
+the threshold; no freeze for `lr_fraction=None` or a threshold of 0;
+values outside [0, 1) are rejected. Tests 32, 33 and 35 fail on the old
+controller. Test 34 passes there too: it guards the old behavior.
+
+**Smoke run** (800 steps, warmup 500): checks up to step 750 (LR 6.7%
+of peak) ran normally. The step-775 check (1.7%) reported
+`deaths_frozen`. That check had no eligible unit, so the unit tests, not
+the smoke run, show the blocking.
+
+**Open**: births still run in the LR tail. Attempt 6 had 1 head birth
+at each of steps 9250, 9500 and 9750. A unit born at near-zero LR keeps
+weights that never trained at a useful scale. The data cannot yet
+separate their effect from the deaths.
+
+**Next**: re-run attempt 6 with the freeze (attempt 7).
