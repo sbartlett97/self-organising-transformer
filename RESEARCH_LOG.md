@@ -77,9 +77,13 @@ for the full phased research programme.
   late deaths at near-zero LR.** Val ppl falls smoothly with no spikes:
   27.29 at step 9000 (best of any Phase 2 run) at cost proxy 0.053 vs
   attempt 4's 0.078. Deaths at steps 9250-9750, with LR <= 5e-6, push the
-  final value to 29.28 (attempt 4: 28.08). Fixed: no death once LR falls
-  below 5% of peak (`death_freeze_lr_fraction`). Next: re-run. See the
-  2026-10-14 entries.
+  final value to 29.28 (attempt 4: 28.08).
+- **Latest (2026-10-14): attempt 7 shows births, not deaths, cause the
+  end-of-run drop.** With deaths frozen below 5% of peak LR, the final
+  val ppl was 30.66. An ablation on the final model: the 4 heads born at
+  steps 9000-9750 cost +0.108 loss (27.16 -> 30.25 ppl on 48 val
+  batches). Next: freeze births in the LR tail too. See the 2026-10-14
+  attempt-7 entry.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2780,3 +2784,66 @@ weights that never trained at a useful scale. The data cannot yet
 separate their effect from the deaths.
 
 **Next**: re-run attempt 6 with the freeze (attempt 7).
+
+## 2026-10-14 (continued) — Attempt 7: the LR-tail fault is births, not deaths
+
+Attempt 6 plus `--death_freeze_lr_fraction 0.05`. Same Secure Cloud A100,
+about 2.3 h, about $4.40. Model:
+`sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v7-lrfreeze`.
+Logs: `results/phase2_v7_lrfreeze/`.
+
+The run matches attempt 6 exactly up to step 9000 (same seed, and the
+freeze changes nothing before step 8750). The freeze worked: no death
+after step 7500, and checks 8750-9750 reported `deaths_frozen`. The
+would-be death streaks reached 4 by step 9750.
+
+| | attempt 6 | attempt 7 |
+|---|---:|---:|
+| births / deaths | 97 / 28 | 97 / 23 |
+| deaths after step 9000 | 5 | 0 |
+| dead layers | 9, 10, 11 | 9, 10, 11 |
+| cost proxy at end | 0.0536 | 0.0545 |
+| val ppl, step 9000 | 27.29 | 27.29 |
+| val ppl, step 9500 | 27.90 | 27.77 |
+| val ppl, step 10000 | 29.28 | **30.66** |
+
+So the deaths were not the main cause. Both runs lose quality in the
+same window, and both have one head birth at each of steps 9000, 9250,
+9500 and 9750.
+
+**Ablation on the attempt-7 final model** (48 val batches of 8 x 256;
+`results/phase2_v7_lrfreeze/tail_birth_ablation.py`). Each unit's logit
+is set to -4, its dormant value, and the val loss is measured:
+
+| unit | born | dloss | ppl |
+|---|---:|---:|---:|
+| none (baseline) | — | — | 30.25 |
+| head 5.5 | 9000 | -0.004 | 30.14 |
+| head 6.10 | 9250 | -0.009 | 29.97 |
+| head 6.6 | 9500 | -0.013 | 29.85 |
+| head 3.9 | 9750 | -0.091 | 27.63 |
+| all 4 tail births | | **-0.108** | **27.16** |
+| control: head 6.7, born early | | +0.006 | 30.44 |
+| control: head 3.0, born early | | +0.010 | 30.56 |
+| control: head 0.7, born early | | +0.004 | 30.35 |
+
+(A fourth control, head 3.4, is not valid: it died at step 5000, so the
+test brought it back to life. Its +0.126 is the cost of reviving a dead
+head, not of removing a live one.)
+
+- Removing the 4 tail-born heads gives 27.16 ppl, better than step 9000's
+  27.29. Removing heads born early makes the model worse. So the tail
+  births are harmful, and the effect is specific to them.
+- All 4 tail-born heads sit at gate 0.269 = sigmoid(-1): the ramp moved
+  them to `birth_init_logit`, and the optimizer, at LR 2.7% of peak or
+  lower, did not move them after that. Their weights were trained only
+  at the dormant gate scale (about 0.02).
+- The last birth does the most harm: head 3.9 ramps in over steps
+  9751-10000 and reaches full gate on the final step. No step at any LR
+  is left to adapt to it.
+- In attempt 6, the same births (with 8.11 in place of 3.9) and the 5
+  late deaths together gave 29.28.
+
+**Next**: freeze births in the LR tail with the same rule, so no
+structure change happens below 5% of peak LR. Then re-run (attempt 8).
+The ablation predicts a final val ppl close to 27.2.
