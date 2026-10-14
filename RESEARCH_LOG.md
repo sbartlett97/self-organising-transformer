@@ -2847,3 +2847,31 @@ head, not of removing a live one.)
 **Next**: freeze births in the LR tail with the same rule, so no
 structure change happens below 5% of peak LR. Then re-run (attempt 8).
 The ablation predicts a final val ppl close to 27.2.
+
+## 2026-10-14 (continued) — No birth in the LR tail
+
+Fixes the attempt-7 fault: 4 heads born at LR 2.7% of peak or lower cost
+about 3.1 ppl at the end of training.
+
+**Change** (`plasticity.py`, `train_phase2.py`):
+
+- `birth_freeze_lr_fraction` (default 0.05; CLI
+  `--birth_freeze_lr_fraction`, 0 = never freeze). It is separate from
+  `death_freeze_lr_fraction`, so each freeze can be set or disabled alone.
+- Below the threshold, the birth pass still scores every dormant
+  candidate. It then gives no birth, so `growth_log.json` still shows
+  `max_dormant_birth_score`. `update()` reports `births_frozen`.
+- The freeze applies in heuristic and random mode, so the random-growth
+  control keeps the same timing. `lr_fraction=None` never freezes.
+
+**Effect on the attempt-7 schedule**: the last birth check is step 8500
+(LR 0.060). The freeze blocks the births at steps 8750-9750: the 4
+ablated heads (5.5, 6.10, 6.6, 3.9) and head 0.5 (step 8750, LR 0.042).
+Head 0.5 was not in the ablation, so its effect is not known.
+
+**Tests**: 39/39 pass. New tests 36-39 cover: no birth below the
+threshold, with the logit unchanged and the birth score still reported;
+births resume at the threshold; random mode is frozen too; None or a
+threshold of 0 never freezes; the two freezes are independent; values
+outside [0, 1) are rejected. Test 36 fails on the old controller (the
+strong candidate is born).

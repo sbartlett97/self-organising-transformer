@@ -34,6 +34,7 @@ class Phase2Config(TrainConfig):
     birth_ramp_steps: int = 250
     death_ramp_steps: int = 250
     death_freeze_lr_fraction: float = 0.05
+    birth_freeze_lr_fraction: float = 0.05
     output_dir: str = "./outputs/phase2"
 
 
@@ -113,6 +114,7 @@ def train(cfg: Phase2Config):
         birth_ramp_steps=cfg.birth_ramp_steps,
         death_ramp_steps=cfg.death_ramp_steps,
         death_freeze_lr_fraction=cfg.death_freeze_lr_fraction,
+        birth_freeze_lr_fraction=cfg.birth_freeze_lr_fraction,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -270,6 +272,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--birth_ramp_steps", type=int, default=250, help="Steps over which a born unit's gate logit climbs from its dormant value to the active init. 0 = one-step jump (the original rule).")
     p.add_argument("--death_ramp_steps", type=int, default=250, help="Steps over which a dying unit's gate falls linearly to sigmoid(dead_logit). 0 = one-step cut (the original rule).")
     p.add_argument("--death_freeze_lr_fraction", type=float, default=0.05, help="No death once LR / peak LR falls below this. 0 = never freeze.")
+    p.add_argument("--birth_freeze_lr_fraction", type=float, default=0.05, help="No birth once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)

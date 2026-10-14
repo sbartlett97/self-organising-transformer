@@ -713,4 +713,51 @@ for bad in (-0.1, 1.0):
         pass
 print("test35: PASS (death_freeze_lr_fraction outside [0, 1) rejected)")
 
+# ===== birth_freeze_lr_fraction (tests 36-39) =====
+torch.manual_seed(6)
+bf_model = PlasticTransformer(cfg)
+bf = StructuralController(bf_model, birth_limit=1, death_limit=0, birth_ramp_steps=0, seed=0)
+assert bf.birth_freeze_lr_fraction == 0.05, "0.05 must be the default"
+bf.seed_architecture()
+strong_bf = next(uid for uid, t in bf.units.items() if t.state == LifecycleState.DORMANT)
+bf.units[strong_bf].gradient_ema = 10.0
+bf.units[strong_bf].contribution_ema = 10.0
+logit_before = bf._get_logit(strong_bf)
+
+# ---- test 36: below the LR fraction, a strong candidate is not born, but its score still counts ----
+res36 = bf.update(step=5, mode="heuristic", lr_fraction=0.01)
+print(f"test36: births={res36['births']} frozen={res36['births_frozen']} max_score={res36['max_dormant_birth_score']:.3f}")
+assert res36["births"] == [] and res36["births_frozen"] is True
+assert bf.units[strong_bf].state == LifecycleState.DORMANT
+assert bf._get_logit(strong_bf) == logit_before, "a frozen birth must not touch the logit"
+assert res36["max_dormant_birth_score"] > 1.0, "birth diagnostics must still update while frozen"
+assert not any(e["event"] == "birth" for e in bf.events)
+print("test36: PASS (no birth in the LR tail; scores and diagnostics still update)")
+
+# ---- test 37: at or above the LR fraction, the same unit is born ----
+res37 = bf.update(step=10, mode="heuristic", lr_fraction=0.05)
+print(f"test37: births={res37['births']} frozen={res37['births_frozen']}")
+assert res37["births"] == [strong_bf] and res37["births_frozen"] is False
+print("test37: PASS (births resume at the threshold)")
+
+# ---- test 38: random mode is frozen too; no LR, or a threshold of 0, never freezes ----
+assert bf.update(step=15, mode="random", lr_fraction=0.01)["births"] == []
+res38 = bf.update(step=20, mode="random")
+assert len(res38["births"]) == 1 and res38["births_frozen"] is False
+bf.birth_freeze_lr_fraction = 0.0
+res38b = bf.update(step=25, mode="random", lr_fraction=0.0)
+print(f"test38: births={res38['births']} / {res38b['births']} deaths_frozen={res38b['deaths_frozen']}")
+assert len(res38b["births"]) == 1 and res38b["births_frozen"] is False
+assert res38b["deaths_frozen"] is True, "the two freezes must be independent"
+print("test38: PASS (random mode frozen; lr_fraction=None or threshold 0 -> no freeze; independent of the death freeze)")
+
+# ---- test 39: a threshold outside [0, 1) is rejected ----
+for bad in (-0.1, 1.0):
+    try:
+        StructuralController(bf_model, birth_freeze_lr_fraction=bad)
+        raise AssertionError(f"expected ValueError for birth_freeze_lr_fraction={bad}")
+    except ValueError:
+        pass
+print("test39: PASS (birth_freeze_lr_fraction outside [0, 1) rejected)")
+
 print("\nALL TESTS PASSED")

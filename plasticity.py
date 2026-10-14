@@ -139,6 +139,13 @@ class StructuralController:
         # no harm. 0.05 stops deaths from step 8750 of 10000 on that schedule.
         # Streaks and diagnostics still update while frozen.
         death_freeze_lr_fraction: float = 0.05,
+        # No birth once the LR falls below this fraction of its peak. 0 =
+        # never freeze. Attempt 7 (RESEARCH_LOG.md 2026-10-14) froze deaths
+        # but still fell 27.29 -> 30.66 val ppl: one head was born at each
+        # of steps 9000-9750, at LR <= 2.7% of peak. Too little LR remains
+        # to train a born unit, and setting those 4 heads back to dormant
+        # gave 27.16. Birth scores and diagnostics still update while frozen.
+        birth_freeze_lr_fraction: float = 0.05,
         seed: int = 0,
     ):
         self.model = model
@@ -168,6 +175,9 @@ class StructuralController:
         if not 0.0 <= death_freeze_lr_fraction < 1.0:
             raise ValueError(f"death_freeze_lr_fraction must be in [0, 1), got {death_freeze_lr_fraction}")
         self.death_freeze_lr_fraction = death_freeze_lr_fraction
+        if not 0.0 <= birth_freeze_lr_fraction < 1.0:
+            raise ValueError(f"birth_freeze_lr_fraction must be in [0, 1), got {birth_freeze_lr_fraction}")
+        self.birth_freeze_lr_fraction = birth_freeze_lr_fraction
         self._rng = random.Random(seed)
 
         self.units: dict[tuple, UnitTelemetry] = {}
@@ -400,7 +410,7 @@ class StructuralController:
             if t.state == LifecycleState.PROTECTED and t.steps_since_birth >= self.minimum_age:
                 t.state = LifecycleState.MATURE
 
-    def _birth_pass(self, step: int, mode: str) -> tuple[list, float]:
+    def _birth_pass(self, step: int, mode: str, frozen: bool = False) -> tuple[list, float]:
         plateau = self._plateau_score()
         dormant = [uid for uid, t in self.units.items() if t.state == LifecycleState.DORMANT and not self._in_dead_layer(uid)]
 
@@ -451,6 +461,8 @@ class StructuralController:
             chosen = [(None, uid) for uid in picks]
         else:
             raise ValueError(f"unknown birth mode {mode!r} (expected 'heuristic' or 'random')")
+        if frozen:
+            chosen = []
 
         births = []
         for score, uid in chosen:
@@ -482,16 +494,18 @@ class StructuralController:
         timing/budget, uniform-random candidate selection) -- proposal §11's
         two growth conditions. The third required condition, "no growth", is
         simply never calling update() at all. `lr_fraction` is the current
-        LR / peak LR; None means unknown, and deaths are never frozen."""
+        LR / peak LR; None means unknown, and nothing is frozen."""
         deaths_frozen = lr_fraction is not None and lr_fraction < self.death_freeze_lr_fraction
+        births_frozen = lr_fraction is not None and lr_fraction < self.birth_freeze_lr_fraction
         deaths = self._death_pass(step, frozen=deaths_frozen)
         self._promote_pass()
-        births, plateau = self._birth_pass(step, mode)
+        births, plateau = self._birth_pass(step, mode, frozen=births_frozen)
         return {
             "step": step,
             "births": births,
             "deaths": deaths,
             "deaths_frozen": deaths_frozen,
+            "births_frozen": births_frozen,
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
             "birth_score_floor": self.birth_score_floor,
