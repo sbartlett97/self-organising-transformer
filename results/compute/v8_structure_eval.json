@@ -1,0 +1,65 @@
+{
+  "checkpoint": "sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze",
+  "step": 10000,
+  "eval_tokens": 98304,
+  "units_forced_off": 1195,
+  "trained_supernet": {
+    "loss": 3.2834187944730124,
+    "ppl": 26.6667852927236
+  },
+  "present_structure_only": {
+    "loss": 4.885961602131526,
+    "ppl": 132.4177373104354
+  },
+  "structure": [
+    {
+      "index": 0,
+      "heads": 7,
+      "ffn_groups": 46
+    },
+    {
+      "index": 1,
+      "heads": 3,
+      "ffn_groups": 47
+    },
+    {
+      "index": 2,
+      "heads": 7,
+      "ffn_groups": 44
+    },
+    {
+      "index": 3,
+      "heads": 6,
+      "ffn_groups": 43
+    },
+    {
+      "index": 4,
+      "heads": 5,
+      "ffn_groups": 47
+    },
+    {
+      "index": 5,
+      "heads": 6,
+      "ffn_groups": 30
+    },
+    {
+      "index": 6,
+      "heads": 3,
+      "ffn_groups": 39
+    },
+    {
+      "index": 7,
+      "heads": 3,
+      "ffn_groups": 101
+    },
+    {
+      "index": 8,
+      "heads": 2,
+      "ffn_groups": 49
+    }
+  ],
+  "flops_per_token": 145786368,
+  "flops_fraction_of_dense": 0.4655861706980874,
+  "params": 71728128,
+  "params_fraction_of_dense": 0.4717112639776963
+}

@@ -84,6 +84,14 @@ for the full phased research programme.
   steps 9000-9750 cost +0.108 loss (27.16 -> 30.25 ppl on 48 val
   batches). Next: freeze births in the LR tail too. See the 2026-10-14
   attempt-7 entry.
+- **Latest (2026-10-14): attempt 8 (births and deaths frozen in the LR
+  tail) ends at 26.98 val ppl, the best Phase 2 result.** Val ppl falls at
+  every eval. **But the real compute accounting shows the cost proxy is
+  wrong by about 9x, and the model depends on its dormant units.** The
+  present structure is 0.466 of dense FLOPs/token. With every non-present
+  unit forced off, val ppl goes from 26.67 to 132 (attempt 7: 30.25 to
+  244). No Phase 2 result yet shows a cheaper model. See the 2026-10-14
+  attempt-8 and compute-accounting entries.
 - **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
   complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
   dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
@@ -2875,3 +2883,95 @@ births resume at the threshold; random mode is frozen too; None or a
 threshold of 0 never freezes; the two freezes are independent; values
 outside [0, 1) are rejected. Test 36 fails on the old controller (the
 strong candidate is born).
+
+## 2026-10-14 (continued) — Attempt 8: no structure change in the LR tail
+
+Attempt 7 plus `--birth_freeze_lr_fraction 0.05`. Same Secure Cloud A100,
+seed and config. Commit 281b962. Model:
+`sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze`.
+Logs: `results/phase2_v8_tailfreeze/`.
+
+- Val ppl matched attempt 7 exactly at every eval to step 8500, as
+  expected: the freeze cannot act before step 8750.
+- Last birth step 8500 (head 2.3), last death step 7500. Checks
+  8750-9750 report `births_frozen` and `deaths_frozen`. 92 births, 23
+  deaths. Dead layers 9, 10, 11.
+- The ablation predicted about 27.2. The result is better: val ppl falls
+  at every eval to the end.
+
+| val ppl | 8500 | 9000 | 9500 | 10000 |
+|---|---:|---:|---:|---:|
+| attempt 6 (no freeze) | 27.37 | 27.29 | | 29.28 |
+| attempt 7 (deaths frozen) | 27.37 | 27.29 | 27.77 | 30.66 |
+| **attempt 8 (both frozen)** | 27.37 | 27.14 | 27.00 | **26.98** |
+
+Attempt 4 ended at 28.08. The Phase 1 dense 768 baseline is 21.98.
+
+## 2026-10-14 (continued) — Compute accounting: the cost proxy is wrong, and dormant units are not off
+
+`architecture_cost()` is a gate-weighted proxy (Bugs.md). New code counts
+real compute:
+
+- `compute.py`: matmul FLOPs/token and parameters of a structure (one
+  entry per present layer: heads, FFN groups). `Replay` rebuilds a Phase 2
+  run's structure at any step from its seed split (`Random(seed)` in
+  `_register_units` order) and `events.json`. A unit is present while
+  PROTECTED/MATURE, or DEAD with its death ramp still running.
+- `tests/compute_test.py` (5/5): the formulas equal torch
+  `FlopCounterMode` and `numel()` exactly, on an irregular
+  `CompactTransformer` and on the gated supernet. The supernet runs its
+  full dense FLOPs whatever its gates are.
+- Replay matches `state_counts` at all 157 growth checks of attempts 5-8,
+  and each final gate band (alive >= 0.237, dormant 0.014-0.052, dead
+  <= 0.0011).
+- `structure_eval.py`: val ppl of the supernet as trained, and with every
+  non-present unit forced off (logit -30). 48 val batches of 8 x 256.
+
+Dense 768 x 12: 313.1 MFLOP/token forward, 152.1M params. lm_head is
+77.2 MFLOP of that (25%), a floor no structure change removes.
+
+| final structure | layers | FLOPs/token vs dense | params vs dense | training FLOPs (lower bound) | cost proxy |
+|---|---:|---:|---:|---:|---:|
+| attempt 5 | 7 | 0.428 | 0.432 | 0.444 | |
+| attempt 6 | 9 | 0.468 | 0.474 | 0.454 | 0.054 |
+| attempt 7 | 9 | 0.473 | 0.478 | 0.454 | 0.055 |
+| attempt 8 | 9 | 0.466 | 0.472 | 0.454 | |
+
+- The cost proxy is about 9x too low: it multiplies cost by gates of
+  0.25-0.48.
+- The training-FLOPs figure is a lower bound only. Birth scores read the
+  gradient on dormant gates, so dormant units must run. The gated
+  supernet really runs 1.0 of dense.
+
+**Quality of the counted structure** (`structure_eval.py`):
+
+| | as trained | present structure only |
+|---|---:|---:|
+| attempt 7 | 30.25 | 244.29 |
+| attempt 8 | 26.67 | 132.42 |
+
+Split for attempt 7 (`results/compute/dormant_split.py`, `dead_split.py`):
+
+| units forced off | n | mean gate | val ppl |
+|---|---:|---:|---:|
+| none | | | 30.25 |
+| dead units in live layers | 14 | 0.0007 | 30.42 |
+| dead layers 9, 10, 11 | 3 | 0.0009 | 33.21 |
+| dormant heads in live layers | 47 | 0.035 | 33.53 |
+| dormant FFN groups in live layers | 706 | 0.043 | 211.70 |
+
+- **Dormant FFN groups do most of the work behind the gap.** They have
+  small gates, but there are 706 of them, and their weights train for the
+  whole run. "Dormant" is a low-gate live state, not an off state.
+- **Dead units drift back up.** Their gates sit at 0.0007-0.0009, above
+  sigmoid(-8) = 0.0003. Nothing holds a DEAD logit after the death ramp,
+  so the optimizer moves it. The dead layers still carry about 3 ppl.
+- So no Phase 2 result yet shows quality at lower compute. Attempt 8's
+  26.98 comes from the full supernet.
+
+**Next** (needs a decision):
+1. Make DEAD a hard zero: hold the logit (or zero its gradient) at every
+   step after the ramp. Needed before dead units can leave the tensors.
+2. Make DORMANT truly off: gate exactly 0 in the forward pass. The birth
+   score can read dL/dg directly, which is not zero at g = 0.
+3. Re-run, and judge on `structure_eval.py`, not supernet val ppl.

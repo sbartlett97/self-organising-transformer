@@ -1,0 +1,65 @@
+{
+  "checkpoint": "sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v7-lrfreeze",
+  "step": 10000,
+  "eval_tokens": 98304,
+  "units_forced_off": 1190,
+  "trained_supernet": {
+    "loss": 3.4094461301962533,
+    "ppl": 30.248485895905947
+  },
+  "present_structure_only": {
+    "loss": 5.498373806476593,
+    "ppl": 244.29433919799675
+  },
+  "structure": [
+    {
+      "index": 0,
+      "heads": 8,
+      "ffn_groups": 46
+    },
+    {
+      "index": 1,
+      "heads": 3,
+      "ffn_groups": 47
+    },
+    {
+      "index": 2,
+      "heads": 7,
+      "ffn_groups": 44
+    },
+    {
+      "index": 3,
+      "heads": 7,
+      "ffn_groups": 43
+    },
+    {
+      "index": 4,
+      "heads": 5,
+      "ffn_groups": 47
+    },
+    {
+      "index": 5,
+      "heads": 7,
+      "ffn_groups": 30
+    },
+    {
+      "index": 6,
+      "heads": 5,
+      "ffn_groups": 39
+    },
+    {
+      "index": 7,
+      "heads": 3,
+      "ffn_groups": 101
+    },
+    {
+      "index": 8,
+      "heads": 2,
+      "ffn_groups": 49
+    }
+  ],
+  "flops_per_token": 148080128,
+  "flops_fraction_of_dense": 0.4729115670952351,
+  "params": 72711168,
+  "params_fraction_of_dense": 0.47817610634665697
+}
