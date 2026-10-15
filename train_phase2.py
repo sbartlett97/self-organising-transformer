@@ -121,7 +121,16 @@ def train(cfg: Phase2Config):
     model.train()
     hub_utils.init_trackio(cfg, phase="phase2", condition=cfg.hub_condition or cfg.birth_mode)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
+    # Probes carry the birth signal (dL/dg of dormant units) and must stay
+    # exactly 0: their own group has lr 0 and no weight decay, and they are
+    # out of gradient clipping. The main group must stay first:
+    # scheduler.get_last_lr()[0] is the peak-relative LR the freezes read.
+    probe_ids = {id(p) for p in model.probe_parameters()}
+    main_params = [p for p in model.parameters() if id(p) not in probe_ids]
+    optimizer = torch.optim.AdamW(
+        [{"params": main_params},
+         {"params": model.probe_parameters(), "lr": 0.0, "weight_decay": 0.0}],
+        lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
     scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
 
@@ -156,14 +165,18 @@ def train(cfg: Phase2Config):
             accum_cost += float(cost.detach())
 
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+        torch.nn.utils.clip_grad_norm_(main_params, cfg.grad_clip)
         # Gradients are unscaled and still populated here -- this is where the
         # controller reads per-unit gradient pressure for its birth signal.
         # train_loss (not the sparse eval_every val_loss) feeds the plateau
         # signal every step, since growth_interval is typically far more
         # frequent than eval_every.
         controller.record_step(train_loss=accum_task / cfg.grad_accum)
+        # Inactive units get zero gradient, but weight decay and Adam momentum
+        # would still move them. Keep them bit-identical.
+        inactive = model.snapshot_inactive()
         scaler.step(optimizer)
+        model.restore_inactive(inactive)
         scaler.update()
         scheduler.step()
 
@@ -269,8 +282,8 @@ def parse_args() -> Phase2Config:
     p.add_argument("--death_criterion", choices=["importance", "gate"], default="importance", help="Signal compared against the kind median for death: EMA of Taylor importance |g*dL/dg| (default), or the original gate value")
     p.add_argument("--death_patience", type=int, default=3, help="Consecutive growth checks a unit must stay below death_relative_margin before it actually dies")
     p.add_argument("--birth_score_floor", type=float, default=0.0, help="A dormant candidate is birth-eligible only if its raw score exceeds this -- excludes genuinely zero-signal candidates from filling the birth_limit quota, see plasticity.py's StructuralController docstring")
-    p.add_argument("--birth_ramp_steps", type=int, default=250, help="Steps over which a born unit's gate logit climbs from its dormant value to the active init. 0 = one-step jump (the original rule).")
-    p.add_argument("--death_ramp_steps", type=int, default=250, help="Steps over which a dying unit's gate falls linearly to sigmoid(dead_logit). 0 = one-step cut (the original rule).")
+    p.add_argument("--birth_ramp_steps", type=int, default=250, help="Steps over which a born unit's scale climbs linearly 0 -> 1. 0 = full scale in one step.")
+    p.add_argument("--death_ramp_steps", type=int, default=250, help="Steps over which a dying unit's scale falls linearly 1 -> 0. 0 = one-step cut.")
     p.add_argument("--death_freeze_lr_fraction", type=float, default=0.05, help="No death once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--birth_freeze_lr_fraction", type=float, default=0.05, help="No birth once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--output_dir", default="./outputs/phase2")

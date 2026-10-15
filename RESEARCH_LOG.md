@@ -2975,3 +2975,74 @@ Split for attempt 7 (`results/compute/dormant_split.py`, `dead_split.py`):
 2. Make DORMANT truly off: gate exactly 0 in the forward pass. The birth
    score can read dL/dg directly, which is not zero at g = 0.
 3. Re-run, and judge on `structure_eval.py`, not supernet val ppl.
+
+## 2026-10-15 — Dormant and dead units: exact zero effect, zero gradient
+
+Requirement of the premise, missed in attempts 1-8: only the active
+structure may affect the loss. The 2026-10-14 compute entry showed the
+opposite (attempt 8: 26.67 val ppl as trained, 132 with inactive units
+forced off). Lesson recorded in `tasks/lessons.md`.
+
+**Change**:
+
+- `PlasticTransformer` has a scale per unit (`layer_scale`, `head_scale`,
+  `group_scale`, saved with the checkpoint). Gate = scale x
+  sigmoid(logit). DORMANT and DEAD units have scale 0: an exact zero
+  output, and exactly zero gradient on their weights and logit.
+- Skip edge i <- i-s is scaled by both layers' scales, so a skip to or
+  from an absent layer is off (as in `CompactTransformer`).
+- Birth signal: each dormant unit's gate has a zero-valued probe. It adds
+  nothing to the output; its gradient is dL/dg. Probes are in an optimizer
+  group with lr 0, out of gradient clipping. The cost terms use gates
+  without probes, so the signal is the task loss only. This is a read-only
+  gradient on dormant units. Dormant weights stay at their random init, so
+  births rank random-init units (GradMax style).
+- `snapshot_inactive()` / `restore_inactive()` around `optimizer.step()`:
+  weight decay and Adam momentum no longer move inactive weights.
+- Ramps act on the scale: birth 0 -> 1 (logit set to `birth_init_logit`,
+  trains freely); death 1 -> 0, ending at exactly 0. `dead_logit` is gone.
+- Units inside a DORMANT layer are now excluded like those in a DEAD layer
+  (`_in_inactive_layer`): their importance is exactly 0. When a layer is
+  born, its live units restart as PROTECTED (age 0).
+- `compact_model.build_from_plastic()`: physical model of the present
+  structure (scale > 0), gates folded into the output weights, no
+  threshold, no head-count snapping.
+- Birth score is the raw |dL/dg| EMA: about 1e-6 in the smoke run, against
+  0.006-0.01 before. `--birth_score_floor 0.005` would block every birth,
+  so runs from now on use 0. Within a check every dormant score is G x a
+  constant (the contribution term is 0), so the ranking is by G alone.
+
+**Tests**: `tests/zero_effect_test.py` 9/9, the controller suite 42/42
+(rewritten for scale ramps; new tests 40-42 cover the dormant-layer rule
+and fail with the old dead-layer-only rule), and `tests/compute_test.py` 5/5:
+
+- randomising every inactive weight (x100) leaves the output bit-identical;
+- every inactive weight, logit and skip edge gets exactly zero gradient;
+- the probe gradient equals a float64 finite difference (to <= 0.13%);
+- 3 AdamW steps with weight decay leave inactive weights and probes
+  bit-identical;
+- `build_from_plastic` matches the supernet's logits to 2.4e-7, with a
+  dormant layer, a dead layer, mid-ramp units and skips on;
+- in a 60-step controller run, scale and probe agree with the state at
+  every step (17 births, 12 deaths);
+- old checkpoints load with scale 1 (unchanged behaviour); new ones keep
+  their scales.
+
+**Smoke run** (4 layers, d 128, 800 steps): 49 births, 34 deaths (30 FFN
+groups, 3 heads, 1 layer). Val loss on 20 batches: supernet 4.592691,
+physical model 4.592691 (largest batch difference 4.8e-7), at 0.918 of the
+supernet's parameters.
+
+Executed compute is still 1.0 of dense: the tensors are full size, and
+the probes need dormant units' outputs. DEAD units need neither, so
+removing them physically during training is no longer blocked.
+
+`ablation_importance.set_logit` (and the tail-birth ablation that used it)
+turns a unit "off" through its logit. On new checkpoints a logit of -4
+leaves gate = scale x 0.018. Ablations of new checkpoints must set the
+scale to 0.
+
+From now on, val ppl during training is the val ppl of the present
+structure. Results are not comparable with attempts 1-8, which measured
+the supernet. Expect worse val ppl than attempt 8's 26.98, at a true cost
+of about 0.47 dense or lower.

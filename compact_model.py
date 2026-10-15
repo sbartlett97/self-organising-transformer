@@ -162,3 +162,57 @@ def build_from_sot(sot_model,threshold=0.5,layer_indices=None):
             dst.attn.drop.p=src.attn.resid_dropout.p; dst.ffn.drop.p=src.ffn.dropout.p
         compact.ln_f.weight.copy_(sot_model.ln_f.weight); compact.lm_head.weight=compact.embed.weight
     return compact
+
+
+def build_from_plastic(model):
+    """Physical model of a PlasticTransformer's present structure: the layers,
+    heads and FFN groups with scale > 0, and the skip edges between present
+    layers. No threshold and no head-count snapping. Effective gates
+    (scale * sigmoid(logit), times the layer gate) are folded into the
+    attention out-projection and FFN down-projection columns, and skip gates
+    travel with their edges, so the result reproduces the supernet's output.
+
+    A present layer with no present head (or FFN group) keeps one with zero
+    output weights: it adds exactly nothing, as in the supernet."""
+    cfg = model.config
+    d, H, hd = cfg.d_model, cfg.max_heads, cfg.d_model // cfg.max_heads
+    F, gs = cfg.max_ffn_dim, cfg.max_ffn_dim // cfg.ffn_groups
+    layer_g, head_g, group_g, skip_g = (t.detach() for t in model._gates())
+    present = [i for i in range(cfg.max_layers) if model.layer_scale[i] > 0]
+    layers = []
+    for i in present:
+        heads = [h for h in range(H) if model.head_scale[i, h] > 0]
+        groups = [g for g in range(cfg.ffn_groups) if model.group_scale[i, g] > 0]
+        edges = [(i - s, float(skip_g[i, s - 1])) for s in range(1, min(cfg.skip_span, i) + 1) if (i - s) in present]
+        layers.append({"original_index": i, "heads": max(1, len(heads)), "head_dim": hd,
+                       "ffn_dim": max(1, len(groups)) * gs, "skip_from": [e[0] for e in edges],
+                       "skip_gate": [e[1] for e in edges], "_heads": heads, "_groups": groups})
+    compact = CompactTransformer(CompactConfig(vocab_size=cfg.vocab_size, max_position_embeddings=cfg.max_position_embeddings,
+                                               d_model=d, layers=[{k: v for k, v in l.items() if not k.startswith("_")} for l in layers],
+                                               dropout=cfg.dropout, skip_span=cfg.skip_span))
+    with torch.no_grad():
+        compact.embed.weight.copy_(model.embed.weight)
+        compact.pos_embed.weight.copy_(model.pos_embed.weight)
+        compact.ln_f.weight.copy_(model.ln_f.weight)
+        for dst, spec in zip(compact.blocks, layers):
+            i, heads, groups = spec["original_index"], spec["_heads"], spec["_groups"]
+            src = model.blocks[i]
+            dst.ln1.weight.copy_(src.ln1.weight)
+            dst.ln2.weight.copy_(src.ln2.weight)
+            if heads:
+                qkv = src.attn.qkv.weight.view(3, H, hd, d)
+                dst.attn.qkv.weight.copy_(qkv[:, heads].reshape(3 * len(heads) * hd, d))
+                outw = src.attn.out.weight.view(d, H, hd)[:, heads]
+                fold = (head_g[i, heads] * layer_g[i]).view(1, -1, 1)
+                dst.attn.out.weight.copy_((outw * fold).reshape(d, len(heads) * hd))
+            else:
+                dst.attn.out.weight.zero_()
+            if groups:
+                rows = [c for g in groups for c in range(g * gs, (g + 1) * gs)]
+                dst.ffn.up.weight.copy_(src.ffn.up.weight.view(2, F, d)[:, rows].reshape(2 * len(rows), d))
+                fold = (group_g[i, groups].repeat_interleave(gs) * layer_g[i]).view(1, -1)
+                dst.ffn.down.weight.copy_(src.ffn.down.weight[:, rows] * fold)
+            else:
+                dst.ffn.down.weight.zero_()
+        compact.lm_head.weight = compact.embed.weight
+    return compact

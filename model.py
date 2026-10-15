@@ -175,6 +175,11 @@ class SelfOrganizingTransformer(PreTrainedModel):
             skips = torch.empty((len(self.blocks), 0), device=layer.device)
         return layer, heads, groups, skips
 
+    def _forward_gates(self):
+        """Gates the forward pass uses. Subclasses may add terms that change
+        gradients but not values (Phase 2's birth probes)."""
+        return self._gates()
+
     def architecture_cost(self) -> torch.Tensor:
         layer, heads, groups, skips = self._gates()
         # Differentiable proxy. Normalised so 1.0 is approximately the dense supernet.
@@ -230,7 +235,7 @@ class SelfOrganizingTransformer(PreTrainedModel):
         pos = torch.arange(t, device=input_ids.device).unsqueeze(0)
         x = self.drop(self.embed(input_ids) + self.pos_embed(pos))
         previous = []
-        layer_gates, head_gates, group_gates, skip_gates = self._gates()
+        layer_gates, head_gates, group_gates, skip_gates = self._forward_gates()
 
         for i, block in enumerate(self.blocks):
             residual = x

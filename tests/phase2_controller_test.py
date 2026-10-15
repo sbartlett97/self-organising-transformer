@@ -99,6 +99,28 @@ assert 0.4 < mature_frac < 0.8, f"seed fraction out of expected range: {mature_f
 assert counts.get("dead", 0) == 0 and counts.get("protected", 0) == 0
 print("test1: PASS (seed split within expected range, no premature protected/dead)")
 
+
+def in_live_layer(ctl, uid):
+    """Death and birth skip heads/FFN groups inside a DORMANT or DEAD layer
+    (their output is exactly zero), so tests that need eligible units pick
+    them from live layers."""
+    return not ctl._in_inactive_layer(uid)
+
+
+def all_layers_live(ctl):
+    """Make every layer MATURE (scale 1) and every protected unit mature. The
+    4-layer test model leaves too few live layers after the seed split for
+    tests that need several mature units per kind."""
+    for li in range(cfg.max_layers):
+        lu = ("layer", li, 0)
+        ctl.units[lu].state = LifecycleState.MATURE
+        ctl._set_scale(lu, 1.0)
+        ctl._set_probe(lu, False)
+    for t in ctl.units.values():
+        if t.state == LifecycleState.PROTECTED:
+            t.state = LifecycleState.MATURE
+            t.ramp_remaining = 0
+
 # ---- drive a few real forward/backward passes so gradients exist ----
 opt = torch.optim.SGD(model.parameters(), lr=0.01)
 x = torch.randint(0, cfg.vocab_size, (2, 8))
@@ -136,13 +158,15 @@ assert dormant_uid not in deaths, "protection window was not respected"
 assert controller.units[dormant_uid].state == LifecycleState.PROTECTED
 print("test3: PASS (protected unit immune to death scoring)")
 
+all_layers_live(controller)  # tests 4-9 need several mature units per kind in live layers
+
 # ---- test 4: a mature unit well below its kind's median, sustained, dies -- a healthy peer survives ----
 # pick a kind with >=3 mature units so there's a real median to be below/above
 from collections import defaultdict
 
 mature_by_kind = defaultdict(list)
 for uid, t in controller.units.items():
-    if t.state == LifecycleState.MATURE:
+    if t.state == LifecycleState.MATURE and in_live_layer(controller, uid):
         mature_by_kind[uid[0]].append(uid)
 kind, uids = max(mature_by_kind.items(), key=lambda kv: len(kv[1]))
 assert len(uids) >= 3, f"need >=3 mature units of one kind for test4/7/9, got {len(uids)} of kind {kind!r}"
@@ -161,7 +185,7 @@ d2 = controller._death_pass(step=11)
 print(f"test4: death passes -> d1={d1} d2={d2}")
 assert worst_uid in d2, f"expected {worst_uid} dead after {cfg.death_patience} sustained passes below its kind's median"
 assert controller.units[worst_uid].state == LifecycleState.DEAD
-assert abs(controller._get_logit(worst_uid) - controller.dead_logit) < 1e-6
+assert controller._get_scale(worst_uid) == 0.0, "a dead unit's scale is exactly 0"
 assert controller.units[healthy_uid].state == LifecycleState.MATURE, "healthy peer should not have died"
 print("test4: PASS (unit well below its kind's median dies after death_patience; healthy peer survives)")
 
@@ -188,7 +212,7 @@ print(f"test6: PASS ({len(events)} events, all well-formed and JSON-serializable
 # a few (more than death_limit, fewer than half the population) low.
 mature_by_kind = defaultdict(list)
 for uid, t in controller.units.items():
-    if t.state == LifecycleState.MATURE:
+    if t.state == LifecycleState.MATURE and in_live_layer(controller, uid):
         mature_by_kind[uid[0]].append(uid)
 kind2, uids2 = max(mature_by_kind.items(), key=lambda kv: len(kv[1]))
 n_low = controller.death_limit + 1
@@ -216,7 +240,7 @@ controller._loss_history = [1.0] * 10  # perfectly flat -> plateau saturates nea
 plateau = controller._plateau_score()
 assert plateau > 0.9, f"expected saturated plateau, got {plateau}"
 
-dormant_uids = [uid for uid, t in controller.units.items() if t.state == LifecycleState.DORMANT]
+dormant_uids = [uid for uid, t in controller.units.items() if t.state == LifecycleState.DORMANT and in_live_layer(controller, uid)]
 uid_with_pressure, uid_without_pressure = dormant_uids[0], dormant_uids[1]
 controller.units[uid_with_pressure].gradient_ema = 0.02
 controller.units[uid_with_pressure].contribution_ema = 0.0
@@ -377,6 +401,7 @@ imp = StructuralController(
 )
 assert imp.death_criterion == "importance", "importance must be the default criterion"
 imp.seed_architecture()
+all_layers_live(imp)
 
 # ---- test 14: importance_ema follows |dL/dlogit / (1 - g)| from one real step ----
 imp_opt = torch.optim.SGD(imp_model.parameters(), lr=0.01)
@@ -462,44 +487,43 @@ ramp_model = PlasticTransformer(cfg)
 ramp = StructuralController(ramp_model, birth_limit=1, minimum_age=cfg.minimum_age, birth_ramp_steps=10, seed=0)
 assert ramp.birth_ramp_steps == 10
 ramp.seed_architecture()
-born = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT)
+all_layers_live(ramp)
+born = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT and uid[0] != "layer")
 ramp.units[born].gradient_ema = 10.0
-start = ramp._get_logit(born)
 
-# ---- test 19: birth does not move the logit; it climbs linearly to birth_init_logit ----
+# ---- test 19: birth sets the logit to birth_init_logit; the scale climbs 0 -> 1 linearly ----
 res19 = ramp.update(step=5, mode="heuristic")
 assert res19["births"] == [born], res19["births"]
 assert ramp.units[born].state == LifecycleState.PROTECTED
-assert abs(ramp._get_logit(born) - start) < 1e-6, "birth must not jump the logit when ramping"
+assert ramp._get_scale(born) == 0.0, "birth must start at scale 0 (no jump in the output)"
+assert ramp._get_logit(born) == ramp.birth_init_logit
 assert res19["ramping"] == 1
 for _ in range(5):
     ramp.record_step()
-mid = ramp._get_logit(born)
-assert abs(mid - (start + ramp.birth_init_logit) / 2) < 1e-4, (start, mid)
+mid = ramp._get_scale(born)
 for _ in range(5):
     ramp.record_step()
-end = ramp._get_logit(born)
+end = ramp._get_scale(born)
 for _ in range(3):
     ramp.record_step()
-print(f"test19: start={start:.3f} mid={mid:.3f} end={end:.3f} after={ramp._get_logit(born):.3f}")
-assert abs(end - ramp.birth_init_logit) < 1e-4 and ramp.units[born].ramp_remaining == 0
-assert abs(ramp._get_logit(born) - end) < 1e-6, "logit must stop moving once the ramp ends"
-print("test19: PASS (born logit ramps linearly to birth_init_logit, then stops)")
+print(f"test19: mid={mid:.3f} end={end:.3f} after={ramp._get_scale(born):.3f}")
+assert abs(mid - 0.5) < 1e-6 and end == 1.0 and ramp.units[born].ramp_remaining == 0
+assert ramp._get_scale(born) == 1.0, "scale must stay at 1 once the ramp ends"
+print("test19: PASS (born scale ramps linearly 0 -> 1, then stops)")
 
-# ---- test 20: the ramp adds to the optimizer's updates instead of overwriting them ----
+# ---- test 20: the ramp does not touch the logit, so optimizer updates are kept ----
 ramp.units[born].gradient_ema = 0.0
-born2 = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT)
+born2 = next(uid for uid, t in ramp.units.items() if t.state == LifecycleState.DORMANT and uid[0] != "layer")
 ramp.units[born2].gradient_ema = 10.0
 res20 = ramp.update(step=10, mode="heuristic")
 assert res20["births"] == [born2], res20["births"]
-start2 = ramp._get_logit(born2)
 for i in range(10):
     ramp.record_step()
     if i == 3:
         ramp._set_logit(born2, ramp._get_logit(born2) + 0.5)  # stand-in for an optimizer step
 got20 = ramp._get_logit(born2)
-print(f"test20: start={start2:.3f} end={got20:.3f} expected={ramp.birth_init_logit + 0.5:.3f}")
-assert abs(got20 - (ramp.birth_init_logit + 0.5)) < 1e-4
+print(f"test20: end logit={got20:.3f} expected={ramp.birth_init_logit + 0.5:.3f}")
+assert abs(got20 - (ramp.birth_init_logit + 0.5)) < 1e-6
 print("test20: PASS (optimizer movement during the ramp is kept)")
 
 # ---- test 21: a negative ramp length is rejected ----
@@ -548,7 +572,7 @@ for uid, t in dl.units.items():
         t.importance_ema = 0.0  # all orphans look dead: would drag the FFN median to ~0
 deaths23 = dl._death_pass(step=12)
 print(f"test23: deaths={deaths23} ffn median={dl._last_importance_spread['ffn_group']['median']}")
-assert not any(dl._in_dead_layer(u) for u in deaths23), deaths23
+assert not any(dl._in_inactive_layer(u) for u in deaths23), deaths23
 assert dl._last_importance_spread["ffn_group"]["min"] == 1.0, "orphans must not enter the median pool"
 assert deaths23 == [], "no live unit is below 0.5 x median"
 print("test23: PASS (dead-layer units neither killed nor counted in the median)")
@@ -570,9 +594,9 @@ print("test24: PASS (same-pass layer death does not leak slots to its own units)
 # ---- test 25: update() reports the units stranded in dead layers ----
 res25 = dl.update(step=14, mode="heuristic")
 expected = sum(1 for uid, t in dl.units.items() if t.state != LifecycleState.DEAD and uid[0] != "layer" and uid[1] in (dead_li, li))
-print(f"test25: in_dead_layers={res25['in_dead_layers']} expected={expected}")
-assert res25["in_dead_layers"] == expected and expected > 0
-print("test25: PASS (in_dead_layers reported)")
+print(f"test25: in_inactive_layers={res25['in_inactive_layers']} expected={expected}")
+assert res25["in_inactive_layers"] == expected and expected > 0
+print("test25: PASS (in_inactive_layers reported)")
 
 # ===== death_ramp_steps (tests 26-30) =====
 # A fresh model with no gradients: record_step then only advances the ramp.
@@ -582,50 +606,43 @@ dr = StructuralController(dr_model, birth_limit=0, death_limit=1, minimum_age=cf
                           death_relative_margin=0.5, death_patience=1, death_ramp_steps=10, seed=0)
 assert dr.death_ramp_steps == 10
 dr.seed_architecture()
-for uid, t in dr.units.items():  # every unit MATURE, old enough, equal importance
+for uid, t in dr.units.items():  # every unit MATURE at scale 1, old enough, equal importance
     t.state = LifecycleState.MATURE
     t.steps_since_birth = cfg.minimum_age + 1
     t.importance_ema = 1.0
+    dr._set_scale(uid, 1.0)
+    dr._set_probe(uid, False)
 dying = ("layer", 1, 0)
 dr.units[dying].importance_ema = 0.0
 dr._set_logit(dying, 1.0)
 
-
-def gate_of(uid):
-    return 1.0 / (1.0 + math.exp(-dr._get_logit(uid)))
-
-
-start_gate = gate_of(dying)
-dead_gate = 1.0 / (1.0 + math.exp(-dr.dead_logit))
-
-# ---- test 26: death sets DEAD at once but does not move the logit ----
+# ---- test 26: death sets DEAD at once but does not cut the scale ----
 res26 = dr.update(step=5, mode="heuristic")
 print(f"test26: deaths={res26['deaths']} dying={res26['dying']} ramping={res26['ramping']}")
 assert res26["deaths"] == [dying]
 assert dr.units[dying].state == LifecycleState.DEAD
-assert abs(dr._get_logit(dying) - 1.0) < 1e-6, "death must not cut the logit when ramping"
+assert dr._get_scale(dying) == 1.0, "death must not cut the scale when ramping"
 assert res26["dying"] == 1 and res26["ramping"] == 0
 print("test26: PASS (death decision is immediate, the cut is not)")
 
-# ---- test 27: the gate falls linearly to sigmoid(dead_logit), then the logit stays at dead_logit ----
+# ---- test 27: the scale falls linearly to exactly 0, then stays there ----
 for _ in range(5):
     dr.record_step()
-mid_gate = gate_of(dying)
-assert abs(mid_gate - (start_gate + dead_gate) / 2) < 1e-5, (start_gate, mid_gate)
+mid_scale = dr._get_scale(dying)
 for _ in range(5):
     dr.record_step()
-end_logit = dr._get_logit(dying)
+end_scale = dr._get_scale(dying)
 for _ in range(3):
     dr.record_step()
-print(f"test27: start_gate={start_gate:.4f} mid_gate={mid_gate:.4f} end_logit={end_logit:.3f}")
-assert end_logit == dr.dead_logit and dr.units[dying].ramp_remaining == 0
-assert dr._get_logit(dying) == dr.dead_logit, "logit must stop moving once the ramp ends"
-print("test27: PASS (dying gate ramps linearly to the dead gate, then stops)")
+print(f"test27: mid_scale={mid_scale:.4f} end_scale={end_scale}")
+assert abs(mid_scale - 0.5) < 1e-6
+assert end_scale == 0.0 and dr.units[dying].ramp_remaining == 0
+assert dr._get_scale(dying) == 0.0, "scale must stay at 0 once the ramp ends"
+print("test27: PASS (dying scale ramps linearly to exactly 0, then stops)")
 
 # ---- test 28: the optimizer cannot hold up a dying unit ----
 dying2 = ("head", 0, 1)
 dr.units[dying2].importance_ema = 0.0
-dr._set_logit(dying2, 0.0)
 res28 = dr.update(step=10, mode="heuristic")
 assert res28["deaths"] == [dying2], res28["deaths"]
 for i in range(10):
@@ -633,19 +650,19 @@ for i in range(10):
     if i == 3:
         dr._set_logit(dying2, dr._get_logit(dying2) + 2.0)  # stand-in for an optimizer step against the ramp
     if i == 4:
-        on_schedule = 0.5 + (dead_gate - 0.5) * 0.5
-        assert abs(gate_of(dying2) - on_schedule) < 1e-5, "ramp must follow its schedule, not the optimizer"
-print(f"test28: end_logit={dr._get_logit(dying2):.3f}")
-assert dr._get_logit(dying2) == dr.dead_logit
-print("test28: PASS (optimizer movement against the death ramp is overridden)")
+        assert abs(dr._get_scale(dying2) - 0.5) < 1e-6, "ramp must follow its schedule, not the optimizer"
+gates28 = dr_model._gates()[1]
+print(f"test28: end scale={dr._get_scale(dying2)} effective gate={float(gates28[0, 1])}")
+assert float(gates28[0, 1]) == 0.0, "the effective gate must be exactly 0 whatever the logit"
+print("test28: PASS (optimizer movement against the death ramp cannot hold the unit up)")
 
 # ---- test 29: units in a dying layer are out of birth, death and the medians at once ----
 orphan29 = ("head", 1, 0)
 dr.units[orphan29].importance_ema = 0.0  # would die next if its layer were still live
 res29 = dr.update(step=15, mode="heuristic")
-print(f"test29: deaths={res29['deaths']} in_dead_layers={res29['in_dead_layers']}")
+print(f"test29: deaths={res29['deaths']} in_inactive_layers={res29['in_inactive_layers']}")
 assert orphan29 not in res29["deaths"] and dr.units[orphan29].state == LifecycleState.MATURE
-assert res29["in_dead_layers"] == cfg.max_heads + cfg.ffn_groups
+assert res29["in_inactive_layers"] == cfg.max_heads + cfg.ffn_groups
 print("test29: PASS (a dying layer's units count as in a dead layer)")
 
 # ---- test 30: a negative death ramp length is rejected ----
@@ -759,5 +776,73 @@ for bad in (-0.1, 1.0):
     except ValueError:
         pass
 print("test39: PASS (birth_freeze_lr_fraction outside [0, 1) rejected)")
+
+# ===== units in a DORMANT layer (tests 40-42) =====
+# A layer with scale 0 makes all its units' outputs exactly 0, so they are out
+# of death, birth and the medians, as in a DEAD layer. This controller keeps
+# its real seed split (no all_layers_live).
+torch.manual_seed(7)
+il_model = PlasticTransformer(cfg)
+il = StructuralController(il_model, birth_limit=1, death_limit=2, minimum_age=cfg.minimum_age,
+                          death_relative_margin=0.5, death_patience=1, birth_ramp_steps=0, death_ramp_steps=0, seed=0)
+il.seed_architecture()
+dormant_layers = [li for li in range(cfg.max_layers) if il.units[("layer", li, 0)].state == LifecycleState.DORMANT]
+live_layers = [li for li in range(cfg.max_layers) if il.units[("layer", li, 0)].state == LifecycleState.MATURE]
+assert dormant_layers and live_layers, (dormant_layers, live_layers)
+dl_i = next(li for li in dormant_layers
+            if any(il.units[("head", li, h)].state == LifecycleState.MATURE for h in range(cfg.max_heads))
+            and any(il.units[("head", li, h)].state == LifecycleState.DORMANT for h in range(cfg.max_heads)))
+mature_in = next(("head", dl_i, h) for h in range(cfg.max_heads) if il.units[("head", dl_i, h)].state == LifecycleState.MATURE)
+dormant_in = next(("head", dl_i, h) for h in range(cfg.max_heads) if il.units[("head", dl_i, h)].state == LifecycleState.DORMANT)
+for t in il.units.values():
+    t.steps_since_birth = cfg.minimum_age + 1
+    t.importance_ema = 1.0
+assert any(il.units[("head", li, h)].state == LifecycleState.MATURE for li in live_layers for h in range(cfg.max_heads))
+
+# ---- test 40: a mature head in a dormant layer never dies and is out of the median ----
+il.units[mature_in].importance_ema = 0.0  # exactly what its zero gradient gives it
+deaths40 = il._death_pass(step=5) + il._death_pass(step=6)
+print(f"test40: dormant layer {dl_i}; deaths={deaths40} head median min={il._last_importance_spread['head']['min']}")
+assert mature_in not in deaths40 and il.units[mature_in].state == LifecycleState.MATURE
+assert il._last_importance_spread["head"]["min"] == 1.0, "units in a dormant layer must not enter the median"
+print("test40: PASS (mature unit in a dormant layer: no death, not in the median)")
+
+# ---- test 41: a dormant head in a dormant layer is never born ----
+for t in il.units.values():
+    t.gradient_ema = 0.0
+il.units[dormant_in].gradient_ema = 100.0
+births41, _ = il._birth_pass(step=7, mode="heuristic")
+il.birth_limit = 1000  # random mode then takes every eligible candidate
+births41r, _ = il._birth_pass(step=8, mode="random")
+il.birth_limit = 1
+print(f"test41: heuristic births={births41}; random births include it: {dormant_in in births41r}")
+assert dormant_in not in births41 and dormant_in not in births41r
+assert il.units[dormant_in].state == LifecycleState.DORMANT
+print("test41: PASS (dormant-layer candidate skipped by heuristic and random birth)")
+
+# ---- test 42: a layer birth restarts its live units and leaves its dormant units dormant ----
+torch.manual_seed(8)
+lb_model = PlasticTransformer(cfg)
+lb = StructuralController(lb_model, birth_limit=1, minimum_age=cfg.minimum_age, birth_ramp_steps=0, seed=0)
+lb.seed_architecture()
+lb_layer = ("layer", dl_i, 0)
+assert lb.units[lb_layer].state == LifecycleState.DORMANT
+for uid, t in lb.units.items():
+    t.gradient_ema = 0.0
+    t.steps_since_birth = cfg.minimum_age + 1
+    lb._death_streak[uid] = 1
+lb.units[lb_layer].gradient_ema = 100.0
+births42, _ = lb._birth_pass(step=9, mode="heuristic")
+assert births42 == [lb_layer], births42
+children = [u for u in lb.units if u[0] != "layer" and u[1] == dl_i]
+restarted = [u for u in children if lb.units[u].state == LifecycleState.PROTECTED]
+still_dormant = [u for u in children if lb.units[u].state == LifecycleState.DORMANT]
+print(f"test42: layer {dl_i} born; {len(restarted)} live units restarted, {len(still_dormant)} stay dormant")
+assert restarted and still_dormant and len(restarted) + len(still_dormant) == len(children)
+assert all(lb.units[u].steps_since_birth == 0 and lb._death_streak[u] == 0 for u in restarted)
+assert all(lb._get_scale(u) == 1.0 for u in restarted), "live units keep scale 1"
+assert all(lb._get_scale(u) == 0.0 and float(lb._buffer(u, "probe_mask")[0][lb._buffer(u, "probe_mask")[1]]) == 1.0 for u in still_dormant)
+assert lb._get_scale(lb_layer) == 1.0
+print("test42: PASS (layer birth: live units restart as PROTECTED at age 0; dormant units keep their probe)")
 
 print("\nALL TESTS PASSED")

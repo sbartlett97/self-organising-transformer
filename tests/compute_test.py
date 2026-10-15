@@ -52,7 +52,7 @@ sot = PlasticTransformer(cfg)
 StructuralController(sot, seed=0).seed_architecture()  # most gates near 0: no FLOP saved
 got_f = measured_flops_per_token(sot)
 want_f = flops_per_token(s.dense(), s)["total"]
-logit_params = sum(p.numel() for n, p in sot.named_parameters() if "logit" in n)
+logit_params = sum(p.numel() for n, p in sot.named_parameters() if "logit" in n or "probe" in n)
 got_p = sum(p.numel() for p in sot.parameters()) - logit_params
 want_p = param_count(s.dense(), s)["total"]
 print(f"test2: params {got_p} vs {want_p}; flops/token {got_f} vs {want_f}")
