@@ -3058,3 +3058,21 @@ From now on, val ppl during training is the val ppl of the present
 structure. Results are not comparable with attempts 1-8, which measured
 the supernet. Expect worse val ppl than attempt 8's 26.98, at a true cost
 of about 0.47 dense or lower.
+
+## 2026-10-16 — Attempt 9 launched; probes on old checkpoints
+
+Attempt 9: attempt-8 settings on the zero-effect code, with
+`--birth_score_floor 0`. Secure Cloud A100 SXM 80GB ($1.79/hr). Hub tag
+`768d013-v9-zeroeffect`. The first checkpoint (step 1000) gets a check:
+supernet loss must equal the loss of `build_from_plastic`, and every
+probe must be exactly 0.
+
+Bug found on the pod: `tests/zero_effect_test.py` test 8 failed there
+and passed locally. A checkpoint saved before the probes existed loads
+them with `torch.empty`. `PlasticTransformer._init_weights` skipped the
+top-level module, so the probes kept that memory (zeros on the Mac, not
+on the pod). It now sets the probes to 0. All 9 tests pass on the pod
+with the fix. Attempt 9 is not affected: it builds the model with the
+constructor, which uses `torch.zeros`. The fault affected only old
+Phase 2 checkpoints loaded with this code, where non-zero probes times a
+zero probe mask added nothing unless the memory held inf or NaN.

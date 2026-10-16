@@ -75,8 +75,16 @@ class PlasticTransformer(SelfOrganizingTransformer):
         self.group_probe = nn.Parameter(torch.zeros(L, G))
 
     def _init_weights(self, module):
-        # post_init() must not touch the probes (they must stay exactly 0).
+        # The probes must be exactly 0. from_pretrained of a checkpoint saved
+        # before they existed creates them with torch.empty and calls this to
+        # initialise them, so set them to 0 here (do not leave them as-is).
+        # The base __init__ calls post_init() before the probes exist.
         if module is self:
+            if not hasattr(self, "layer_probe"):
+                return
+            with torch.no_grad():
+                for p in self.probe_parameters():
+                    p.zero_()
             return
         super()._init_weights(module)
 
