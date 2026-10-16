@@ -158,6 +158,39 @@ The species is a medium-sized bird found in some areas areas , and is often foun
   effect during training (`RESEARCH_LOG.md`, 2026-10-15). A model trained
   that way must produce its text with the present structure alone.
 
+### `sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect` (Phase 2 attempt 9)
+
+Attempt 9 trained on the zero-effect code, so inactive units have no
+effect. These samples come from the present structure only: 8 layers, 36
+heads and 357 FFN groups, 0.425 of dense FLOPs/token, 30.61 val ppl.
+Same settings as attempt 8 above, with `generate.py` and no changes.
+
+Prompt: `The history of the city begins in`
+
+```text
+--- sample 0 ---
+The history of the city begins in the city of the present @-@ day city of Poughkeepsie ( modern @-@ day Washington ) . The city of Poughkeepsie was one of the largest city residents in the United States . Poughkeepsie had previously been the seat of William McKinley High School , and the city of Poughkeepsie was also the city 's major community .
+```
+
+Prompt: `The species is a medium-sized bird found in`
+
+```text
+--- sample 0 ---
+The species is a medium-sized bird found in the tropical waters of the Great Barrier Reef area , and is known to fly over water as the " Blue Mountains " . The eastern polar bears are usually found in dry , dry , dry , dry and dry environments . The westernmostmost species is a greyish blue @-@ pink colour , with a brown color on the body . The northern polar bears are also found in the eastern polar forms , and are often found in the polar bear . The southern polar bears are also found in polar bears and polar bears .
+```
+
+- Attempt 8's present structure loops after a few words. Attempt 9's
+  present structure, with less compute, writes full sentences in the
+  dataset's style. The zero-effect training made the selected structure
+  usable on its own.
+- It is weaker than the dense model and the attempt-8 supernet. It
+  repeats words more ("dry , dry , dry", "polar bears and polar bears")
+  and drifts off the topic: the bird becomes polar bears. This agrees
+  with its higher val ppl (30.61, against 24.30 for dense 768).
+- With the same seed, attempt 9 starts the bird sample like attempt 8
+  ("tropical waters of the Great Barrier Reef"). The two runs share the
+  tokenizer, data order and seed.
+
 ## Just for fun
 
 More prompts, one run each, not chosen. Settings: `--seed 1
@@ -199,12 +232,29 @@ In 2026 , a team of researchers discovered that the body may be a remnant of a g
 The cat ( Felis catus ) is one of the seven cheetae on the left , the others are in the centre of the circle . The cheetae on the right are very similar , but are not directly connected and are parallel with one another . Also the two cheetae on the right are not connected by curved joints as in the cheetae . The cheetae are very similar . A study of the cheetae noted that in case of the cheetae
 ```
 
+### `sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect`
+
+```text
+The Transformer is a deep learning architecture that can be seen as a learning center on an object , and the environment is an open space and learning center . The game also features a number of levels , including a variety of gameplay , and the developers have an " emotional " feel . The story allows players to choose the best and most rewarding areas as they are " able to control them " with " a very high level of play . "
+```
+
+```text
+In 2026 , a team of researchers discovered that one of the last proteins on a given scale was a protein , and the team reported that the protein 's protein was a single protein . The protein 's protein 's initial size and the protein 's length was reduced by the addition of the protein 's protein into a protein rather than a protein 's protein . This would later evolve the protein 's protein 's protein on the protein 's surface .
+```
+
+```text
+The cat ( Felis catus ) is one of the oldest mammals on the continent and one of the most abundant animals on the continent . It covers a range of more than 80 species of mammals , and can be found in the most part of the continent . It is the second most extinct species on Europe . It has been dated to over 20 million years , and has been collected in many parts of Europe , including parts of Europe , China , and the Middle East . It is now rare in
+```
+
 - The TinyStories model keeps the shape of a story: a problem, help, a
   happy end. It loses track of the cast ("The mouse was scared", "Tom and
   Sam").
 - The WikiText-103 model knows what a Wikipedia article sounds like, but
   not what it says. "Transformer" becomes a video game with release
   dates.
+- Attempt 9 also turns the Transformer into a video game. It gets stuck
+  on one word more often ("the protein 's protein 's protein"), and it
+  calls the cat "the second most extinct species on Europe".
 
 ## Check
 

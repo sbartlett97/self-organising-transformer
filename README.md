@@ -59,8 +59,11 @@ from 26.7 to 132 val ppl:
 ![Supernet against present structure](docs/figures/compute_present_vs_supernet.png)
 
 The code now gives dormant and dead units exactly zero effect and zero
-gradient (2026-10-15, `tests/zero_effect_test.py`). No full-scale run uses
-it yet. That run (attempt 9) is the next step. See "Where next" in
+gradient (2026-10-15, `tests/zero_effect_test.py`). Attempt 9 is the
+first run on this code. Its val ppl is the val ppl of the present
+structure alone: **30.61 at 0.425 of dense FLOPs per token** (8 layers,
+36 heads, 357 FFN groups). Dense 768 gets 24.30 on the same method. A
+dense model at matched compute is the next test. See "Where next" in
 [`RESEARCH_LOG.md`](RESEARCH_LOG.md).
 
 ### Text samples
@@ -83,9 +86,15 @@ first run, not chosen):
 > begins in the the opening gate , is now a a long long , and the the the
 > the that that it opened , and the " " " " " " ...
 
+> **Phase 2 attempt 9, present structure only (0.425 of dense FLOPs):**
+> The history of the city begins in the city of the present @-@ day city
+> of Poughkeepsie ( modern @-@ day Washington ) . The city of Poughkeepsie
+> was one of the largest city residents in the United States .
+
 The TinyStories models write fluent stories. The WikiText-103 models
 write fluent text with invented facts. The present structure of attempt 8
-alone breaks down after a few words.
+alone breaks down after a few words. The present structure of attempt 9
+writes full sentences, but repeats words more often than the dense model.
 
 ### Just for fun
 

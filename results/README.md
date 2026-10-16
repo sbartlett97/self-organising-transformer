@@ -39,6 +39,10 @@ us nothing at this scale.
   - `growth_log.json`: one record for each growth check.
   - `architecture.json`: final gates.
   - `SOURCE_CHECKPOINT`: the Hub repo of the run.
+- `phase2_v9_zeroeffect/`: attempt 9, the first run on the zero-effect code.
+  Its val ppl is the val ppl of the present structure. The present units
+  have gates below 0.5, so `architecture.json` lists no active units at
+  that threshold. Present means a non-zero gate.
 - `phase2_v7_lrfreeze/tail_birth_ablation.py`: the ablation of the heads
   born in the LR tail.
 

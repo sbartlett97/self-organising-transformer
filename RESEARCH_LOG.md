@@ -116,6 +116,7 @@ of the **supernet** (see "How to read the numbers"). The Phase 1 dense
 | 6 | `-v6-allfixes` | birth and death ramps, dead-layer rule | 97 | 28 | 29.28 (27.29 at 9000) |
 | 7 | `-v7-lrfreeze` | no deaths below 5% of peak LR | 97 | 23 | 30.66 |
 | 8 | `-v8-tailfreeze` | no births either below 5% of peak LR | 92 | 23 | 26.98 |
+| 9 | `-v9-zeroeffect` | inactive units have zero effect; **present-structure val ppl** | 92 | 60 | **30.61** |
 
 (Attempt 1 births: its `events.json` has 68. The 2026-10-08 entry says
 59, which is the TinyStories figure.)
@@ -155,7 +156,12 @@ Findings:
   zero output and exact zero gradient. A zero-valued probe reads the
   birth signal dL/dg without changing the output. `build_from_plastic()`
   builds the physical model of the present structure, and it matches the
-  supernet to 2.4e-7. No full-scale run uses this code yet.
+  supernet to 2.4e-7.
+- **Attempt 9 (2026-10-16) is the first run on this code.** Its present
+  structure alone gets 30.61 val ppl at 0.425 of dense FLOPs/token, and it
+  writes fluent text ([samples](docs/samples.md)). Attempt 8's present
+  structure got 132 at 0.466. It is 26% behind dense 768 (24.30); a
+  dense control at matched compute is the next test.
 
 ### Bugs that changed results
 
@@ -175,11 +181,8 @@ Findings:
 
 In order:
 
-1. **Attempt 9 on the zero-effect code.** Use the attempt-8 settings
-   with `--birth_score_floor 0` (raw probe scores are about 1e-6). Judge
-   it on the present structure (`build_from_plastic`, `structure_eval.py`
-   with scales), not on supernet numbers. At step 500, check that the
-   physical model's loss equals the supernet's.
+1. **Attempt 9 on the zero-effect code.** Done (2026-10-16): 30.61 val
+   ppl at 0.425 of dense FLOPs, present structure only.
 2. **A dense control at matched compute.** A dense model with about
    0.47 of the FLOPs of dense 768 (for example fewer layers or a narrower
    FFN), trained for the same tokens. Attempt 9 must beat it to show that
@@ -3076,3 +3079,48 @@ with the fix. Attempt 9 is not affected: it builds the model with the
 constructor, which uses `torch.zeros`. The fault affected only old
 Phase 2 checkpoints loaded with this code, where non-zero probes times a
 zero probe mask added nothing unless the memory held inf or NaN.
+
+## 2026-10-16 — Attempt 9 result: the first valid present-structure number
+
+Attempt 9 finished (exit code 0) and pushed to the Hub. Logs are in
+`results/phase2_v9_zeroeffect/`. The pod is deleted.
+
+Check at step 1000: supernet loss = physical loss = 4.714066 (largest
+batch difference 4.8e-7). Every probe was exactly 0.
+
+Training-time val ppl. For attempt 9 this is the present structure, because
+inactive units have exactly zero effect. For attempt 8 it is the supernet.
+
+| step | 1000 | 2000 | 4000 | 6000 | 8000 | 10000 |
+|---|---:|---:|---:|---:|---:|---:|
+| attempt 9 (present structure) | 106.72 | 60.54 | 39.63 | 33.63 | 31.15 | **30.61** |
+| attempt 8 (supernet) | 107.00 | 56.17 | 35.53 | 29.66 | 27.51 | 26.98 |
+
+Val ppl falls at every eval. The last structure event is at step 8500.
+
+Events: 92 births (52 heads, 31 FFN groups, 9 layers) and 60 deaths (52
+heads, 4 FFN groups, 4 layers).
+
+Final present structure: 8 layers (0-5, 8, 10), 36 of 144 heads, 357 of
+1536 FFN groups. Per-layer heads: 8, 4, 5, 5, 2, 4, 6, 2. `compute.py`
+(seq 256, the settings that give 0.4656 for attempt 8): **0.425 of dense
+FLOPs/token**, 0.434 of params (0.237 of non-embedding params).
+
+Findings:
+
+- **The present structure of attempt 9 is far better than that of
+  attempt 8.** At 0.425 of dense FLOPs it gets 30.61 val ppl. Attempt 8's
+  present structure (0.466 FLOPs) got 132.42 with its dormant units forced
+  off. The zero-effect fix works: the model no longer depends on units it
+  does not have.
+- **It is 26% behind dense 768 (24.30) at 0.425 of the FLOPs.** This does
+  not show that learned structure helps. The dense control at matched
+  compute ("Where next" item 2) decides that.
+- **Gates of present units are low (0.2-0.45).** No unit passes the 0.5
+  threshold of `export_architecture`, so `architecture.json` lists 0
+  active layers. The present structure is the set of units with a
+  non-zero gate (scale 1). Do not use the 0.5 threshold on Phase 2
+  checkpoints.
+- **Few FFN births** (31, against 52 head births). This can be a scale
+  effect: a head's probe gradient sums over 64 dimensions, an FFN group's
+  over 24 channels. Not checked yet.
