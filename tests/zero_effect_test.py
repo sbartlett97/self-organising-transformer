@@ -1,6 +1,6 @@
 """Dormant and dead units must have exactly zero effect and zero gradient.
 
-Only the active structure may affect the loss (tasks/lessons.md 2026-10-15).
+Only the active structure may affect the loss (RESEARCH_LOG.md 2026-10-15).
 This builds a PlasticTransformer with a dormant layer, a dead layer, dormant
 heads and FFN groups in live layers, and skips on, then checks:
 

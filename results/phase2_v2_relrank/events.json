@@ -1,0 +1,1002 @@
+[
+  {
+    "step": 250,
+    "unit": [
+      "layer",
+      0,
+      0
+    ],
+    "event": "birth",
+    "score": 0.010327777561288439
+  },
+  {
+    "step": 250,
+    "unit": [
+      "layer",
+      1,
+      0
+    ],
+    "event": "birth",
+    "score": 0.00931080939842146
+  },
+  {
+    "step": 250,
+    "unit": [
+      "layer",
+      2,
+      0
+    ],
+    "event": "birth",
+    "score": 0.008658877740520737
+  },
+  {
+    "step": 250,
+    "unit": [
+      "layer",
+      3,
+      0
+    ],
+    "event": "birth",
+    "score": 0.007156223384063435
+  },
+  {
+    "step": 500,
+    "unit": [
+      "layer",
+      4,
+      0
+    ],
+    "event": "birth",
+    "score": 0.005929563113930876
+  },
+  {
+    "step": 500,
+    "unit": [
+      "layer",
+      11,
+      0
+    ],
+    "event": "birth",
+    "score": 0.005909059850217932
+  },
+  {
+    "step": 500,
+    "unit": [
+      "layer",
+      9,
+      0
+    ],
+    "event": "birth",
+    "score": 0.00584159958267014
+  },
+  {
+    "step": 500,
+    "unit": [
+      "layer",
+      6,
+      0
+    ],
+    "event": "birth",
+    "score": 0.005827459805475074
+  },
+  {
+    "step": 750,
+    "unit": [
+      "head",
+      1,
+      8
+    ],
+    "event": "birth",
+    "score": 0.006152127606722026
+  },
+  {
+    "step": 750,
+    "unit": [
+      "head",
+      2,
+      9
+    ],
+    "event": "birth",
+    "score": 0.0061382177060285885
+  },
+  {
+    "step": 750,
+    "unit": [
+      "head",
+      3,
+      5
+    ],
+    "event": "birth",
+    "score": 0.006112096652092927
+  },
+  {
+    "step": 750,
+    "unit": [
+      "head",
+      5,
+      7
+    ],
+    "event": "birth",
+    "score": 0.006078436828319724
+  },
+  {
+    "step": 1000,
+    "unit": [
+      "layer",
+      7,
+      0
+    ],
+    "event": "birth",
+    "score": 0.006478112758373641
+  },
+  {
+    "step": 1000,
+    "unit": [
+      "head",
+      3,
+      10
+    ],
+    "event": "birth",
+    "score": 0.006459874896374719
+  },
+  {
+    "step": 1000,
+    "unit": [
+      "ffn_group",
+      3,
+      44
+    ],
+    "event": "birth",
+    "score": 0.006436330427015564
+  },
+  {
+    "step": 1000,
+    "unit": [
+      "head",
+      3,
+      9
+    ],
+    "event": "birth",
+    "score": 0.006433007514872258
+  },
+  {
+    "step": 1250,
+    "unit": [
+      "ffn_group",
+      6,
+      103
+    ],
+    "event": "birth",
+    "score": 0.006896054464533383
+  },
+  {
+    "step": 1250,
+    "unit": [
+      "ffn_group",
+      6,
+      78
+    ],
+    "event": "birth",
+    "score": 0.0068742603049796805
+  },
+  {
+    "step": 1250,
+    "unit": [
+      "ffn_group",
+      3,
+      126
+    ],
+    "event": "birth",
+    "score": 0.006872456600978149
+  },
+  {
+    "step": 1250,
+    "unit": [
+      "ffn_group",
+      3,
+      98
+    ],
+    "event": "birth",
+    "score": 0.006861662818829501
+  },
+  {
+    "step": 1500,
+    "unit": [
+      "ffn_group",
+      4,
+      47
+    ],
+    "event": "birth",
+    "score": 0.00731375453284119
+  },
+  {
+    "step": 1500,
+    "unit": [
+      "ffn_group",
+      4,
+      89
+    ],
+    "event": "birth",
+    "score": 0.007307729284326344
+  },
+  {
+    "step": 1500,
+    "unit": [
+      "ffn_group",
+      4,
+      114
+    ],
+    "event": "birth",
+    "score": 0.007303562725198441
+  },
+  {
+    "step": 1500,
+    "unit": [
+      "ffn_group",
+      3,
+      110
+    ],
+    "event": "birth",
+    "score": 0.007299125844115947
+  },
+  {
+    "step": 1750,
+    "unit": [
+      "ffn_group",
+      6,
+      10
+    ],
+    "event": "birth",
+    "score": 0.007778830783433674
+  },
+  {
+    "step": 1750,
+    "unit": [
+      "ffn_group",
+      4,
+      70
+    ],
+    "event": "birth",
+    "score": 0.0077727177649210165
+  },
+  {
+    "step": 1750,
+    "unit": [
+      "ffn_group",
+      6,
+      94
+    ],
+    "event": "birth",
+    "score": 0.007758885367063649
+  },
+  {
+    "step": 1750,
+    "unit": [
+      "ffn_group",
+      9,
+      89
+    ],
+    "event": "birth",
+    "score": 0.007739624029661547
+  },
+  {
+    "step": 2000,
+    "unit": [
+      "ffn_group",
+      6,
+      15
+    ],
+    "event": "birth",
+    "score": 0.008220058076172357
+  },
+  {
+    "step": 2000,
+    "unit": [
+      "ffn_group",
+      4,
+      103
+    ],
+    "event": "birth",
+    "score": 0.008219286456007661
+  },
+  {
+    "step": 2000,
+    "unit": [
+      "ffn_group",
+      4,
+      92
+    ],
+    "event": "birth",
+    "score": 0.008209324077516386
+  },
+  {
+    "step": 2000,
+    "unit": [
+      "ffn_group",
+      6,
+      59
+    ],
+    "event": "birth",
+    "score": 0.008196031748077919
+  },
+  {
+    "step": 2250,
+    "unit": [
+      "ffn_group",
+      6,
+      84
+    ],
+    "event": "birth",
+    "score": 0.00866370601889389
+  },
+  {
+    "step": 2250,
+    "unit": [
+      "ffn_group",
+      6,
+      118
+    ],
+    "event": "birth",
+    "score": 0.008657159578784131
+  },
+  {
+    "step": 2250,
+    "unit": [
+      "ffn_group",
+      6,
+      102
+    ],
+    "event": "birth",
+    "score": 0.008655217619386604
+  },
+  {
+    "step": 2250,
+    "unit": [
+      "ffn_group",
+      4,
+      78
+    ],
+    "event": "birth",
+    "score": 0.008637950692513496
+  },
+  {
+    "step": 2500,
+    "unit": [
+      "ffn_group",
+      7,
+      44
+    ],
+    "event": "birth",
+    "score": 0.00913243323913632
+  },
+  {
+    "step": 2500,
+    "unit": [
+      "ffn_group",
+      7,
+      118
+    ],
+    "event": "birth",
+    "score": 0.009132378026475468
+  },
+  {
+    "step": 2500,
+    "unit": [
+      "ffn_group",
+      6,
+      47
+    ],
+    "event": "birth",
+    "score": 0.009126298284824029
+  },
+  {
+    "step": 2500,
+    "unit": [
+      "ffn_group",
+      7,
+      4
+    ],
+    "event": "birth",
+    "score": 0.009109400360524666
+  },
+  {
+    "step": 2750,
+    "unit": [
+      "ffn_group",
+      7,
+      86
+    ],
+    "event": "birth",
+    "score": 0.009622234157591584
+  },
+  {
+    "step": 2750,
+    "unit": [
+      "ffn_group",
+      7,
+      9
+    ],
+    "event": "birth",
+    "score": 0.009589771496138324
+  },
+  {
+    "step": 2750,
+    "unit": [
+      "ffn_group",
+      7,
+      123
+    ],
+    "event": "birth",
+    "score": 0.009583094902968745
+  },
+  {
+    "step": 2750,
+    "unit": [
+      "ffn_group",
+      7,
+      104
+    ],
+    "event": "birth",
+    "score": 0.009581261677320456
+  },
+  {
+    "step": 3000,
+    "unit": [
+      "ffn_group",
+      7,
+      50
+    ],
+    "event": "birth",
+    "score": 0.01009112257048412
+  },
+  {
+    "step": 3000,
+    "unit": [
+      "ffn_group",
+      6,
+      126
+    ],
+    "event": "birth",
+    "score": 0.01003763708037945
+  },
+  {
+    "step": 3000,
+    "unit": [
+      "ffn_group",
+      7,
+      52
+    ],
+    "event": "birth",
+    "score": 0.010028238905851809
+  },
+  {
+    "step": 3000,
+    "unit": [
+      "ffn_group",
+      7,
+      124
+    ],
+    "event": "birth",
+    "score": 0.010027287905373593
+  },
+  {
+    "step": 3250,
+    "unit": [
+      "ffn_group",
+      7,
+      95
+    ],
+    "event": "birth",
+    "score": 0.010521819163211833
+  },
+  {
+    "step": 3250,
+    "unit": [
+      "ffn_group",
+      7,
+      56
+    ],
+    "event": "birth",
+    "score": 0.010507772594782874
+  },
+  {
+    "step": 3250,
+    "unit": [
+      "ffn_group",
+      7,
+      27
+    ],
+    "event": "birth",
+    "score": 0.010494906859784667
+  },
+  {
+    "step": 3250,
+    "unit": [
+      "ffn_group",
+      7,
+      105
+    ],
+    "event": "birth",
+    "score": 0.010493636884534419
+  },
+  {
+    "step": 3500,
+    "unit": [
+      "ffn_group",
+      7,
+      115
+    ],
+    "event": "birth",
+    "score": 0.010968570887179781
+  },
+  {
+    "step": 3500,
+    "unit": [
+      "ffn_group",
+      7,
+      87
+    ],
+    "event": "birth",
+    "score": 0.01094630784799924
+  },
+  {
+    "step": 3500,
+    "unit": [
+      "ffn_group",
+      9,
+      58
+    ],
+    "event": "birth",
+    "score": 0.010944203608381576
+  },
+  {
+    "step": 3500,
+    "unit": [
+      "ffn_group",
+      7,
+      67
+    ],
+    "event": "birth",
+    "score": 0.010940881897908697
+  },
+  {
+    "step": 3750,
+    "unit": [
+      "ffn_group",
+      7,
+      12
+    ],
+    "event": "birth",
+    "score": 0.011429907110869744
+  },
+  {
+    "step": 3750,
+    "unit": [
+      "ffn_group",
+      7,
+      122
+    ],
+    "event": "birth",
+    "score": 0.011387860469899508
+  },
+  {
+    "step": 3750,
+    "unit": [
+      "ffn_group",
+      7,
+      76
+    ],
+    "event": "birth",
+    "score": 0.011385799644204778
+  },
+  {
+    "step": 3750,
+    "unit": [
+      "ffn_group",
+      7,
+      11
+    ],
+    "event": "birth",
+    "score": 0.011376021308843229
+  },
+  {
+    "step": 4000,
+    "unit": [
+      "ffn_group",
+      7,
+      2
+    ],
+    "event": "birth",
+    "score": 0.011843954854518023
+  },
+  {
+    "step": 4000,
+    "unit": [
+      "ffn_group",
+      7,
+      69
+    ],
+    "event": "birth",
+    "score": 0.011822686905254487
+  },
+  {
+    "step": 4000,
+    "unit": [
+      "ffn_group",
+      7,
+      58
+    ],
+    "event": "birth",
+    "score": 0.011816223842135164
+  },
+  {
+    "step": 4000,
+    "unit": [
+      "ffn_group",
+      7,
+      1
+    ],
+    "event": "birth",
+    "score": 0.01180369995327706
+  },
+  {
+    "step": 4250,
+    "unit": [
+      "ffn_group",
+      7,
+      103
+    ],
+    "event": "birth",
+    "score": 0.012236713766355645
+  },
+  {
+    "step": 4250,
+    "unit": [
+      "ffn_group",
+      7,
+      116
+    ],
+    "event": "birth",
+    "score": 0.012222479041978072
+  },
+  {
+    "step": 4250,
+    "unit": [
+      "ffn_group",
+      7,
+      82
+    ],
+    "event": "birth",
+    "score": 0.012208009237839879
+  },
+  {
+    "step": 4250,
+    "unit": [
+      "ffn_group",
+      7,
+      121
+    ],
+    "event": "birth",
+    "score": 0.012207699843632402
+  },
+  {
+    "step": 4500,
+    "unit": [
+      "ffn_group",
+      7,
+      117
+    ],
+    "event": "birth",
+    "score": 0.012630285639587102
+  },
+  {
+    "step": 4500,
+    "unit": [
+      "ffn_group",
+      7,
+      3
+    ],
+    "event": "birth",
+    "score": 0.012616198635470456
+  },
+  {
+    "step": 4500,
+    "unit": [
+      "ffn_group",
+      7,
+      22
+    ],
+    "event": "birth",
+    "score": 0.012614759306470522
+  },
+  {
+    "step": 4500,
+    "unit": [
+      "ffn_group",
+      7,
+      45
+    ],
+    "event": "birth",
+    "score": 0.012610110231057034
+  },
+  {
+    "step": 4750,
+    "unit": [
+      "ffn_group",
+      7,
+      48
+    ],
+    "event": "birth",
+    "score": 0.013024376520252587
+  },
+  {
+    "step": 4750,
+    "unit": [
+      "ffn_group",
+      7,
+      66
+    ],
+    "event": "birth",
+    "score": 0.0129897446086137
+  },
+  {
+    "step": 4750,
+    "unit": [
+      "ffn_group",
+      7,
+      78
+    ],
+    "event": "birth",
+    "score": 0.012987406083756975
+  },
+  {
+    "step": 4750,
+    "unit": [
+      "ffn_group",
+      7,
+      77
+    ],
+    "event": "birth",
+    "score": 0.01298015971174028
+  },
+  {
+    "step": 5000,
+    "unit": [
+      "ffn_group",
+      7,
+      19
+    ],
+    "event": "birth",
+    "score": 0.0133690504039299
+  },
+  {
+    "step": 5000,
+    "unit": [
+      "ffn_group",
+      7,
+      63
+    ],
+    "event": "birth",
+    "score": 0.013341663272644614
+  },
+  {
+    "step": 5000,
+    "unit": [
+      "ffn_group",
+      7,
+      5
+    ],
+    "event": "birth",
+    "score": 0.013319480816833318
+  },
+  {
+    "step": 5000,
+    "unit": [
+      "ffn_group",
+      7,
+      51
+    ],
+    "event": "birth",
+    "score": 0.013314896576791725
+  },
+  {
+    "step": 5250,
+    "unit": [
+      "ffn_group",
+      7,
+      74
+    ],
+    "event": "birth",
+    "score": 0.013685093368035674
+  },
+  {
+    "step": 5250,
+    "unit": [
+      "ffn_group",
+      7,
+      98
+    ],
+    "event": "birth",
+    "score": 0.013673815737673449
+  },
+  {
+    "step": 5250,
+    "unit": [
+      "ffn_group",
+      7,
+      8
+    ],
+    "event": "birth",
+    "score": 0.013672297966256628
+  },
+  {
+    "step": 5250,
+    "unit": [
+      "ffn_group",
+      7,
+      43
+    ],
+    "event": "birth",
+    "score": 0.013640461870889737
+  },
+  {
+    "step": 5500,
+    "unit": [
+      "ffn_group",
+      7,
+      47
+    ],
+    "event": "birth",
+    "score": 0.013976942355885898
+  },
+  {
+    "step": 5500,
+    "unit": [
+      "ffn_group",
+      7,
+      83
+    ],
+    "event": "birth",
+    "score": 0.013967212459632223
+  },
+  {
+    "step": 5500,
+    "unit": [
+      "ffn_group",
+      7,
+      97
+    ],
+    "event": "birth",
+    "score": 0.013963168483776666
+  },
+  {
+    "step": 5500,
+    "unit": [
+      "ffn_group",
+      7,
+      53
+    ],
+    "event": "birth",
+    "score": 0.01395585534698877
+  },
+  {
+    "step": 5750,
+    "unit": [
+      "ffn_group",
+      7,
+      119
+    ],
+    "event": "birth",
+    "score": 0.014247766831886844
+  },
+  {
+    "step": 5750,
+    "unit": [
+      "ffn_group",
+      7,
+      112
+    ],
+    "event": "birth",
+    "score": 0.014235180184912476
+  },
+  {
+    "step": 5750,
+    "unit": [
+      "ffn_group",
+      7,
+      35
+    ],
+    "event": "birth",
+    "score": 0.014207565640118002
+  },
+  {
+    "step": 5750,
+    "unit": [
+      "ffn_group",
+      7,
+      92
+    ],
+    "event": "birth",
+    "score": 0.014198333271053371
+  },
+  {
+    "step": 6000,
+    "unit": [
+      "ffn_group",
+      7,
+      96
+    ],
+    "event": "birth",
+    "score": 0.01448392081400508
+  },
+  {
+    "step": 6000,
+    "unit": [
+      "ffn_group",
+      7,
+      107
+    ],
+    "event": "birth",
+    "score": 0.014467449802267732
+  },
+  {
+    "step": 6000,
+    "unit": [
+      "ffn_group",
+      7,
+      108
+    ],
+    "event": "birth",
+    "score": 0.014421740996827623
+  },
+  {
+    "step": 6000,
+    "unit": [
+      "ffn_group",
+      7,
+      99
+    ],
+    "event": "birth",
+    "score": 0.014420884382045857
+  },
+  {
+    "step": 6250,
+    "unit": [
+      "head",
+      1,
+      10
+    ],
+    "event": "birth",
+    "score": 0.032809040055362865
+  },
+  {
+    "step": 6250,
+    "unit": [
+      "head",
+      0,
+      5
+    ],
+    "event": "birth",
+    "score": 0.026701293273868425
+  },
+  {
+    "step": 6250,
+    "unit": [
+      "head",
+      0,
+      3
+    ],
+    "event": "birth",
+    "score": 0.02536454542262967
+  },
+  {
+    "step": 6250,
+    "unit": [
+      "head",
+      0,
+      4
+    ],
+    "event": "birth",
+    "score": 0.025215956857666918
+  }
+]

@@ -1,232 +1,244 @@
 # Research log
 
-Running record of what's been tried, found, and fixed on the Self-Organising
-Transformer experiment. Append new dated entries at the bottom; keep "Current
-status" at the top up to date as the single-glance summary. See `README.md`
-for the experiment design and `self_organizing_transformer_research_proposal.md`
-for the full phased research programme.
+This file is the full record of the Self-Organising Transformer
+experiment. It has two parts:
 
-## Current status
+1. **Summary** (this part, rewritten on 2026-10-16). It states what we
+   know now, which numbers are valid, and what comes next. Read it first.
+2. **Dated entries**, in time order. They are the record as it was
+   written at the time. Later entries correct earlier ones. Where an early
+   entry and the summary disagree, the summary is correct.
 
-- **⚠️ CORRECTION (2026-10-06): Phase 1 TinyStories's headline result was an
-  artifact of a broken `transformers` install, not a real finding.** Every
-  perplexity number below marked (original, now known incorrect) was
-  computed through a `transformers==5.17.0` environment that violates this
-  project's own `requirements.txt` pin (`>=4.49.0,<5.0`) and silently
-  corrupts save/reload round-tripping for this custom architecture. See
-  the "Transformers-version reload bug" 2026-10-06 entry for the full
-  investigation and the corrected numbers; this "Current status" block now
-  states the corrected picture directly rather than the original one.
-- **Latest (2026-10-08): width scale-up (3.19x params, WikiText-103)
-  resolved the capacity shortfall** — scaled dense ppl 21.98 vs. the old
-  scale's 28.23, sot essentially matches dense (22.00) at ~12% of the
-  cost. Phase 2 at this scale went through **four** real-scale attempts,
-  fixing two real bugs in `plasticity.py` (plateau-timing-dependent
-  growth, then a NaN poisoning growth mid-run) and then tuning
-  birth/death looseness directly (tapered `birth_limit`, a real
-  `birth_score_floor`, loosened death eligibility) — **zero deaths in
-  all four**, regardless of configuration. The attempt with the *least*
-  total growth had the *best* ppl (27.27, though that was via an
-  accidental bug-induced early stop, not by design); the fully-unblocked
-  attempt grew the most (689 mature, 160/160 possible births) and had
-  the *worst* ppl (31.89); the deliberately-tuned attempt landed in
-  between (28.08) but still never triggered a single death despite every
-  eligibility knob loosened at once. **Diagnosed (2026-10-09): confirmed
-  as a margin/homogeneity problem, not a patience/streak problem** — a
-  dedicated instrumented run showed death's eligibility condition
-  (`gate below its kind's relative-median floor`) never fired even once
-  across 2750 steps and a growing 545→570-unit eligible pool; the worst
-  unit of any kind still sat at 84-93% of its kind's median, far above
-  the 60% floor `death_relative_margin` set. `death_patience` was never
-  even exercised — there was no streak to reset because eligibility
-  itself never happened. Next question: whether a much looser
-  `death_relative_margin` (tuned to the ~85-90% range this run actually
-  showed) or a longer training budget is the right next move — see the
-  2026-10-09 entry.
-- **Latest (2026-10-09, later): gate value is not importance — the
-  zero-deaths result is a design error, not a tuning problem.** An
-  ablation test on the attempt-4 checkpoint (`ablation_importance.py`,
-  two disjoint batch samples) found Δloss-vs-gate rank correlation of
-  −0.72 (layers), +0.2 (heads), ≈0 (FFN groups). Layer 0 has the lowest
-  gate and is the most important unit in the model. True importance *is*
-  widely spread, and a Taylor estimate `|g·∂L/∂g|` tracks it (ρ 0.93/
-  0.53/0.56 on unseen batches). Dormant units are not inert. All "cost"
-  figures to date are gate-magnitude proxies; real FLOPs equal the full
-  supernet for the gated models. Phase 1 cross-check: gate-based
-  materialisation dropped layer 0, the most important block (+3.0 loss
-  when zeroed). Re-materialising seed 42 with layers 0-1 kept cut
-  inherited-weight ppl from 881 to 15.8; at equal size (6 layers),
-  importance-based selection gave 85.6 vs gate-based 881. A 300-step
-  fine-tune recovers most of it (gate 6.47, importance 5.80, `[0..7]`
-  5.24), so the collapse was mostly co-adaptation. A second compaction
-  bug (every compact model dropped all skip edges) is now fixed: a
-  compact model keeping every unit reproduces SOT's logits to 4e-5. See
-  the final 2026-10-09 entries.
-- **Latest (2026-10-13): importance-based death works at full scale.**
-  Attempt 5 (attempt-4 config plus `--death_criterion importance`) gave
-  the first real-scale deaths: 48 by step 6500, and 4 whole layers
-  (7, 9, 10, 11). Layer 0 survives. Quality trails attempt 4 by 2-4%
-  between spikes (step 9500: 29.95 vs 28.6). Final 35.71 vs 28.08, but
-  layer 4 died at the last check, just before the final eval. 58 of 71
-  head/FFN deaths hit units in already-dead layers. Validation spikes
-  trace to one-step structure changes. Fixed: births ramp the gate in
-  (`birth_ramp_steps`); birth and death skip units in dead layers; death
-  ramps the gate out (`death_ramp_steps`, 2026-10-14); no growth check
-  runs unless its ramps finish before training ends.
-- **Latest (2026-10-14): attempt 6 (all four fixes) beats attempt 4 until
-  late deaths at near-zero LR.** Val ppl falls smoothly with no spikes:
-  27.29 at step 9000 (best of any Phase 2 run) at cost proxy 0.053 vs
-  attempt 4's 0.078. Deaths at steps 9250-9750, with LR <= 5e-6, push the
-  final value to 29.28 (attempt 4: 28.08).
-- **Latest (2026-10-14): attempt 7 shows births, not deaths, cause the
-  end-of-run drop.** With deaths frozen below 5% of peak LR, the final
-  val ppl was 30.66. An ablation on the final model: the 4 heads born at
-  steps 9000-9750 cost +0.108 loss (27.16 -> 30.25 ppl on 48 val
-  batches). Next: freeze births in the LR tail too. See the 2026-10-14
-  attempt-7 entry.
-- **Latest (2026-10-14): attempt 8 (births and deaths frozen in the LR
-  tail) ends at 26.98 val ppl, the best Phase 2 result.** Val ppl falls at
-  every eval. **But the real compute accounting shows the cost proxy is
-  wrong by about 9x, and the model depends on its dormant units.** The
-  present structure is 0.466 of dense FLOPs/token. With every non-present
-  unit forced off, val ppl goes from 26.67 to 132 (attempt 7: 30.25 to
-  244). No Phase 2 result yet shows a cheaper model. See the 2026-10-14
-  attempt-8 and compute-accounting entries.
-- **Phase**: Phase 1 (differentiable structural selection) — **all 3 seeds
-  complete** (42, 123, 7), each run as the full 6-condition matrix (dense,
-  dense_8l, dense_half_ffn, sot, sot_compact, discovered_retrained;
-  10,000 steps, full corpus, perplexity + hellaswag/arc_easy/piqa/
-  winogrande) on RunPod (A100, CA-MTL-3). README's stated minimum of 3
-  seeds for the stability criterion is now satisfied. Corrected 3-seed
-  comparison, scored against README's six interpretation criteria, in the
-  2026-10-06 correction entry below. **3 of 6 criteria clear pass across
-  all 3 seeds, 1 fails (SOT no longer beats dense), 2 unaffected/nuanced**
-  — a materially different scorecard than originally reported (see below).
-- **Corrected headline result**: SOT does **not** beat the matched dense
-  baseline on TinyStories — dense is consistently *better* (lower ppl) in
-  all 3 seeds (dense ≈4.61–4.64 vs. sot ≈4.74–4.75, a 2.4–2.8% relative
-  perplexity gap in dense's favour), at ~87% lower architectural cost
-  throughout (cost ≈0.125–0.129 vs. dense's implicit 1.0). Reframed
-  positive finding: **SOT trades a small, consistent quality cost for a
-  large capacity reduction**, not "beats dense outright" — a materially
-  more modest claim than originally reported. Fresh retrain of each seed's
-  discovered architecture lands within ~3–5% of SOT itself (consistent
-  with the original "recovers most of SOT's quality" framing) but, like
-  SOT, now also loses to dense (discovered_retrained ≈4.89–4.97 vs. dense
-  ≈4.61–4.64). Inherited-weights compaction without retraining still
-  collapses in all 3 seeds even on the gate-fold-fixed checkpoints
-  (ppl 349–881, clean numbers unaffected by the transformers bug) — this
-  part of the original finding stands, just at a less catastrophic
-  magnitude than the original (bug-compounded) 3240–23004 ppl figures.
-- **Layer-selection pattern**: not identical across seeds, but a real
-  coarser pattern holds — all 3 seeds exclude layer 0 and layers 9–11, and
-  keep 6–7 layers drawn from the 1–8 range (seed 42: `[2..8]` exactly
-  contiguous; seed 123: `[1,3,4,5,6,7]`, gap at 2; seed 7: `[1,2,3,4,5,7]`,
-  gap at 6). Boundary layers reliably pruned, middle depths reliably kept,
-  which single middle layer (if any) drops is noise.
-- **Codebase**: pipeline bugs from the initial commit are fixed (see
-  2026-09-28 entries) plus three more caught live during this run (see
-  2026-09-29 entry): tied-weights-on-load silently randomizing `lm_head`,
-  `--threshold 0.5` producing a zero-layer materialized model, and an fp16
-  dtype mismatch crashing dense-mode evaluation on CUDA. All fixed,
-  verified, and committed before being relied on.
-- **Key hyperparameter finding**: `target_cost=0.45` (the shipped default)
-  is unreachable — the natural unconstrained equilibrium cost is ~0.186, so
-  the Lagrangian budget term never activates at `0.45`. `target_cost=0.14`
-  is validated and is now the default in `train.py`/`run_experiment.sh`.
-- **Structural finding**: under budget pressure, capacity concentrates in a
-  contiguous middle-depth block (layers 2–8 of 12 in this run) rather than
-  being cut uniformly or kept maximal everywhere — confirmed twice, once in
-  the 2026-09-28 diagnostic and again as the actual materialized-architecture
-  selection in this run.
-- **Materialization bug found, fixed, and validated on real checkpoints**
-  (2026-09-29/30): `compact_model.py`'s `build_from_sot` was discarding
-  gate *magnitude* when copying weights — it kept the right heads/layers/
-  groups but restored them to full (unscaled) weight instead of the
-  ~0.2–0.3 magnitude they actually trained at. Verified exact via a
-  zero-cost local test (folding `gate*layer_gate` into `out.weight`/
-  `down.weight`'s input columns: 19.2% relative error unfixed → 5e-8
-  fixed), then re-validated on all 3 seeds' real checkpoints: the bug
-  explained 76–99% of the original sot→sot_compact perplexity collapse
-  (seed 42: 3240.61→794.77 ppl; seed 123: 23004.32→445.13; seed 7:
-  20551.79→280.03). Real pruning cost remains (2.6–7.3x sot's ppl even
-  fixed) — criterion 6's structural verdict is unchanged but now much
-  better characterized. Full detail in the two 2026-09-29 entries below.
-- **`materialize.py --threshold` default** — still not fixed (deferred,
-  tracked below); auto-median works fine in practice so far.
-- **Dataset scale-up to WikiText-103 (Stage A, 2026-09-30): first
-  negative result of the project.** Model config held fixed (same as
-  Phase 1) — only the dataset changed. Equilibrium diagnostic found
-  WikiText-103's natural cost ≈0.190 (vs. TinyStories' 0.186), giving the
-  same `target_cost=0.14` via the same 75%-of-equilibrium ratio. Single
-  seed (42), full 6-condition matrix: **`sot` did not beat dense (29.28 vs
-  28.23 ppl) and `discovered_retrained` did not either (31.88 ppl, worse
-  than `sot` itself)** — both reversals of Phase 1's headline result,
-  where SOT and its retrained architecture beat dense in 3/3 TinyStories
-  seeds. Structural finding: head-level pruning appeared for the first
-  time (layers 8/9 of the kept `[4..9]` block reduced to 4/6 and 2/6
-  heads — every TinyStories seed kept full heads everywhere).
-- **Follow-up (2026-10-01): target_cost=0.17 re-run, 2 seeds — confirmed
-  not a budget-tuning problem.** Tested whether a less aggressive cost
-  budget (between the too-tight 0.14 and the natural ~0.19 equilibrium)
-  would let SOT match dense. It didn't: `sot` still lost to dense in both
-  seeds (29.01/29.05 vs. 28.23/28.11 ppl, 2.8–3.3% gap, barely narrower
-  than 0.14's 3.7%), and `discovered_retrained` still failed to recover in
-  either (32.41/33.15 ppl — worse than `sot` itself in both, and no better
-  than Stage A's 31.88 at the tighter budget). Both seeds independently
-  converged on the *exact same* 6 layers (`[5,6,7,8,9,10]`) with a
-  monotonic head-count decline toward the output — much tighter cross-seed
-  structural agreement than Phase 1 ever showed, arguing the mechanism is
-  finding a consistent answer that's genuinely insufficient, not an
-  unstable search. Conclusion: this looks like a real capacity shortfall
-  at this model scale for this harder dataset, not a `target_cost`-tuning
-  artifact — per the research proposal's own Gate 1→2 instruction
-  ("investigate the mechanism before adding complexity"), this
-  investigation is concluded, with three options on the table (push
-  target_cost further — unlikely to help much more; scale up model size
-  before further dataset work; or accept this as a real, bounded negative
-  result). Full detail in the 2026-10-01 entry below; plan at
-  `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
-  Combined WikiText-103 investigation cost: Stage A ~$8.27 + this 2-seed
-  re-run ~$19-20 ≈ ~$27-28.
-- **Two more real bugs found while setting up the WikiText-103 run**:
-  `retrain_compact.py` and `evaluate.py` had no `--dataset_name`/
-  `--dataset_config` CLI exposure at all and silently hardcoded TinyStories
-  internally — would have corrupted the WikiText-103 `discovered_retrained`
-  and perplexity numbers by quietly training/evaluating against the wrong
-  corpus, with no error. Fixed (commit `05a828f`) before any WikiText-103
-  data was generated.
+See `README.md` for the design of the experiment and a quickstart.
 
-## Next steps (agreed, not yet executed)
+## How to read the numbers
 
-1. **WikiText-103 Stage A** — in progress (training). Once done: run
-   `materialize.py`/`retrain_compact.py`/`evaluate.py` (with
-   `--dataset_name wikitext --dataset_config wikitext-103-raw-v1` on the
-   dataset-aware ones) to complete the 6-condition matrix, write up the
-   comparison against Phase 1's TinyStories numbers, then report back
-   before deciding whether to commit to seeds 2/3 (per the plan's staged
-   decision point).
-2. **Fix the `--threshold` default** in `materialize.py`/`export_architecture()`
-   to be distribution-relative (e.g. per-family median/percentile) rather
-   than a fixed `0.5`, or at minimum raise a loud error on a zero-layer
-   result instead of silently proceeding. Still open, low priority (current
-   auto-median default hasn't caused a problem yet).
-3. **Seed 42's worse-than-123/7 post-fix recovery ratio is unexplained**
-   (Phase 1's gate-fold re-eval, 7.25x vs. 3.78x/2.59x residual ppl ratio)
-   — not blocking, worth a look if there's a natural moment to revisit
-   architecture selection.
-4. Only after WikiText-103 (and any further generalisation datasets) confirm
-   the finding holds past an easy dataset: decide on Phase 2 proper —
-   growth/mutation per the research proposal's Gate 1→2 (§27) — do not
-   skip ahead of a generalisation-validated result. (Note: "Phase 2" here
-   in the log has been used loosely for "dataset scale-up"; the research
-   proposal's own Phase 2 is specifically growth/mutation — keep these
-   distinct going forward.)
-5. Model-complexity scaling (bigger `max_layers`/`d_model`) is explicitly
-   sequenced *after* the dataset scale-up, not concurrent with it, so each
-   experiment isolates one variable — agreed with the user.
+Four rules apply to every number in this log:
+
+- **Two perplexity methods.** `evaluate.py` ppl uses sequential chunks
+  of the validation split (100 batches of 8 x 256 tokens). Training-time
+  val ppl uses random validation batches during training. The two give
+  different values for the same model (dense 768: 21.98 and 24.30). Do
+  not compare a number from one method with a number from the other.
+- **"Cost" is not compute.** Before 2026-10-14, every "cost" figure
+  (for example "~87% lower cost") is `architecture_cost()`, a
+  gate-weighted proxy. It is about 9x too low for the structures it
+  describes. The gated supernet always runs 1.0 of dense FLOPs. Real
+  FLOPs come from `compute.py` (2026-10-14).
+- **Phase 2 val ppl before 2026-10-15 is supernet val ppl.** Dormant
+  units (gate about 0.04) and dead units (gate about 0.001) were still in
+  the forward pass and still trained. With them forced off, attempt 8
+  goes from 26.67 to 132 val ppl. These numbers do not show the quality of
+  the discovered structure.
+- **TinyStories Phase 1 numbers before 2026-10-06 are wrong.** A
+  `transformers==5.17.0` install corrupted the reload of these models.
+  The corrected values are in the 2026-10-06 entry and below. The
+  TinyStories `results/*_summary.json` files still hold the faulty
+  values (see `results/README.md`).
+
+## Summary
+
+### Phase 1: differentiable gates
+
+An over-complete Transformer (12 layers) has a sigmoid gate on each
+layer, attention head, FFN channel group and short skip edge. A
+Lagrangian budget (`target_cost`) pushes the gate-weighted cost down. The
+controls are dense baselines (full, 8 layers, half FFN), the physical
+compact model with inherited weights, and the compact structure
+retrained from scratch.
+
+**TinyStories, 12L / d 384, 3 seeds** (`evaluate.py` ppl, corrected
+2026-10-06):
+
+| condition | seed 42 | seed 123 | seed 7 |
+|---|---:|---:|---:|
+| dense | 4.63 | 4.61 | 4.64 |
+| dense 8 layers | 4.83 | 4.80 | 4.81 |
+| dense half FFN | 4.84 | 4.83 | 4.83 |
+| SOT (gated supernet) | 4.75 | 4.74 | 4.75 |
+| SOT compact, inherited weights | 881.24 | 525.03 | 349.24 |
+| discovered structure, retrained | 4.89 | 4.96 | 4.97 |
+
+**WikiText-103, 12L / d 384** (`evaluate.py` ppl):
+
+| condition | tc 0.14, seed 42 | tc 0.17, seed 42 | tc 0.17, seed 123 |
+|---|---:|---:|---:|
+| dense | 28.23 | 28.23 | 28.11 |
+| dense 8 layers | 30.14 | 30.14 | 29.98 |
+| dense half FFN | 30.50 | 30.50 | 30.45 |
+| SOT (gated supernet) | 29.28 | 29.01 | 29.05 |
+| discovered structure, retrained | 31.88 | 32.41 | 33.15 |
+
+**WikiText-103, 12L / d 768, seed 42** (2026-10-08): dense 21.98, SOT
+22.00 (`evaluate.py` ppl); training-time val ppl 24.30 and 24.44.
+
+Findings:
+
+- **SOT trails dense by a small, stable margin.** It is 2.4-2.8% behind
+  on TinyStories and 2.8-3.7% behind on WikiText-103 at d 384. At d 768
+  the gap is 0.1%. It never beats dense.
+- **The cost saving is not proven.** The gate proxy reads 0.12-0.13, but
+  the supernet runs all of its tensors. Only the physical compact model
+  is cheaper, and with inherited weights it collapses (ppl 349-881 on
+  TinyStories).
+- **A discovered structure retrained from scratch loses to the dense
+  model of the same envelope.** On WikiText-103 it also loses to the
+  dense 8-layer and half-FFN baselines.
+- **A gate value is not importance** (2026-10-09). Ablation on real
+  checkpoints: rank correlation of loss change with gate is -0.72 for
+  layers, +0.2 for heads and about 0 for FFN groups. Gate-based
+  selection drops layer 0, the most important layer. A Taylor estimate
+  `|g * dL/dg|` tracks the ablation (rho 0.93 / 0.53 / 0.56). With layers
+  0-1 kept, inherited-weight ppl on TinyStories seed 42 falls from 881
+  to 15.8. A 300-step fine-tune recovers most of the rest (5.24-6.47).
+- **The selected depth is consistent.** On TinyStories, all 3 seeds keep
+  6-7 middle layers and drop layer 0 and layers 9-11. On WikiText-103
+  (tc 0.17), both seeds keep layers 5-10 with fewer heads toward the
+  output.
+
+### Phase 2: discrete birth and death
+
+Training starts from a seed structure (33% of units MATURE, the rest
+DORMANT). Every 250 steps a controller gives birth to the best dormant
+units and kills mature units that fall behind their kind. Lifecycle:
+DORMANT -> PROTECTED -> MATURE -> DEAD. All runs below are WikiText-103,
+12L / d 768, seed 42, 10,000 steps. The val ppl is training-time val ppl
+of the **supernet** (see "How to read the numbers"). The Phase 1 dense
+768 reference on the same method is 24.30.
+
+| attempt | Hub repo suffix | main change | births | deaths | val ppl, step 10000 |
+|---|---|---|---:|---:|---:|
+| 1 | (none), deleted | first run at d 768 | 68 | 0 | 27.27 |
+| 2 | `-v2`, deleted | relative birth ranking; a NaN stopped growth at step 6500 | 100 | 0 | 25.77 |
+| 3 | `-v3`, deleted | NaN fix, no limit on growth | 160 | 0 | 31.89 |
+| 4 | `-v4` | birth taper and score floor, looser death | 98 | 0 | 28.08 |
+| 5 | `-v5-imp` | death by importance, not gate | 98 | 76 | 35.71 (29.95 at 9500) |
+| 6 | `-v6-allfixes` | birth and death ramps, dead-layer rule | 97 | 28 | 29.28 (27.29 at 9000) |
+| 7 | `-v7-lrfreeze` | no deaths below 5% of peak LR | 97 | 23 | 30.66 |
+| 8 | `-v8-tailfreeze` | no births either below 5% of peak LR | 92 | 23 | 26.98 |
+
+(Attempt 1 births: its `events.json` has 68. The 2026-10-08 entry says
+59, which is the TinyStories figure.)
+
+On 2026-10-16 we deleted 7 superseded Hub repos: attempts 1-3, the
+Phase 2 TinyStories run, and the three TinyStories `sot_compact` repos
+from before the gate-magnitude fix (replaced by `sot_compact_gatefix`).
+The logs of the four Phase 2 runs are in `results/phase2_v1_base/`,
+`phase2_v2_relrank/`, `phase2_v3_unblocked/` and `phase2_tinystories/`.
+
+An earlier Phase 2 run on TinyStories (d 384, 59 births, 0 deaths) gave
+`evaluate.py` ppl 4.40 against dense 4.63. It is also a supernet number,
+with every dormant unit still active. It does not show a cheaper model.
+
+Findings:
+
+- **A death rule on gate values never fires.** In attempts 1-4 the
+  worst unit of each kind sat at 84-93% of its kind's median gate, above
+  every margin we tried. This is the same fault as in Phase 1: the gate
+  does not measure importance.
+- **Death by importance works.** Attempt 5 killed 76 units, among them
+  5 layers. Layer 0 survived.
+- **Abrupt structure changes cause val ppl spikes.** Gradual birth and
+  death ramps (250 steps) and a rule that skips units inside dead layers
+  removed every spike (attempt 6).
+- **Structure changes in the LR tail hurt.** With LR below 5% of peak,
+  the network cannot adapt to a new or lost unit. Freezing births and
+  deaths there gave the best supernet result (attempt 8: val ppl falls
+  at every eval to 26.98).
+- **The present structure of attempt 8 is 0.466 of dense FLOPs/token**
+  (0.472 of params). The lm_head alone is 25% of dense FLOPs.
+- **But the supernet depends on its inactive units.** With every
+  non-present unit forced off, attempt 8 goes from 26.67 to 132.42 val
+  ppl (attempt 7: 30.25 to 244.29). The 706 dormant FFN groups cause most
+  of the gap. Dead units also drifted back up after their death ramps.
+- **Fix (2026-10-15).** A dormant or dead unit now has scale 0: exact
+  zero output and exact zero gradient. A zero-valued probe reads the
+  birth signal dL/dg without changing the output. `build_from_plastic()`
+  builds the physical model of the present structure, and it matches the
+  supernet to 2.4e-7. No full-scale run uses this code yet.
+
+### Bugs that changed results
+
+| date | bug | effect |
+|---|---|---|
+| 2026-09-29 | tied `lm_head` re-initialised on every `from_pretrained` | evaluation of a random head |
+| 2026-09-29 | compaction dropped gate magnitude | compact ppl 3240-23004 instead of 280-795 |
+| 2026-09-30 | `retrain_compact.py` and `evaluate.py` ignored `--dataset_name` | found before use; would have used TinyStories |
+| 2026-10-06 | `transformers==5.17.0` corrupts reload | all TinyStories Phase 1 ppl wrong (corrected) |
+| 2026-10-08 | birth score depended on plateau timing | growth stopped at step 7500 (attempt 1) |
+| 2026-10-08 | one NaN gradient poisoned the birth EMA | growth stopped at step 6500 (attempt 2) |
+| 2026-10-09 | compaction dropped every skip edge | compact models lost all skips |
+| 2026-10-14 | cost proxy is gate-weighted | every "cost" figure about 9x too low |
+| 2026-10-14 | dormant and dead units not off | all Phase 2 ppl measure the supernet |
+
+## Where next
+
+In order:
+
+1. **Attempt 9 on the zero-effect code.** Use the attempt-8 settings
+   with `--birth_score_floor 0` (raw probe scores are about 1e-6). Judge
+   it on the present structure (`build_from_plastic`, `structure_eval.py`
+   with scales), not on supernet numbers. At step 500, check that the
+   physical model's loss equals the supernet's.
+2. **A dense control at matched compute.** A dense model with about
+   0.47 of the FLOPs of dense 768 (for example fewer layers or a narrower
+   FFN), trained for the same tokens. Attempt 9 must beat it to show that
+   learned structure helps.
+3. **Fresh retrain of the attempt-9 structure.** This separates a good
+   structure from good inherited weights, as in Phase 1.
+4. **Physical removal during training.** Dead units now have no effect,
+   so they can leave the tensors. Dormant units still run because the
+   probes need their outputs. The next step is a cheaper birth signal
+   (probe a sample of dormant units, or rebuild tensors at each growth
+   check). Only then does training compute fall below 1.0 of dense.
+5. **Seeds.** Repeat the best Phase 2 configuration on seeds 123 and 7.
+6. **Fix the ablation helpers.** `ablation_importance.set_logit` turns a
+   unit off through its logit. On new checkpoints it must set the scale
+   to 0.
+7. **Benchmarks.** Run lm-eval on the Phase 2 models of the present
+   structure. The d 384 models are at chance on every task, so these
+   benchmarks tell us nothing at that scale.
+
+## Contents of the dated entries
+
+- 2026-09-28 — Initial audit, pipeline fixes, and target_cost diagnosis
+- 2026-09-29 — First full-scale run (RunPod, seed 42) and a tied-weights bug
+- 2026-09-29 — Seed 123 complete, seed 7 parallel run, storage cleanup
+- 2026-09-29 — Seed 7 complete: full 3-seed comparison
+- 2026-09-29 — Residual-stream-scale mismatch confirmed and fixed (bug, not co-adaptation)
+- 2026-09-30 — WikiText-103 scale-up kicked off (dataset before model size)
+- 2026-10-01 — target_cost=0.17 re-run (2 seeds): the regression is not a budget-tuning problem
+- 2026-10-06 — Phase 2 implementation: discrete birth/death structural plasticity
+- 2026-10-06 (continued) — Staged rollout step 2: the plateau term causes a late-run churn loop
+- 2026-10-06 (continued) — Transformers-version reload bug: Phase 1 TinyStories's headline result was an artifact
+- 2026-10-06 (continued) — Phase 2 Stage 2 re-run: churn fixed, but the clean result is a loss to dense
+- 2026-10-06 (continued) — Stage 2 re-run 2: fixing death eligibility turns the loss into a win
+- 2026-10-08 — Width scale-up: resolving the WikiText-103 capacity shortfall
+- 2026-10-08 (continued) — Phase 2 at scale: zero deaths, and why
+- 2026-10-08 (continued) — birth_score_floor: relative ranking replaces the absolute threshold
+- 2026-10-08 (continued) — Tuning attempt: tapered growth + loosened death, still zero deaths
+- 2026-10-09 — Death-streak-accumulation diagnostic: eligibility never fires, not a patience/streak problem
+- 2026-10-09 (continued) — Gate value is not importance: ablation test on the attempt-4 checkpoint
+- 2026-10-09 (continued) — Re-materialising Phase 1 seed 42 with layers 0-1 kept
+- 2026-10-09 (continued) — Short fine-tune of the re-materialised compact models
+- 2026-10-09 (continued) — Skip-edge compaction bug fixed
+- 2026-10-09 (continued) — Fine-tune re-run with the skip fix
+- 2026-10-09 (continued) — Importance-based death criterion
+- 2026-10-13 — Attempt 5: importance-based death at full scale
+- 2026-10-13 (continued) — Birth and death skip units in dead layers
+- 2026-10-14 — Gradual death: the gate ramps out
+- 2026-10-14 (continued) — No growth check whose ramps cannot finish
+- 2026-10-14 (continued) — Phase 2 attempt 6: all four fixes at full scale
+- 2026-10-14 (continued) — No death in the LR tail
+- 2026-10-14 (continued) — Attempt 7: the LR-tail fault is births, not deaths
+- 2026-10-14 (continued) — No birth in the LR tail
+- 2026-10-14 (continued) — Attempt 8: no structure change in the LR tail
+- 2026-10-14 (continued) — Compute accounting: the cost proxy is wrong, and dormant units are not off
+- 2026-10-15 — Dormant and dead units: exact zero effect, zero gradient
 
 ---
+
+# Dated entries
 
 ## 2026-09-28 — Initial audit, pipeline fixes, and target_cost diagnosis
 
@@ -888,7 +900,7 @@ Agreed: scale the *dataset* before the *model*, since TinyStories is
 deliberately easy (simple vocabulary, short repetitive sentences) and
 dropping 5-6 of 12 layers may look "fine" there simply because the task
 doesn't need the capacity — a falsely encouraging result. The research
-proposal (`self_organizing_transformer_research_proposal.md` §5.2)
+proposal (§5.2; the proposal is not in this repo)
 explicitly names a harder "generalisation dataset" as the required next
 step before trusting Phase 1 generalises.
 
@@ -915,7 +927,7 @@ TinyStories did. Staged instead of committing 3 seeds blind: Stage A is 1
 seed (42), full 6-condition matrix; a decision point after Stage A (clean
 pass → propose 1-2 more seeds as a separate authorization; borderline/
 contradicts Phase 1 → seeds 2/3 become necessary before concluding
-anything). Full plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+anything).
 Budget for Stage A estimated at ~$12-18 (vs. Phase 1's per-seed cost,
 which averaged ~$9.44/seed once the operational pattern was proven,
 though the very first seed paid ~$18.39 for one-off inefficiencies).
@@ -1036,7 +1048,7 @@ difficulty increases further.
 
 ### What this does and doesn't mean — my honest read, not a decision
 
-Per the plan's decision point (`swirling-sleeping-hickey.md`): this is
+Per the plan's decision point: this is
 squarely the "borderline/contradicts Phase 1" case, which the plan
 explicitly said should not be resolved unilaterally. Recording my own
 read here, not as a conclusion:
@@ -1211,7 +1223,7 @@ Gate 1→2 formally closed (bounded pass, see 2026-10-01 entry and the
 research proposal's own Gate 1→2 annotation). Started Phase 2 per the
 proposal's §11 ("Discrete birth/death"): start from a small seed and grow
 via discrete lifecycle events, rather than starting over-complete and
-pruning down. Plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+pruning down.
 
 **Design**: hybrid continuous substrate + discrete lifecycle overlay.
 Phase 1's `SelfOrganizingTransformer`/`_gates()` mechanism is reused
@@ -1687,7 +1699,7 @@ plateaued on its own, never under real capacity pressure. Decision (user):
 rather than run the previously-proposed `random`-mode control at the
 current (apparently too-easy) scale, scale up model capacity and dataset
 difficulty together to find a regime where growth genuinely contends for
-budget. Plan at `/Users/samuelbartlett/.claude/plans/swirling-sleeping-hickey.md`.
+budget.
 
 **Design**: width-only 2x scale-up (`d_model` 384→768, `max_heads` 6→12,
 `max_ffn_dim` 1536→3072, `ffn_groups` 64→128, `max_layers` unchanged at
@@ -2909,7 +2921,7 @@ Attempt 4 ended at 28.08. The Phase 1 dense 768 baseline is 21.98.
 
 ## 2026-10-14 (continued) — Compute accounting: the cost proxy is wrong, and dormant units are not off
 
-`architecture_cost()` is a gate-weighted proxy (Bugs.md). New code counts
+`architecture_cost()` is a gate-weighted proxy (see the 2026-10-09 ablation entry). New code counts
 real compute:
 
 - `compute.py`: matmul FLOPs/token and parameters of a structure (one
@@ -2981,7 +2993,7 @@ Split for attempt 7 (`results/compute/dormant_split.py`, `dead_split.py`):
 Requirement of the premise, missed in attempts 1-8: only the active
 structure may affect the loss. The 2026-10-14 compute entry showed the
 opposite (attempt 8: 26.67 val ppl as trained, 132 with inactive units
-forced off). Lesson recorded in `tasks/lessons.md`.
+forced off).
 
 **Change**:
 

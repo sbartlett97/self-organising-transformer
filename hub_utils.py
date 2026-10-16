@@ -9,6 +9,21 @@ from typing import Any, Optional
 from huggingface_hub import HfApi, ModelCard, ModelCardData, create_repo
 
 GITHUB_URL = "https://github.com/sbartlett97/self-organising-transformer"
+LOG_URL = f"{GITHUB_URL}/blob/main/RESEARCH_LOG.md"
+
+_HUB_DATASETS = {"roneneldan/tinystories": "roneneldan/TinyStories", "wikitext": "Salesforce/wikitext"}
+
+# One sentence per condition, for the top of each model card.
+_CONDITION_DESCRIPTIONS = {
+    "dense": "Dense baseline: every layer, head and FFN group on, no gates.",
+    "dense_8l": "Dense baseline with 8 layers in place of 12 (depth control).",
+    "dense_half_ffn": "Dense baseline with half the FFN width (width control).",
+    "sot": "Gated supernet: a sigmoid gate on every layer, head, FFN group and skip edge, trained under a budget on the gate-weighted cost.",
+    "sot_compact": "Physically smaller model built from the gated supernet's selected units, with the inherited weights and no further training.",
+    "sot_compact_gatefix": "Physically smaller model built from the gated supernet's selected units, with the inherited weights (gate magnitudes folded in) and no further training.",
+    "discovered_retrained": "The structure the gated supernet selected, trained from scratch with fresh weights.",
+    "heuristic": "Phase 2: training starts with 33% of units alive; a controller gives birth to dormant units and kills weak ones every 250 steps.",
+}
 
 
 _DATASET_TAGS = {
@@ -69,7 +84,9 @@ def _hyperparameters_section(train_config: dict) -> str:
         ("target_cost", train_config.get("target_cost")),
     ]
     # Phase 2 fields, when present.
-    for key in ("birth_mode", "seed_fraction", "growth_interval", "birth_limit", "death_limit", "minimum_age"):
+    for key in ("birth_mode", "seed_fraction", "growth_interval", "birth_limit", "birth_limit_end", "death_limit",
+                "minimum_age", "death_criterion", "death_relative_margin", "death_patience", "birth_score_floor",
+                "birth_ramp_steps", "death_ramp_steps", "death_freeze_lr_fraction", "birth_freeze_lr_fraction"):
         if key in train_config:
             rows.append((key, train_config[key]))
     lines = ["| Hyperparameter | Value |", "|---|---|"]
@@ -110,9 +127,9 @@ def _trajectory_section(metrics: list) -> str:
     if last_train:
         lines.append(f"- Final train loss: `{last_train['train_loss']:.4f}` at step {last_train['step']}")
         if "cost" in last_train:
-            lines.append(f"- Final architectural cost: `{last_train['cost']:.4f}`")
+            lines.append(f"- Final cost proxy (gate-weighted, not compute): `{last_train['cost']:.4f}`")
     if last_val:
-        lines.append(f"- Final val loss: `{last_val['val_loss']:.4f}` (ppl `{last_val['val_ppl']:.2f}`) at step {last_val['step']}")
+        lines.append(f"- Final training-time val loss (random val batches): `{last_val['val_loss']:.4f}` (ppl `{last_val['val_ppl']:.2f}`) at step {last_val['step']}")
     return "\n".join(lines) if lines else "_No training metrics recorded._"
 
 
@@ -148,6 +165,56 @@ def _performance_section(summary: dict, dense_ppl: Optional[float] = None) -> st
     return "\n".join(lines) if lines else "_No evaluation results yet._"
 
 
+def _usage_section(repo_id: str, prompt: str) -> str:
+    return (
+        "The model class is defined in the project repository and is not registered with "
+        "`AutoModel`, so the Hub widget and `AutoModelForCausalLM` do not work. Use the repository code "
+        "(it needs `transformers<5.0`; 5.x corrupts the reload of this model):\n\n"
+        "```bash\n"
+        f"git clone {GITHUB_URL}\n"
+        "cd self-organising-transformer && pip install -r requirements.txt\n"
+        f'python generate.py {repo_id} --prompt "{prompt}"\n'
+        "```\n\n"
+        "```python\n"
+        "from ablation_importance import resolve_checkpoint\n"
+        "from evaluate import load_model\n"
+        "from transformers import AutoTokenizer\n\n"
+        f'path = resolve_checkpoint("{repo_id}")\n'
+        "model = load_model(str(path), None).eval()\n"
+        "tok = AutoTokenizer.from_pretrained(path)\n"
+        f"logits = model(tok(\"{prompt}\", return_tensors=\"pt\").input_ids)[\"logits\"]\n"
+        "```"
+    )
+
+
+def _replay_section(checkpoint_dir: Path, train_config: dict, events: list) -> str:
+    """Phase 2: the structure that is present at the end of training, rebuilt
+    from the seed split and events.json (compute.Replay). The gate table of
+    _architecture_section is wrong here: its median threshold marks live
+    layers as inactive."""
+    from types import SimpleNamespace
+
+    from compute import Replay, Shape, flops_per_token, param_count
+
+    config = SimpleNamespace(**(_read_json(checkpoint_dir / "config.json") or {}))
+    s = Shape.from_config(config, seq_len=train_config["seq_len"])
+    replay = Replay(s, train_config["seed"], train_config["seed_fraction"], events,
+                    train_config.get("death_ramp_steps", 0) or 0)
+    structure = replay.structure(train_config["max_steps"])
+    f = flops_per_token(structure, s)["total"] / flops_per_token(s.dense(), s)["total"]
+    pc = param_count(structure, s)["total"] / param_count(s.dense(), s)["total"]
+    by_index = {l["index"]: l for l in structure}
+    lines = [f"| Layer | Heads (of {s.max_heads}) | FFN groups (of {s.ffn_groups}) |", "|---:|---:|---:|"]
+    for li in range(s.max_layers):
+        l = by_index.get(li)
+        lines.append(f"| {li} | {l['heads']} | {l['ffn_groups']} |" if l else f"| {li} | dead or dormant | — |")
+    return (
+        f"{len(structure)} of {s.max_layers} layers present: **{f:.3f} of dense FLOPs/token**, "
+        f"{pc:.3f} of dense parameters (`compute.py`). The checkpoint itself still holds every unit.\n\n"
+        + "\n".join(lines)
+    )
+
+
 def build_model_card(
     checkpoint_dir: Path,
     repo_id: str,
@@ -158,35 +225,57 @@ def build_model_card(
     evaluation_summary: Optional[dict] = None,
     dense_ppl: Optional[float] = None,
     research_log_entry: Optional[str] = None,
+    notes: Optional[list[str]] = None,
+    performance_md: Optional[str] = None,
 ) -> ModelCard:
+    """notes: known faults and context, shown near the top of the card.
+    performance_md: a ready-made Performance section (used when a card is
+    rebuilt from an earlier card and no local evaluation summary exists)."""
     checkpoint_dir = Path(checkpoint_dir)
     train_config = _read_json(checkpoint_dir / "train_config.json") or {}
     arch = _read_json(checkpoint_dir / "architecture.json") or _read_json(checkpoint_dir / "source_architecture.json")
     metrics = _read_json(checkpoint_dir / "metrics.json") or []
     events = _read_json(checkpoint_dir / "events.json")
 
+    hub_dataset = _HUB_DATASETS.get(str(train_config.get("dataset_name", "")).lower())
     card_data = ModelCardData(
+        license="apache-2.0",
+        language=["en"],
+        datasets=[hub_dataset] if hub_dataset else None,
         library_name="transformers",
         pipeline_tag="text-generation",
         tags=["self-organizing-transformer", "research", phase, dataset, condition],
+        inference=False,
     )
 
+    name = repo_id.split("/")[-1]
     sections = [
-        f"# {repo_id.split('/')[-1]}",
+        f"# {name}",
         "",
-        f"Part of the [Self-Organising Transformer]({GITHUB_URL}) research project — "
+        f"Part of the [Self-Organising Transformer]({GITHUB_URL}) research project: "
         f"**{phase}**, dataset **{dataset}**, condition **`{condition}`**, seed **{seed}**.",
     ]
+    if condition in _CONDITION_DESCRIPTIONS:
+        sections += ["", _CONDITION_DESCRIPTIONS[condition]]
+    if notes:
+        sections += ["", "## Read this first", ""] + [f"- {n}" for n in notes]
     if research_log_entry:
-        sections.append(f"Full context: `RESEARCH_LOG.md`, \"{research_log_entry}\".")
-    sections += ["", "## Hyperparameters", "", _hyperparameters_section(train_config)]
-    if arch:
-        sections += ["", "## Discovered architecture", "", _architecture_section(arch)]
-    sections += ["", "## Training trajectory", "", _trajectory_section(metrics)]
-    if events:
-        sections += ["", "## Structural plasticity events", "", _events_section(events)]
+        sections += ["", f"Full context: [`RESEARCH_LOG.md`]({LOG_URL}), {research_log_entry}."]
+    prompt = "Once upon a time" if dataset == "tinystories" else "The history of the city begins in"
+    sections += ["", "## How to use", "", _usage_section(repo_id, prompt)]
     sections += ["", "## Performance", ""]
-    sections.append(_performance_section(evaluation_summary, dense_ppl) if evaluation_summary else "_Not yet evaluated._")
+    if performance_md is not None:
+        sections.append(performance_md)
+    else:
+        sections.append(_performance_section(evaluation_summary, dense_ppl) if evaluation_summary else "_Not yet evaluated._")
+    if events is not None and "seed_fraction" in train_config:
+        sections += ["", "## Final present structure", "", _replay_section(checkpoint_dir, train_config, events)]
+        sections += ["", "## Structural plasticity events", "", _events_section(events)]
+    elif arch and not condition.startswith("dense"):
+        heading = "Gates" if condition == "sot" else "Gates of the source supernet"
+        sections += ["", f"## {heading}", "", _architecture_section(arch)]
+    sections += ["", "## Training trajectory", "", _trajectory_section(metrics)]
+    sections += ["", "## Hyperparameters", "", _hyperparameters_section(train_config)]
 
     content = f"---\n{card_data.to_yaml()}\n---\n\n" + "\n".join(sections)
     return ModelCard(content)
@@ -226,19 +315,16 @@ def push_checkpoint(
 # in each model card and RESEARCH_LOG.md; this is just a pointer+headline.
 _COLLECTION_DESCRIPTIONS = {
     ("phase1", "tinystories"): (
-        "Phase 1 gating, 3 seeds x 6 conditions. Corrected 2026-10-06: SOT "
-        "trails dense ~2.6% ppl at ~13% cost (bad transformers ver). "
-        "See RESEARCH_LOG.md."
+        "Phase 1 gates, d384, 3 seeds x 6 conditions. SOT trails dense ~2.6% ppl. "
+        "Gate cost is a proxy, not compute. Start: dense/sot seed42."
     ),
     ("phase1", "wikitext103"): (
-        "Phase 1 generalisation test. SOT doesn't beat/match dense here; "
-        "a capacity limit at this model scale, stable across seeds. "
-        "See RESEARCH_LOG.md."
+        "Phase 1 gates on WikiText-103: d384 (2 budgets) and d768. SOT trails "
+        "dense 3% at d384, 0.1% at d768. Retrained structure loses."
     ),
-    ("phase2", "tinystories"): (
-        "Phase 2: discrete birth/death plasticity. After 2 bugfixes: beats "
-        "Phase 1 dense by 4.9% ppl (1 seed, 0 deaths -- caveated). "
-        "See RESEARCH_LOG.md."
+    ("phase2", "wikitext103"): (
+        "Phase 2 birth/death, d768, attempts 4-8. Supernet ppl only: inactive "
+        "units were still on. Attempt 8: 26.98 supernet, 132 present-only."
     ),
 }
 

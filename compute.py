@@ -1,6 +1,7 @@
 """Real compute accounting: FLOPs and parameters of the structure that is present.
 
-`model.architecture_cost()` is a gate-weighted proxy, not compute (Bugs.md).
+`model.architecture_cost()` is a gate-weighted proxy, not compute (RESEARCH_LOG.md,
+2026-10-14 compute-accounting entry).
 This module counts the matmul FLOPs and the parameters a structure would have
 as physical tensors ("realisable"). The gated supernet always runs its full
 dense shape ("executed"), whatever its gates are.

@@ -1,8 +1,8 @@
 """Val ppl of the structure that compute.py counts, on the same model.
 
 The supernet's val ppl includes dormant units (gate 0.014-0.05) and dead
-units (gate ~3e-4), which still change the output (Bugs.md: "Dormant units
-are not inert"). A physical model of the present structure has neither. This
+units (gate ~3e-4), which still change the output (RESEARCH_LOG.md,
+2026-10-14 compute-accounting entry). A physical model of the present structure has neither. This
 script forces every unit that is not present fully off (logit -30, gate
 ~1e-13) and reports val ppl both ways, beside the FLOPs and params of that
 structure.

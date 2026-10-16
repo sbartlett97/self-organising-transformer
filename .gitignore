@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Training outputs and scratch files
+outputs/
+output/
+metrics*.json
+!results/**/metrics.json
+trackio/
+
+# Tool and editor state
+.idea/
+.vscode/
+.flash/
+.remember/
+.DS_Store
+
+# Local notes, not part of the public repo
+CLAUDE.md
+tasks/
+self_organizing_transformer_research_proposal.md

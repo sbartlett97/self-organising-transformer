@@ -1,0 +1,1402 @@
+[
+  {
+    "step": 250,
+    "births": [
+      [
+        "layer",
+        0,
+        0
+      ],
+      [
+        "layer",
+        1,
+        0
+      ],
+      [
+        "layer",
+        2,
+        0
+      ],
+      [
+        "layer",
+        3,
+        0
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.01032481763161783,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "protected": 4,
+      "mature": 545,
+      "dormant": 1143
+    }
+  },
+  {
+    "step": 500,
+    "births": [
+      [
+        "layer",
+        4,
+        0
+      ],
+      [
+        "layer",
+        11,
+        0
+      ],
+      [
+        "layer",
+        9,
+        0
+      ],
+      [
+        "layer",
+        6,
+        0
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.005936876580166873,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "protected": 8,
+      "mature": 545,
+      "dormant": 1139
+    }
+  },
+  {
+    "step": 750,
+    "births": [
+      [
+        "head",
+        1,
+        8
+      ],
+      [
+        "head",
+        2,
+        9
+      ],
+      [
+        "head",
+        3,
+        5
+      ],
+      [
+        "head",
+        3,
+        9
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.006167893741707904,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "protected": 12,
+      "mature": 545,
+      "dormant": 1135
+    }
+  },
+  {
+    "step": 1000,
+    "births": [
+      [
+        "layer",
+        7,
+        0
+      ],
+      [
+        "head",
+        3,
+        10
+      ],
+      [
+        "ffn_group",
+        3,
+        44
+      ],
+      [
+        "ffn_group",
+        3,
+        49
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.006474456259318103,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "protected": 16,
+      "mature": 545,
+      "dormant": 1131
+    }
+  },
+  {
+    "step": 1250,
+    "births": [
+      [
+        "ffn_group",
+        6,
+        103
+      ],
+      [
+        "ffn_group",
+        3,
+        126
+      ],
+      [
+        "ffn_group",
+        3,
+        98
+      ],
+      [
+        "ffn_group",
+        3,
+        102
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.006912222386273193,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 549,
+      "dormant": 1127,
+      "protected": 16
+    }
+  },
+  {
+    "step": 1500,
+    "births": [
+      [
+        "ffn_group",
+        6,
+        78
+      ],
+      [
+        "ffn_group",
+        4,
+        47
+      ],
+      [
+        "ffn_group",
+        3,
+        110
+      ],
+      [
+        "ffn_group",
+        4,
+        114
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.007340424191148866,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 553,
+      "dormant": 1123,
+      "protected": 16
+    }
+  },
+  {
+    "step": 1750,
+    "births": [
+      [
+        "ffn_group",
+        4,
+        89
+      ],
+      [
+        "ffn_group",
+        4,
+        70
+      ],
+      [
+        "ffn_group",
+        9,
+        89
+      ],
+      [
+        "ffn_group",
+        4,
+        92
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.007787390572102218,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 557,
+      "dormant": 1119,
+      "protected": 16
+    }
+  },
+  {
+    "step": 2000,
+    "births": [
+      [
+        "ffn_group",
+        6,
+        94
+      ],
+      [
+        "ffn_group",
+        4,
+        103
+      ],
+      [
+        "ffn_group",
+        6,
+        15
+      ],
+      [
+        "ffn_group",
+        6,
+        102
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.008224132039615854,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 561,
+      "dormant": 1115,
+      "protected": 16
+    }
+  },
+  {
+    "step": 2250,
+    "births": [
+      [
+        "ffn_group",
+        6,
+        84
+      ],
+      [
+        "ffn_group",
+        6,
+        2
+      ],
+      [
+        "ffn_group",
+        4,
+        69
+      ],
+      [
+        "ffn_group",
+        6,
+        20
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.008655313091412634,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 565,
+      "dormant": 1111,
+      "protected": 16
+    }
+  },
+  {
+    "step": 2500,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        118
+      ],
+      [
+        "ffn_group",
+        7,
+        4
+      ],
+      [
+        "ffn_group",
+        6,
+        126
+      ],
+      [
+        "ffn_group",
+        6,
+        59
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.009118848606651398,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 569,
+      "dormant": 1107,
+      "protected": 16
+    }
+  },
+  {
+    "step": 2750,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        86
+      ],
+      [
+        "ffn_group",
+        7,
+        123
+      ],
+      [
+        "ffn_group",
+        7,
+        44
+      ],
+      [
+        "ffn_group",
+        7,
+        50
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.009617564912850735,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 573,
+      "dormant": 1103,
+      "protected": 16
+    }
+  },
+  {
+    "step": 3000,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        104
+      ],
+      [
+        "ffn_group",
+        7,
+        9
+      ],
+      [
+        "ffn_group",
+        7,
+        56
+      ],
+      [
+        "ffn_group",
+        7,
+        52
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.010083308159173214,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 577,
+      "dormant": 1099,
+      "protected": 16
+    }
+  },
+  {
+    "step": 3250,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        95
+      ],
+      [
+        "ffn_group",
+        7,
+        27
+      ],
+      [
+        "ffn_group",
+        7,
+        58
+      ],
+      [
+        "ffn_group",
+        7,
+        82
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.010556759772276523,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 581,
+      "dormant": 1095,
+      "protected": 16
+    }
+  },
+  {
+    "step": 3500,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        124
+      ],
+      [
+        "ffn_group",
+        9,
+        58
+      ],
+      [
+        "ffn_group",
+        7,
+        115
+      ],
+      [
+        "ffn_group",
+        7,
+        105
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.010989128613537836,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 585,
+      "dormant": 1091,
+      "protected": 16
+    }
+  },
+  {
+    "step": 3750,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        76
+      ],
+      [
+        "ffn_group",
+        7,
+        87
+      ],
+      [
+        "ffn_group",
+        7,
+        22
+      ],
+      [
+        "ffn_group",
+        7,
+        12
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.01145450921566932,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 589,
+      "dormant": 1087,
+      "protected": 16
+    }
+  },
+  {
+    "step": 4000,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        67
+      ],
+      [
+        "ffn_group",
+        7,
+        2
+      ],
+      [
+        "ffn_group",
+        7,
+        11
+      ],
+      [
+        "ffn_group",
+        7,
+        1
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.011840354795687022,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 593,
+      "dormant": 1083,
+      "protected": 16
+    }
+  },
+  {
+    "step": 4250,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        117
+      ],
+      [
+        "ffn_group",
+        7,
+        77
+      ],
+      [
+        "ffn_group",
+        7,
+        47
+      ],
+      [
+        "ffn_group",
+        7,
+        3
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.012242916596936783,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 597,
+      "dormant": 1079,
+      "protected": 16
+    }
+  },
+  {
+    "step": 4500,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        122
+      ],
+      [
+        "ffn_group",
+        7,
+        66
+      ],
+      [
+        "ffn_group",
+        7,
+        116
+      ],
+      [
+        "ffn_group",
+        7,
+        48
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.012652323129987528,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 601,
+      "dormant": 1075,
+      "protected": 16
+    }
+  },
+  {
+    "step": 4750,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        121
+      ],
+      [
+        "ffn_group",
+        7,
+        69
+      ],
+      [
+        "ffn_group",
+        7,
+        103
+      ],
+      [
+        "ffn_group",
+        7,
+        5
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.012988963959051835,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 605,
+      "dormant": 1071,
+      "protected": 16
+    }
+  },
+  {
+    "step": 5000,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        8
+      ],
+      [
+        "ffn_group",
+        7,
+        98
+      ],
+      [
+        "ffn_group",
+        7,
+        19
+      ],
+      [
+        "ffn_group",
+        7,
+        43
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.013329396964482277,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 609,
+      "dormant": 1067,
+      "protected": 16
+    }
+  },
+  {
+    "step": 5250,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        74
+      ],
+      [
+        "ffn_group",
+        7,
+        119
+      ],
+      [
+        "ffn_group",
+        7,
+        51
+      ],
+      [
+        "ffn_group",
+        7,
+        83
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.013697783799839165,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 613,
+      "dormant": 1063,
+      "protected": 16
+    }
+  },
+  {
+    "step": 5500,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        45
+      ],
+      [
+        "ffn_group",
+        7,
+        97
+      ],
+      [
+        "ffn_group",
+        7,
+        108
+      ],
+      [
+        "ffn_group",
+        7,
+        63
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.013987666219230551,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 617,
+      "dormant": 1059,
+      "protected": 16
+    }
+  },
+  {
+    "step": 5750,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        53
+      ],
+      [
+        "ffn_group",
+        7,
+        35
+      ],
+      [
+        "ffn_group",
+        7,
+        88
+      ],
+      [
+        "ffn_group",
+        7,
+        107
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.014252037563438257,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 621,
+      "dormant": 1055,
+      "protected": 16
+    }
+  },
+  {
+    "step": 6000,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        92
+      ],
+      [
+        "ffn_group",
+        7,
+        99
+      ],
+      [
+        "ffn_group",
+        7,
+        96
+      ],
+      [
+        "ffn_group",
+        7,
+        112
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.014477149089314214,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 625,
+      "dormant": 1051,
+      "protected": 16
+    }
+  },
+  {
+    "step": 6250,
+    "births": [
+      [
+        "head",
+        1,
+        10
+      ],
+      [
+        "head",
+        4,
+        10
+      ],
+      [
+        "head",
+        0,
+        5
+      ],
+      [
+        "head",
+        0,
+        4
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.1139762300280669,
+    "max_dormant_birth_score": 0.032511508331560475,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 629,
+      "dormant": 1047,
+      "protected": 16
+    }
+  },
+  {
+    "step": 6500,
+    "births": [
+      [
+        "head",
+        2,
+        11
+      ],
+      [
+        "head",
+        2,
+        2
+      ],
+      [
+        "head",
+        5,
+        7
+      ],
+      [
+        "head",
+        2,
+        3
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.24581047486814356,
+    "max_dormant_birth_score": 0.058869163920497666,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 633,
+      "dormant": 1043,
+      "protected": 16
+    }
+  },
+  {
+    "step": 6750,
+    "births": [
+      [
+        "head",
+        1,
+        11
+      ],
+      [
+        "head",
+        4,
+        0
+      ],
+      [
+        "head",
+        3,
+        4
+      ],
+      [
+        "head",
+        4,
+        7
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.275540842902652,
+    "max_dormant_birth_score": 0.06449308413537563,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 637,
+      "dormant": 1039,
+      "protected": 16
+    }
+  },
+  {
+    "step": 7000,
+    "births": [
+      [
+        "head",
+        4,
+        2
+      ],
+      [
+        "head",
+        1,
+        2
+      ],
+      [
+        "head",
+        2,
+        1
+      ],
+      [
+        "head",
+        5,
+        6
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.29517167216338036,
+    "max_dormant_birth_score": 0.06927913488176468,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 641,
+      "dormant": 1035,
+      "protected": 16
+    }
+  },
+  {
+    "step": 7250,
+    "births": [
+      [
+        "head",
+        3,
+        7
+      ],
+      [
+        "head",
+        0,
+        10
+      ],
+      [
+        "ffn_group",
+        1,
+        84
+      ],
+      [
+        "head",
+        1,
+        5
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.3252593084500712,
+    "max_dormant_birth_score": 0.07396611113101746,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 645,
+      "dormant": 1031,
+      "protected": 16
+    }
+  },
+  {
+    "step": 7500,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        78
+      ],
+      [
+        "ffn_group",
+        7,
+        32
+      ],
+      [
+        "ffn_group",
+        7,
+        106
+      ],
+      [
+        "ffn_group",
+        7,
+        72
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.015609968728688818,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 649,
+      "dormant": 1027,
+      "protected": 16
+    }
+  },
+  {
+    "step": 7750,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        109
+      ],
+      [
+        "ffn_group",
+        7,
+        120
+      ],
+      [
+        "ffn_group",
+        7,
+        17
+      ],
+      [
+        "ffn_group",
+        7,
+        54
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.015611383692536857,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 653,
+      "dormant": 1023,
+      "protected": 16
+    }
+  },
+  {
+    "step": 8000,
+    "births": [
+      [
+        "ffn_group",
+        7,
+        10
+      ],
+      [
+        "ffn_group",
+        7,
+        60
+      ],
+      [
+        "ffn_group",
+        7,
+        84
+      ],
+      [
+        "ffn_group",
+        7,
+        71
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.015691002943161524,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 657,
+      "dormant": 1019,
+      "protected": 16
+    }
+  },
+  {
+    "step": 8250,
+    "births": [
+      [
+        "head",
+        0,
+        3
+      ],
+      [
+        "head",
+        7,
+        11
+      ],
+      [
+        "head",
+        4,
+        8
+      ],
+      [
+        "head",
+        7,
+        5
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.09001769820538152,
+    "max_dormant_birth_score": 0.027378337443862477,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 661,
+      "protected": 16,
+      "dormant": 1015
+    }
+  },
+  {
+    "step": 8500,
+    "births": [
+      [
+        "head",
+        4,
+        6
+      ],
+      [
+        "head",
+        2,
+        5
+      ],
+      [
+        "head",
+        4,
+        11
+      ],
+      [
+        "head",
+        7,
+        2
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.12595758106449895,
+    "max_dormant_birth_score": 0.03544526276646977,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 665,
+      "protected": 16,
+      "dormant": 1011
+    }
+  },
+  {
+    "step": 8750,
+    "births": [
+      [
+        "head",
+        3,
+        2
+      ],
+      [
+        "head",
+        5,
+        0
+      ],
+      [
+        "head",
+        4,
+        5
+      ],
+      [
+        "head",
+        6,
+        6
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.18773342709932728,
+    "max_dormant_birth_score": 0.04776300798848722,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 669,
+      "protected": 16,
+      "dormant": 1007
+    }
+  },
+  {
+    "step": 9000,
+    "births": [
+      [
+        "head",
+        3,
+        0
+      ],
+      [
+        "head",
+        2,
+        8
+      ],
+      [
+        "head",
+        5,
+        1
+      ],
+      [
+        "head",
+        7,
+        6
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.2829036800028364,
+    "max_dormant_birth_score": 0.06770201053122225,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 673,
+      "protected": 16,
+      "dormant": 1003
+    }
+  },
+  {
+    "step": 9250,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        42
+      ],
+      [
+        "ffn_group",
+        0,
+        79
+      ],
+      [
+        "ffn_group",
+        0,
+        22
+      ],
+      [
+        "head",
+        5,
+        5
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.44528392157075736,
+    "max_dormant_birth_score": 0.1004370135222092,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 677,
+      "dormant": 999,
+      "protected": 16
+    }
+  },
+  {
+    "step": 9500,
+    "births": [
+      [
+        "head",
+        0,
+        7
+      ],
+      [
+        "head",
+        9,
+        5
+      ],
+      [
+        "head",
+        6,
+        1
+      ],
+      [
+        "ffn_group",
+        0,
+        35
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.5425344359542019,
+    "max_dormant_birth_score": 0.11758550745315482,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 681,
+      "protected": 16,
+      "dormant": 995
+    }
+  },
+  {
+    "step": 9750,
+    "births": [
+      [
+        "head",
+        6,
+        3
+      ],
+      [
+        "head",
+        7,
+        4
+      ],
+      [
+        "head",
+        1,
+        1
+      ],
+      [
+        "ffn_group",
+        0,
+        25
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.7330940316399817,
+    "max_dormant_birth_score": 0.15667088145154837,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 685,
+      "protected": 16,
+      "dormant": 991
+    }
+  },
+  {
+    "step": 10000,
+    "births": [
+      [
+        "head",
+        6,
+        2
+      ],
+      [
+        "head",
+        1,
+        9
+      ],
+      [
+        "ffn_group",
+        1,
+        114
+      ],
+      [
+        "ffn_group",
+        0,
+        74
+      ]
+    ],
+    "deaths": [],
+    "plateau": 0.3877261111952248,
+    "max_dormant_birth_score": 0.08762100323948273,
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "state_counts": {
+      "mature": 689,
+      "protected": 16,
+      "dormant": 987
+    }
+  }
+]
