@@ -323,8 +323,8 @@ _COLLECTION_DESCRIPTIONS = {
         "dense 3% at d384, 0.1% at d768. Retrained structure loses."
     ),
     ("phase2", "wikitext103"): (
-        "Phase 2 birth/death, d768, attempts 4-8. Supernet ppl only: inactive "
-        "units were still on. Attempt 8: 26.98 supernet, 132 present-only."
+        "Phase 2 birth/death, d768, attempts 4-9. 4-8: supernet ppl (8: 132 "
+        "present-only). 9: zero-effect, 30.61 ppl at 0.425 dense FLOPs."
     ),
 }
 

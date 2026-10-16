@@ -61,7 +61,17 @@ PHASE2 = {
     "v8-tailfreeze": ("attempt 8", "the 2026-10-14 attempt-8 and compute-accounting entries", (26.67, 132.42),
                       ["Births and deaths frozen below 5% of peak LR: val ppl falls at every eval to 26.98.",
                        "The present structure alone writes degenerate text ([samples](https://github.com/sbartlett97/self-organising-transformer/blob/main/docs/samples.md))."]),
+    "v9-zeroeffect": ("attempt 9", "the 2026-10-16 attempt-9 entries", None,
+                      ["Present structure at step 10000: 8 layers (0-5, 8, 10), 36 of 144 heads, 357 of 1536 FFN groups. "
+                       "This is 0.425 of dense FLOPs/token and 0.432 of dense params.",
+                       "The gates of present units are 0.2-0.45, so `architecture.json` lists no unit at the 0.5 threshold. "
+                       "A present unit is a unit with a non-zero gate.",
+                       "The present structure writes fluent text ([samples](https://github.com/sbartlett97/self-organising-transformer/blob/main/docs/samples.md))."]),
 }
+ZERO_EFFECT = ("**Every number on this card is a present-structure number.** This run uses the zero-effect code "
+               "(2026-10-15): dormant and dead units have scale 0, so they add nothing to the output and get no gradient. "
+               "The checkpoint saves the scales, so it loads as the present structure. "
+               "Use `compact_model.build_from_plastic` to build the physically smaller model.")
 # Superseded repos, deleted from the Hub on 2026-10-16. Their results are in RESEARCH_LOG.md.
 SUPERSEDED = {
     "sot-phase1-tinystories-sot_compact-seed42",  # before the gate-magnitude fix; see *_gatefix
@@ -106,6 +116,12 @@ def plan(repo: str):
     if phase == "phase2":
         suffix = tc.split("-", 1)[1]
         label, entry, present_only, extra = PHASE2[suffix]
+        if suffix == "v9-zeroeffect":
+            notes = [f"Phase 2 {label}.", ZERO_EFFECT] + extra
+            perf = ("_No `evaluate.py` run._ Final training-time val ppl of the present structure: **30.61** "
+                    "at 0.425 of dense FLOPs/token. Phase 1 dense 768 on the same method: 24.30 (1.0 of FLOPs). "
+                    "A dense control at matched compute is not trained yet.")
+            return phase, dataset, condition, int(seed), notes, entry, perf
         notes = [f"Phase 2 {label}.", SUPERNET] + extra
         perf = ("_No `evaluate.py` run._ The final training-time val ppl of the supernet is in "
                 "\"Training trajectory\" below. Phase 1 dense 768 on the same method: 24.30.")

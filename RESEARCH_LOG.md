@@ -3104,7 +3104,7 @@ heads, 4 FFN groups, 4 layers).
 Final present structure: 8 layers (0-5, 8, 10), 36 of 144 heads, 357 of
 1536 FFN groups. Per-layer heads: 8, 4, 5, 5, 2, 4, 6, 2. `compute.py`
 (seq 256, the settings that give 0.4656 for attempt 8): **0.425 of dense
-FLOPs/token**, 0.434 of params (0.237 of non-embedding params).
+FLOPs/token**, 0.432 of params (0.237 of non-embedding params).
 
 Findings:
 

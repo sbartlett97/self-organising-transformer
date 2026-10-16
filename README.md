@@ -280,9 +280,11 @@ Good models to start with:
 | [`sot-phase1-wikitext103-dense-seed42-tc768d013`](https://huggingface.co/sbartlett97/sot-phase1-wikitext103-dense-seed42-tc768d013) | dense baseline, 152M params | 21.98 |
 | [`sot-phase1-wikitext103-sot-seed42-tc768d013`](https://huggingface.co/sbartlett97/sot-phase1-wikitext103-sot-seed42-tc768d013) | gated supernet, d 768 | 22.00 |
 | [`sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze`](https://huggingface.co/sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze) | Phase 2 attempt 8 (supernet) | 26.98 * |
+| [`sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect`](https://huggingface.co/sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect) | Phase 2 attempt 9, present structure only (0.425 of dense FLOPs) | 30.61 † |
 
 Val ppl is `evaluate.py` perplexity. \* Training-time val ppl of the
-supernet. The dense 768 model gives 24.30 on that method.
+supernet. The dense 768 model gives 24.30 on that method. † Training-time
+val ppl of the present structure.
 
 Every model card states its condition, its training settings, its
 results and any known fault.
