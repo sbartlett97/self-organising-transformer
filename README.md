@@ -87,6 +87,47 @@ The TinyStories models write fluent stories. The WikiText-103 models
 write fluent text with invented facts. The present structure of attempt 8
 alone breaks down after a few words.
 
+### Just for fun
+
+More prompts, one run each, not chosen (`--seed 1 --max_new_tokens 90`,
+temperature 0.8, top-k 50). Full text in [`docs/samples.md`](docs/samples.md).
+
+**TinyStories dense (d 384)**
+
+> **Once upon a time, a dragon wanted to learn how to bake a cake.** He was
+> very competitive and wanted to help all the other animals. [...] The
+> dragon said, "Don't worry! I can help you bake the cake. We can bake it
+> together!" So, the dragon and the little bird worked very hard and baked
+> the cake. It was the best cake ever!
+
+> **The little cat looked at the moon and** said, "Thank you, moon." The
+> moon smiled and said, "You're welcome, little cat. Always remember that."
+> The little cat purred and went back to sleep.
+
+> **Tom found a robot in the garden. The robot said,** "Hello, Tom! Do you
+> want to play with me?" They played together and had fun. [...] But then,
+> a big cat came. The cat was hungry and wanted to eat them. The mouse was
+> scared and ran away.
+
+**WikiText-103 dense (d 768)**
+
+> **The Transformer is a deep learning architecture that** can be seen as a
+> kind of " virtual house " . It also features an open @-@ ended
+> multiplayer mode with a single player choice based on a race . The game
+> was released in the UK on 18 January 2012 [...]
+
+> **In 2026 , a team of researchers discovered that** the body may be a
+> remnant of a giant giant , possibly a black hole .
+
+> **The cat ( Felis catus ) is** one of the seven cheetae on the left , the
+> others are in the centre of the circle . [...] A study of the cheetae
+> noted that in case of the cheetae [...]
+
+The models learned the style of their data well: bedtime stories with a
+moral, and Wikipedia prose with release dates and citations. They did not
+learn facts. A 150M-parameter model that has seen 330M tokens of
+Wikipedia turns a Transformer into a video game.
+
 ## Quickstart
 
 Python 3.12 or later. `transformers` must be below 5.0: version 5.x

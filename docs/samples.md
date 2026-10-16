@@ -158,6 +158,54 @@ The species is a medium-sized bird found in some areas areas , and is often foun
   effect during training (`RESEARCH_LOG.md`, 2026-10-15). A model trained
   that way must produce its text with the present structure alone.
 
+## Just for fun
+
+More prompts, one run each, not chosen. Settings: `--seed 1
+--max_new_tokens 90 --temperature 0.8 --top_k 50`.
+
+### `sbartlett97/sot-phase1-tinystories-dense-seed42`
+
+```text
+Once upon a time, a dragon wanted to learn how to bake a cake. He was very competitive and wanted to help all the other animals. They all had yummy food and were having so much fun.
+
+But then, a little bird came and asked for help. The dragon said, "Don't worry! I can help you bake the cake. We can bake it together!" So, the dragon and the little bird worked very hard and baked the cake. It was the best cake ever!
+
+The dragon
+```
+
+```text
+Tom found a robot in the garden. The robot said, "Hello, Tom! Do you want to play with me?" They played together and had fun. They had a lot of fun.
+
+But then, a big cat came. The cat was hungry and wanted to eat them. The mouse was scared and ran away. Tom and Sam were sad and did not know what to do. Tom saw the cat and felt sorry for him.
+
+Tom said, "Don't be sad, cat
+```
+
+```text
+The little cat looked at the moon and said, "Thank you, moon." The moon smiled and said, "You're welcome, little cat. Always remember that." The little cat purred and went back to sleep.
+```
+
+### `sbartlett97/sot-phase1-wikitext103-dense-seed42-tc768d013`
+
+```text
+The Transformer is a deep learning architecture that can be seen as a kind of " virtual house " . It also features an open @-@ ended multiplayer mode with a single player choice based on a race . The game was released in the UK on 18 January 2012 , and in the United States on 1 March 2012 . It was released in the UK on 21 December 2012 . A port of the game was released on 12 March 2012 on the PC , and a Japanese release was given after the game
+```
+
+```text
+In 2026 , a team of researchers discovered that the body may be a remnant of a giant giant , possibly a black hole .
+```
+
+```text
+The cat ( Felis catus ) is one of the seven cheetae on the left , the others are in the centre of the circle . The cheetae on the right are very similar , but are not directly connected and are parallel with one another . Also the two cheetae on the right are not connected by curved joints as in the cheetae . The cheetae are very similar . A study of the cheetae noted that in case of the cheetae
+```
+
+- The TinyStories model keeps the shape of a story: a problem, help, a
+  happy end. It loses track of the cast ("The mouse was scared", "Tom and
+  Sam").
+- The WikiText-103 model knows what a Wikipedia article sounds like, but
+  not what it says. "Transformer" becomes a video game with release
+  dates.
+
 ## Check
 
 For the TinyStories dense model, the loss of the model on its own 200-token
