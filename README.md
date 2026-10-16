@@ -39,31 +39,36 @@ on the gate-weighted cost pushes gates down.
 
 Training starts with 33% of units alive. Every 250 steps a controller
 gives birth to promising dormant units and kills alive units that fall
-behind. Eight full runs on WikiText-103 (d_model 768) fixed the controller
+behind. Nine full runs on WikiText-103 (d_model 768) fixed the controller
 step by step.
 
 ![Phase 2 supernet val perplexity, attempts 5-8](docs/figures/phase2_val_ppl.png)
 
-![Attempt 8 unit states during training](docs/figures/phase2_structure_v8.png)
-
-Attempt 8 ends with 9 of 12 layers and a present structure of 0.466 of
-dense FLOPs per token:
-
-![Attempt 8 final structure per layer](docs/figures/phase2_final_structure_v8.png)
-
 **But the curves above are supernet numbers.** In attempts 1-8, dormant
 and dead units still had small non-zero gates, and they still trained.
 With every unit outside the present structure forced off, attempt 8 goes
-from 26.7 to 132 val ppl:
+from 26.7 to 132 val ppl. Attempt 9 runs on code that gives dormant and
+dead units exactly zero effect and zero gradient (2026-10-15,
+`tests/zero_effect_test.py`). Its two values are the same:
 
 ![Supernet against present structure](docs/figures/compute_present_vs_supernet.png)
 
-The code now gives dormant and dead units exactly zero effect and zero
-gradient (2026-10-15, `tests/zero_effect_test.py`). Attempt 9 is the
-first run on this code. Its val ppl is the val ppl of the present
-structure alone: **30.61 at 0.425 of dense FLOPs per token** (8 layers,
-36 heads, 357 FFN groups). Dense 768 gets 24.30 on the same method. A
-dense model at matched compute is the next test. See "Where next" in
+So the val ppl of attempt 9 is the val ppl of the present structure alone:
+**30.61 at 0.425 of dense FLOPs per token**. Dense 768 gets 24.30 on the
+same method, at 1.0 of the FLOPs. Dense models at matched compute (0.42
+of the FLOPs) are the next test:
+
+![Attempt 9 against dense models](docs/figures/phase2_present_val_ppl.png)
+
+![Attempt 9 unit states during training](docs/figures/phase2_structure_v9.png)
+
+Attempt 9 ends with 8 of 12 layers, 36 heads and 357 FFN groups:
+
+![Attempt 9 final structure per layer](docs/figures/phase2_final_structure_v9.png)
+
+Heads took most early births because the controller ranked raw scores,
+and a head is about 4x the size of an FFN group. `--birth_score_norm
+flops` now ranks by score per FLOP. See "Where next" in
 [`RESEARCH_LOG.md`](RESEARCH_LOG.md).
 
 ### Text samples

@@ -45,13 +45,18 @@ plt.rcParams.update({
 DPI = 150
 SIZE = (8, 4.5)
 
-# Phase 2 v8 config (Hub train_config.json / config.json of
-# sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze).
+# Phase 2 config of attempts 8 and 9 (Hub train_config.json / config.json of
+# sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze and -v9-zeroeffect).
 V8_SHAPE = Shape.from_config(SimpleNamespace(
     d_model=768, max_heads=12, max_ffn_dim=3072, ffn_groups=128, vocab_size=50257,
     max_position_embeddings=256, max_layers=12), seq_len=256)
 V8_SEED, V8_SEED_FRACTION, V8_DEATH_RAMP, V8_MAX_STEPS = 42, 0.33, 250, 10000
 V8_LAST_ALLOWED_CHECK = 8500  # RESEARCH_LOG 2026-10-14 "Attempt 8": checks 8750-9750 are frozen
+# Attempt 9 uses the same shape, seed, ramps and freeze schedule.
+PHASE2 = {"v8": ("phase2_v8_tailfreeze", "Attempt 8"), "v9": ("phase2_v9_zeroeffect", "Attempt 9")}
+# Matched-compute dense controls (train.py, attempt-9 settings). Drawn when their logs exist.
+DENSE_CONTROLS = [("dense_c425_d768l4", "Dense 768 wide, 4 layers (0.424 FLOPs)"),
+                  ("dense_c425_d512l9", "Dense 512 wide, 9 layers (0.421 FLOPs)")]
 
 
 def save(fig, name: str) -> None:
@@ -117,14 +122,14 @@ def fig_phase2_val_ppl() -> None:
     save(fig, "phase2_val_ppl.png")
 
 
-def v8_replay() -> Replay:
-    events = json.loads((RESULTS / "phase2_v8_tailfreeze" / "events.json").read_text())
+def replay_of(run: str) -> Replay:
+    events = json.loads((RESULTS / PHASE2[run][0] / "events.json").read_text())
     return Replay(V8_SHAPE, V8_SEED, V8_SEED_FRACTION, events, V8_DEATH_RAMP)
 
 
-def fig_phase2_structure_v8() -> None:
-    replay = v8_replay()
-    growth = json.loads((RESULTS / "phase2_v8_tailfreeze" / "growth_log.json").read_text())
+def fig_phase2_structure(run: str) -> None:
+    replay = replay_of(run)
+    growth = json.loads((RESULTS / PHASE2[run][0] / "growth_log.json").read_text())
     steps = [0] + [g["step"] for g in growth]
     kinds = [("layer", "Layers (of 12)"), ("head", "Heads (of 144)"), ("ffn_group", "FFN groups (of 1536)")]
     states = [("alive", "Alive", SERIES[0]), ("dormant", "Dormant", NEUTRAL), ("dead", "Dead", SERIES[1])]
@@ -150,17 +155,20 @@ def fig_phase2_structure_v8() -> None:
         ax.set_ylim(bottom=0)
     axes[0].set_ylabel("Units")
     axes[0].legend(loc="center right", fontsize=9)
-    fig.suptitle("Attempt 8: unit states during training", x=0.01, ha="left", fontweight="bold", fontsize=12)
+    fig.suptitle(f"{PHASE2[run][1]}: unit states during training", x=0.01, ha="left", fontweight="bold", fontsize=12)
     fig.text(0.01, -0.06, "Grey band: no births or deaths after the check at step 8500 (LR below 5% of peak). "
-             "Alive = protected + mature. Rebuilt from events.json with compute.Replay.", fontsize=8, color=INK_2)
+             "Alive = protected + mature. Rebuilt from events.json with compute.Replay.\n"
+             "Heads and FFN groups inside a dead or dormant layer count by their own state here, but they have no effect.",
+             fontsize=8, color=INK_2)
     fig.tight_layout()
-    save(fig, "phase2_structure_v8.png")
+    save(fig, f"phase2_structure_{run}.png")
 
 
-def fig_phase2_final_structure_v8() -> None:
-    structure = {l["index"]: l for l in v8_replay().structure(V8_MAX_STEPS)}
+def fig_phase2_final_structure(run: str) -> None:
+    structure = {l["index"]: l for l in replay_of(run).structure(V8_MAX_STEPS)}
     # Check against the saved structure_eval result.
-    saved = json.loads((RESULTS / "compute" / "v8_structure_eval.json").read_text())["structure"]
+    ev = json.loads((RESULTS / "compute" / f"{run}_structure_eval.json").read_text())
+    saved = ev["structure"]
     assert [structure[l["index"]] for l in saved] == saved
     layers = list(range(V8_SHAPE.max_layers))
     heads = [structure[i]["heads"] / V8_SHAPE.max_heads if i in structure else 0 for i in layers]
@@ -179,11 +187,49 @@ def fig_phase2_final_structure_v8() -> None:
     ax.set_xlabel("Layer")
     ax.set_ylabel("Fraction of the layer present")
     ax.set_ylim(0, 1)
-    ax.set_title("Attempt 8: final present structure (step 10000)")
-    fig.text(0.01, -0.04, f"9 of 12 layers present; 0.466 of dense FLOPs/token, 0.472 of dense params "
-             "(results/compute/v8_structure_eval.json). Bar labels are counts.", fontsize=8, color=INK_2)
-    ax.legend(loc="upper left", fontsize=9)
-    save(fig, "phase2_final_structure_v8.png")
+    ax.set_title(f"{PHASE2[run][1]}: final present structure (step 10000)")
+    fig.text(0.01, -0.04, f"{len(structure)} of 12 layers present; {ev['flops_fraction_of_dense']:.3f} of dense FLOPs/token, "
+             f"{ev['params_fraction_of_dense']:.3f} of dense params (results/compute/{run}_structure_eval.json). "
+             "Bar labels are counts.", fontsize=8, color=INK_2)
+    ax.legend(loc="upper right", fontsize=9)
+    save(fig, f"phase2_final_structure_{run}.png")
+
+
+def fig_phase2_present() -> None:
+    """Attempt 9 (present structure: inactive units have zero effect) against
+    dense 768 and the matched-compute dense controls. Same method for every
+    curve: training-time val ppl on the fixed val batches of evaluate_loss."""
+    lo, hi = 20, 60
+    fig, ax = plt.subplots(figsize=SIZE)
+    curves = [(PHASE2["v9"][0], "Attempt 9, present structure (0.425 FLOPs)", SERIES[0], "-")]
+    curves += [(run, label, color, "-") for (run, label), color in zip(DENSE_CONTROLS, [SERIES[1], SERIES[2]])
+               if (RESULTS / run / "metrics.json").exists()]
+    for run, label, color, style in curves:
+        x, y = zip(*[(s, v) for s, v in zip(*val_curve(run)) if v <= hi])  # points above the axis are left out, not clipped
+        ax.plot(x, y, color=color, linestyle=style, label=label, marker="o", markersize=3)
+        ax.annotate(f"{y[-1]:.2f}", (x[-1], y[-1]), xytext=(6, 0), textcoords="offset points",
+                    va="center", fontsize=9, color=INK_2)
+    x, y = dense768_curve()
+    if x:
+        x, y = zip(*[(s, v) for s, v in zip(x, y) if v <= hi])
+        ax.plot(x, y, color=NEUTRAL, linestyle="--", linewidth=1.5,
+                label="Phase 1 dense 768 (1.0 FLOPs)")
+        ax.annotate(f"{y[-1]:.2f}", (x[-1], y[-1]), xytext=(6, -6), textcoords="offset points",
+                    va="center", fontsize=9, color=INK_2)
+    else:
+        ax.axhline(24.30, color=NEUTRAL, linestyle="--", linewidth=1.5, label="Phase 1 dense 768 (1.0 FLOPs): 24.30")
+    ax.set_ylim(lo, hi)
+    ax.set_xlim(0, V8_MAX_STEPS + 900)
+    ax.set_xlabel("Training step")
+    ax.set_ylabel("Val perplexity")
+    ax.set_title("Attempt 9 against dense models (WikiText-103)")
+    missing = len(DENSE_CONTROLS) - (len(curves) - 1)
+    note = "" if not missing else " The matched-compute dense controls are still training."
+    fig.text(0.01, -0.04, "Training-time val ppl, the same fixed val batches for every curve. FLOPs: forward FLOPs/token "
+             f"of the final model, as a fraction of dense 768.\nPoints above {hi} (steps before about 2000) are not shown.{note}",
+             fontsize=8, color=INK_2)
+    ax.legend(loc="upper right", fontsize=9)
+    save(fig, "phase2_present_val_ppl.png")
 
 
 def fig_phase1_ppl() -> None:
@@ -228,7 +274,7 @@ def fig_phase1_ppl() -> None:
 
 
 def fig_compute() -> None:
-    runs = [("v7", "Attempt 7"), ("v8", "Attempt 8")]
+    runs = [("v7", "Attempt 7"), ("v8", "Attempt 8"), ("v9", "Attempt 9 (zero-effect)")]
     data = [json.loads((RESULTS / "compute" / f"{r}_structure_eval.json").read_text()) for r, _ in runs]
     fig, ax = plt.subplots(figsize=SIZE)
     w = 0.36
@@ -241,9 +287,10 @@ def fig_compute() -> None:
     ax.set_xticks(range(len(runs)))
     ax.set_xticklabels([f"{l}\n{d['flops_fraction_of_dense']:.3f} of dense FLOPs/token" for (_, l), d in zip(runs, data)])
     ax.set_ylabel("Val perplexity (48 batches of 8 x 256)")
-    ax.set_title("Inactive units still carried the model in attempts 7 and 8")
-    fig.text(0.01, -0.04, "Present structure only: every dormant or dead unit forced off (structure_eval.py). "
-             "The fix (2026-10-15) gives inactive units exactly zero effect.", fontsize=8, color=INK_2)
+    ax.set_title("Inactive units carried attempts 7 and 8; attempt 9 needs none")
+    fig.text(0.01, -0.09, "Present structure only: every dormant or dead unit forced off (structure_eval.py). "
+             "Attempt 9 trained with inactive units at exactly zero effect,\nso both bars are the same model.",
+             fontsize=8, color=INK_2)
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(axis="x", visible=False)
     save(fig, "compute_present_vs_supernet.png")
@@ -252,7 +299,9 @@ def fig_compute() -> None:
 if __name__ == "__main__":
     assert len(unit_order(V8_SHAPE)) == 12 + 144 + 1536
     fig_phase2_val_ppl()
-    fig_phase2_structure_v8()
-    fig_phase2_final_structure_v8()
+    fig_phase2_present()
+    for run in PHASE2:
+        fig_phase2_structure(run)
+        fig_phase2_final_structure(run)
     fig_phase1_ppl()
     fig_compute()

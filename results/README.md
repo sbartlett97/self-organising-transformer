@@ -48,9 +48,10 @@ us nothing at this scale.
 
 ## Compute accounting (`compute/`)
 
-- `v7_structure_eval.json`, `v8_structure_eval.json`: output of
-  `structure_eval.py`. Val ppl as trained and with the present structure
-  only, plus FLOPs and parameters.
+- `v7_structure_eval.json`, `v8_structure_eval.json`, `v9_structure_eval.json`:
+  output of `structure_eval.py`. Val ppl as trained and with the present
+  structure only, plus FLOPs and parameters. For attempt 9 the two values
+  are the same (30.34), because its inactive units have zero effect.
 - `dormant_split.py`, `dead_split.py`: which inactive units carry the gap.
 - `present_only_sample.py`: text from attempt 8 with only its present
   structure (see `docs/samples.md`).
