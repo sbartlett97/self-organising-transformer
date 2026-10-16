@@ -160,8 +160,10 @@ Findings:
 - **Attempt 9 (2026-10-16) is the first run on this code.** Its present
   structure alone gets 30.61 val ppl at 0.425 of dense FLOPs/token, and it
   writes fluent text ([samples](docs/samples.md)). Attempt 8's present
-  structure got 132 at 0.466. It is 26% behind dense 768 (24.30); a
-  dense control at matched compute is the next test.
+  structure got 132 at 0.466. It is 26% behind dense 768 (24.30).
+- **Dense models at matched compute beat attempt 9 (2026-10-16).** Dense
+  d 768 / 4 layers gets 30.18 and dense d 512 / 9 layers gets 28.98, both at
+  0.42 of dense FLOPs. Learned structure does not help yet.
 
 ### Bugs that changed results
 
@@ -183,19 +185,21 @@ In order:
 
 1. **Attempt 9 on the zero-effect code.** Done (2026-10-16): 30.61 val
    ppl at 0.425 of dense FLOPs, present structure only.
-2. **A dense control at matched compute.** A dense model with about
-   0.47 of the FLOPs of dense 768 (for example fewer layers or a narrower
-   FFN), trained for the same tokens. Attempt 9 must beat it to show that
-   learned structure helps.
-3. **Fresh retrain of the attempt-9 structure.** This separates a good
+2. **A dense control at matched compute.** Done (2026-10-16): dense
+   d 768 / 4 layers 30.18, dense d 512 / 9 layers 28.98, both at 0.42 of
+   dense FLOPs. Both beat attempt 9 (30.61).
+3. **Attempt 10: attempt 9 plus `--birth_score_norm flops`.** It tests if
+   the head-over-FFN birth bias causes part of the gap. A Phase 2 run must
+   beat 28.98 to show that learned structure helps.
+4. **Fresh retrain of the attempt-9 structure.** This separates a good
    structure from good inherited weights, as in Phase 1.
-4. **Physical removal during training.** Dead units now have no effect,
+5. **Physical removal during training.** Dead units now have no effect,
    so they can leave the tensors. Dormant units still run because the
    probes need their outputs. The next step is a cheaper birth signal
    (probe a sample of dormant units, or rebuild tensors at each growth
    check). Only then does training compute fall below 1.0 of dense.
-5. **Seeds.** Repeat the best Phase 2 configuration on seeds 123 and 7.
-6. **Fix the ablation helpers.** `ablation_importance.set_logit` turns a
+6. **Seeds.** Repeat the best Phase 2 configuration on seeds 123 and 7.
+7. **Fix the ablation helpers.** `ablation_importance.set_logit` turns a
    unit off through its logit. On new checkpoints it must set the scale
    to 0.
 7. **Benchmarks.** Run lm-eval on the Phase 2 models of the present
@@ -3115,7 +3119,8 @@ Findings:
   does not have.
 - **It is 26% behind dense 768 (24.30) at 0.425 of the FLOPs.** This does
   not show that learned structure helps. The dense control at matched
-  compute ("Where next" item 2) decides that.
+  compute ("Where next" item 2) decides that. (Result: the dense controls
+  win. See the last 2026-10-16 entry.)
 - **Gates of present units are low (0.2-0.45).** No unit passes the 0.5
   threshold of `export_architecture`, so `architecture.json` lists 0
   active layers. The present structure is the set of units with a
@@ -3152,3 +3157,44 @@ does not change. The default `none` keeps attempts 1-9 reproducible. The
 growth log now records the best birth score of each kind. Tests:
 `phase2_controller_test.py` test 43, `compute_test.py` test 6, and a
 120-step smoke run. Attempt 10 uses the attempt-9 settings plus this flag.
+
+## 2026-10-16 — Dense controls at matched compute: both beat attempt 9
+
+Two dense models at the FLOPs of attempt 9 (0.425 of dense 768), trained with
+`train.py --model_type dense` on the attempt-9 settings: WikiText-103, seed
+42, 10,000 steps, batch 16 x 8 accumulation, seq 256, LR 3e-4. Val ppl uses
+the same fixed val batches as attempt 9 (`train.evaluate_loss`). Both ran on
+one pod at the same time (about 94% of the solo throughput). Logs are in
+`results/dense_c425_d768l4/` and `results/dense_c425_d512l9/`. The checkpoints
+are in private Hub repos `sot-phase1-wikitext103-dense_c425_{d768l4,d512l9}-seed42-tc768d013`.
+The pod is deleted.
+
+| model | shape | FLOPs/token (of dense 768) | params (of dense 768) |
+|---|---|---:|---:|
+| attempt 9, present structure | d 768, 8 layers, 36 heads, 357 FFN groups | 0.425 | 0.432 |
+| dense A | d 768, 4 layers, 12 heads, FFN 1824 | 0.424 | 0.428 |
+| dense B | d 512, 9 layers, 8 heads, FFN 2048 | 0.421 | 0.418 |
+
+Training-time val ppl:
+
+| step | 1000 | 2000 | 4000 | 6000 | 8000 | 10000 |
+|---|---:|---:|---:|---:|---:|---:|
+| attempt 9 (present structure) | 106.72 | 60.54 | 39.63 | 33.63 | 31.15 | 30.61 |
+| dense A (d 768, 4 layers) | 102.24 | 57.60 | 39.33 | 33.43 | 30.77 | 30.18 |
+| dense B (d 512, 9 layers) | 106.79 | 57.63 | 38.06 | 32.08 | 29.56 | **28.98** |
+
+Findings:
+
+- **Attempt 9 does not beat a dense model at matched compute.** Dense A is
+  1.4% better (30.18 against 30.61). Dense B is 5.3% better (28.98).
+  Phase 2 has not yet shown that learned structure helps.
+- **Dense A is ahead at every eval.** The gap stays small (0.2-0.4 ppl from
+  step 4000). Dense B is ahead from step 2500, and the gap grows to about
+  1.6 ppl.
+- **Depth helps at this budget.** At the same FLOPs, 9 narrow layers beat 4
+  wide layers by 1.2 ppl. Attempt 9 kept 8 layers but at d 768, so the
+  lm_head and the embedding take a larger part of its budget than in dense B.
+- **Possible causes of the gap, not tested:** the structure changed until
+  step 8500, so late units had little time to train; and births favoured
+  heads over FFN groups (previous entry). Attempt 10 (`--birth_score_norm
+  flops`) tests the second cause.

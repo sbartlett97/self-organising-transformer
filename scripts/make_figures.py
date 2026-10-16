@@ -204,10 +204,16 @@ def fig_phase2_present() -> None:
     curves = [(PHASE2["v9"][0], "Attempt 9, present structure (0.425 FLOPs)", SERIES[0], "-")]
     curves += [(run, label, color, "-") for (run, label), color in zip(DENSE_CONTROLS, [SERIES[1], SERIES[2]])
                if (RESULTS / run / "metrics.json").exists()]
+    ends = []
     for run, label, color, style in curves:
         x, y = zip(*[(s, v) for s, v in zip(*val_curve(run)) if v <= hi])  # points above the axis are left out, not clipped
         ax.plot(x, y, color=color, linestyle=style, label=label, marker="o", markersize=3)
-        ax.annotate(f"{y[-1]:.2f}", (x[-1], y[-1]), xytext=(6, 0), textcoords="offset points",
+        ends.append((x[-1], y[-1]))
+    # Move the end labels apart (from the top down) so that close final values do not overlap.
+    label_y = None
+    for ex, ey in sorted(ends, key=lambda e: -e[1]):
+        label_y = ey if label_y is None else min(ey, label_y - 1.4)
+        ax.annotate(f"{ey:.2f}", (ex, label_y), xytext=(6, 0), textcoords="offset points",
                     va="center", fontsize=9, color=INK_2)
     x, y = dense768_curve()
     if x:

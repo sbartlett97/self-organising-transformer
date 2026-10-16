@@ -43,6 +43,11 @@ us nothing at this scale.
   Its val ppl is the val ppl of the present structure. The present units
   have gates below 0.5, so `architecture.json` lists no active units at
   that threshold. Present means a non-zero gate.
+- `dense_c425_d768l4/`, `dense_c425_d512l9/`: the dense controls at the
+  FLOPs of attempt 9 (`train.py --model_type dense`, attempt-9 settings).
+  `metrics.json`, `config.json`, `train_config.json`, `architecture.json`
+  and `SOURCE_CHECKPOINT`. Their val ppl uses the same val batches as
+  attempt 9.
 - `phase2_v7_lrfreeze/tail_birth_ablation.py`: the ablation of the heads
   born in the LR tail.
 

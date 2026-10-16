@@ -55,8 +55,10 @@ dead units exactly zero effect and zero gradient (2026-10-15,
 
 So the val ppl of attempt 9 is the val ppl of the present structure alone:
 **30.61 at 0.425 of dense FLOPs per token**. Dense 768 gets 24.30 on the
-same method, at 1.0 of the FLOPs. Dense models at matched compute (0.42
-of the FLOPs) are the next test:
+same method, at 1.0 of the FLOPs. **Dense models at matched compute (0.42
+of the FLOPs) do better.** Dense d 768 with 4 layers gets 30.18. Dense d 512
+with 9 layers gets 28.98. So Phase 2 has not yet shown that learned
+structure beats a fixed shape at the same compute:
 
 ![Attempt 9 against dense models](docs/figures/phase2_present_val_ppl.png)
 
