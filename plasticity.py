@@ -138,6 +138,14 @@ class StructuralController:
         # to train a born unit, and setting those 4 heads back to dormant
         # gave 27.16. Birth scores and diagnostics still update while frozen.
         birth_freeze_lr_fraction: float = 0.05,
+        # Divisor of the birth score for each unit kind (kinds not listed: 1).
+        # All kinds share one ranking, so with raw scores the larger unit wins:
+        # in attempt 9 (RESEARCH_LOG.md 2026-10-16) a head scored about 3x an
+        # FFN group, but it also costs about 4x the FLOPs. Per parameter the
+        # two kinds scored the same. Heads took 36 of 37 head/FFN births
+        # until the dormant head pool ran out. Pass each kind's FLOPs relative
+        # to one FFN group to rank by score per unit of compute. None = raw.
+        birth_cost: Optional[dict] = None,
         seed: int = 0,
     ):
         self.model = model
@@ -169,12 +177,16 @@ class StructuralController:
         if not 0.0 <= birth_freeze_lr_fraction < 1.0:
             raise ValueError(f"birth_freeze_lr_fraction must be in [0, 1), got {birth_freeze_lr_fraction}")
         self.birth_freeze_lr_fraction = birth_freeze_lr_fraction
+        self.birth_cost = dict(birth_cost or {})
+        if any(not (math.isfinite(c) and c > 0) for c in self.birth_cost.values()):
+            raise ValueError(f"birth_cost values must be finite and > 0, got {self.birth_cost}")
         self._rng = random.Random(seed)
 
         self.units: dict[tuple, UnitTelemetry] = {}
         self._loss_history: list[float] = []
         self._train_loss_ema: Optional[float] = None
         self._last_max_birth_score: float = 0.0
+        self._last_max_birth_score_by_kind: dict = {}
         self._last_nan_candidates: int = 0
         self._last_below_floor_count: int = 0
         self._last_death_eligible_pool: int = 0
@@ -450,6 +462,7 @@ class StructuralController:
                 t = self.units[uid]
                 g_norm = (t.gradient_ema / max_grad) if max_grad > 0 and math.isfinite(t.gradient_ema) else 0.0
                 b = self.w_g * t.gradient_ema + self.w_c * t.contribution_ema + self.w_p * plateau * g_norm
+                b = b / self.birth_cost.get(uid[0], 1.0)
                 # Filter non-finite scores out *before* sorting, not after --
                 # NaN comparisons are always False, so a NaN entry left in
                 # the list breaks sort()'s total-order assumption and can
@@ -464,6 +477,10 @@ class StructuralController:
                 else:
                     nan_candidates += 1
             self._last_max_birth_score = max((b for b, _ in all_scores), default=0.0)
+            by_kind: dict = {}
+            for b, uid in all_scores:
+                by_kind[uid[0]] = max(by_kind.get(uid[0], b), b)
+            self._last_max_birth_score_by_kind = by_kind
             self._last_nan_candidates = nan_candidates
             all_scores.sort(key=lambda x: -x[0])
             # Relative, not absolute: the top birth_limit candidates by
@@ -531,6 +548,8 @@ class StructuralController:
             "births_frozen": births_frozen,
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
+            "max_birth_score_by_kind": self._last_max_birth_score_by_kind,
+            "birth_cost": self.birth_cost,
             "birth_score_floor": self.birth_score_floor,
             "nan_candidates": self._last_nan_candidates,
             "below_floor_count": self._last_below_floor_count,

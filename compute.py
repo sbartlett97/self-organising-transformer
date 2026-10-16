@@ -65,6 +65,13 @@ def flops_per_token(layers: list[dict], s: Shape) -> dict:
     return {"attention": attn, "ffn": ffn, "lm_head": head, "total": attn + ffn + head}
 
 
+def unit_flops(s: Shape) -> dict:
+    """Forward FLOPs per token that one head and one FFN group add."""
+    base = flops_per_token([], s)["total"]
+    return {"head": flops_per_token([{"heads": 1, "ffn_groups": 0}], s)["total"] - base,
+            "ffn_group": flops_per_token([{"heads": 0, "ffn_groups": 1}], s)["total"] - base}
+
+
 def param_count(layers: list[dict], s: Shape) -> dict:
     """Parameters of the physical model (tied lm_head counted once, no gate logits)."""
     d, dh = s.d_model, s.head_dim

@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, get_cosine_schedule_with_warmup, set_see
 
 import hub_utils
 from plastic_model import PlasticConfig, PlasticTransformer
+from compute import Shape, unit_flops
 from plasticity import StructuralController
 from train import BatchIterator, evaluate_loss, load_tokens, pick_device, TrainConfig
 
@@ -35,6 +36,7 @@ class Phase2Config(TrainConfig):
     death_ramp_steps: int = 250
     death_freeze_lr_fraction: float = 0.05
     birth_freeze_lr_fraction: float = 0.05
+    birth_score_norm: str = "none"  # 'none' | 'flops': divide head/FFN birth scores by FLOPs relative to one FFN group
     output_dir: str = "./outputs/phase2"
 
 
@@ -101,6 +103,11 @@ def train(cfg: Phase2Config):
     train_data, val_data = load_tokens(cfg, tokenizer)
 
     model = build_model(cfg, tokenizer).to(device)
+    birth_cost = None
+    if cfg.birth_score_norm == "flops":
+        f = unit_flops(Shape.from_config(model.config, seq_len=cfg.seq_len))
+        birth_cost = {kind: v / f["ffn_group"] for kind, v in f.items()}
+        print(f"birth_cost (FLOPs relative to one FFN group): {birth_cost}")
     controller = StructuralController(
         model,
         growth_interval=cfg.growth_interval,
@@ -115,6 +122,7 @@ def train(cfg: Phase2Config):
         death_ramp_steps=cfg.death_ramp_steps,
         death_freeze_lr_fraction=cfg.death_freeze_lr_fraction,
         birth_freeze_lr_fraction=cfg.birth_freeze_lr_fraction,
+        birth_cost=birth_cost,
         seed=cfg.seed,
     )
     controller.seed_architecture()
@@ -286,6 +294,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--death_ramp_steps", type=int, default=250, help="Steps over which a dying unit's scale falls linearly 1 -> 0. 0 = one-step cut.")
     p.add_argument("--death_freeze_lr_fraction", type=float, default=0.05, help="No death once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--birth_freeze_lr_fraction", type=float, default=0.05, help="No birth once LR / peak LR falls below this. 0 = never freeze.")
+    p.add_argument("--birth_score_norm", choices=["none", "flops"], default="none", help="'flops' divides each head and FFN-group birth score by the unit's FLOPs relative to one FFN group, so the shared ranking compares score per unit of compute. Layers are not changed. 'none' = raw scores (attempts 1-9).")
     p.add_argument("--output_dir", default="./outputs/phase2")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)

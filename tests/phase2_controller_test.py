@@ -845,4 +845,46 @@ assert all(lb._get_scale(u) == 0.0 and float(lb._buffer(u, "probe_mask")[0][lb._
 assert lb._get_scale(lb_layer) == 1.0
 print("test42: PASS (layer birth: live units restart as PROTECTED at age 0; dormant units keep their probe)")
 
+# ---- test 43: birth_cost ranks dormant units by score per unit of compute ----
+def cost_ctl(birth_cost):
+    """Layers 0-2 live, layer 3 dormant. One dormant head and one dormant FFN
+    group in layer 0. Raw scores: head 3, layer 3 2, FFN group 1, rest 0."""
+    torch.manual_seed(9)
+    c = StructuralController(PlasticTransformer(cfg), birth_limit=1, minimum_age=cfg.minimum_age,
+                             birth_ramp_steps=0, birth_cost=birth_cost, seed=0)
+    c.seed_architecture()
+    all_layers_live(c)
+    for uid in [("layer", 3, 0), ("head", 0, 0), ("ffn_group", 0, 0)]:
+        c.units[uid].state = LifecycleState.DORMANT
+        c._set_scale(uid, 0.0)
+        c._set_probe(uid, True)
+    for t in c.units.values():
+        t.gradient_ema = t.contribution_ema = 0.0
+    for uid, g in [(("head", 0, 0), 3.0), (("layer", 3, 0), 2.0), (("ffn_group", 0, 0), 1.0)]:
+        c.units[uid].gradient_ema = g / c.w_g  # score = w_g * gradient_ema (plateau 0, contribution 0)
+    return c
+
+cost = {"head": 4.0, "ffn_group": 1.0}
+raw43, _ = cost_ctl(None)._birth_pass(step=10, mode="heuristic")
+c43 = cost_ctl(cost)
+cost43, _ = c43._birth_pass(step=10, mode="heuristic")
+print(f"test43: raw births={raw43}; with birth_cost={cost43}; by kind={c43._last_max_birth_score_by_kind}")
+assert raw43 == [("head", 0, 0)], "raw scores: the head (3) wins"
+assert cost43 == [("layer", 3, 0)], "with cost: layer (2, divisor 1) > FFN group (1) > head (3/4)"
+assert c43._last_max_birth_score_by_kind == {"layer": 2.0, "ffn_group": 1.0, "head": 0.75}, c43._last_max_birth_score_by_kind
+c43b = cost_ctl(cost)
+c43b.units[("layer", 3, 0)].gradient_ema = 0.0
+assert c43b._birth_pass(step=10, mode="heuristic")[0] == [("ffn_group", 0, 0)], "with cost and no layer: the FFN group wins"
+c43c = cost_ctl(cost)
+log43 = c43c.update(step=10, mode="heuristic")
+assert log43["birth_cost"] == cost and log43["max_birth_score_by_kind"]["head"] == 0.75, log43
+assert c43c.events[-1]["score"] == 2.0, "the event logs the cost-adjusted score"
+for bad in [{"head": 0.0}, {"head": -1.0}, {"head": float("nan")}]:
+    try:
+        StructuralController(PlasticTransformer(cfg), birth_cost=bad)
+        raise AssertionError(f"birth_cost={bad} accepted")
+    except ValueError:
+        pass
+print("test43: PASS (birth_cost divides head/FFN scores, layers keep divisor 1, growth log has per-kind scores)")
+
 print("\nALL TESTS PASSED")

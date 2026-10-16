@@ -3124,3 +3124,31 @@ Findings:
 - **Few FFN births** (31, against 52 head births). This can be a scale
   effect: a head's probe gradient sums over 64 dimensions, an FFN group's
   over 24 channels. Not checked yet.
+
+## 2026-10-16 — Why attempt 9 grew few FFN groups; cost-normalised birth score
+
+Attempt 9 had 52 head births and only 31 FFN-group births, though dormant
+FFN groups far outnumber dormant heads. Cause: unit size, not the probe
+signal.
+
+- The controller ranks dormant layers, heads and FFN groups in one list,
+  by raw score (`|dL/dg|` EMA). There is no adjustment by kind
+  (`plasticity.py`, `_birth_pass`).
+- A head is 3.6x the params and 4.1x the FLOPs of an FFN group. On the
+  final checkpoint (8 val batches), the median raw `|dL/dg|` of present
+  heads is 3.4x that of present FFN groups (0.0095 against 0.0028). Per
+  parameter the two kinds are equal (1.4e-8 and 1.6e-8).
+- So heads won every check while dormant heads remained. In steps
+  1000-4000: 36 head births and 1 FFN birth, as dormant heads in live
+  layers fell from 72 to 23. In steps 4000-10000, FFN groups took 30 of
+  the 37 head/FFN births.
+- The ranking bought value per unit, not value per FLOP. At step 10000,
+  the top 100 dormant candidates per FLOP are all FFN groups.
+
+Fix: `--birth_score_norm flops` divides each head and FFN-group birth score
+by the unit's FLOPs relative to one FFN group (`compute.unit_flops`; a head
+is 4.15 at d 768). Layers keep divisor 1, so the layer-against-FFN ranking
+does not change. The default `none` keeps attempts 1-9 reproducible. The
+growth log now records the best birth score of each kind. Tests:
+`phase2_controller_test.py` test 43, `compute_test.py` test 6, and a
+120-step smoke run. Attempt 10 uses the attempt-9 settings plus this flag.

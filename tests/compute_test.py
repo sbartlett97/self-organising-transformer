@@ -14,7 +14,7 @@ import torch
 from torch.utils.flop_counter import FlopCounterMode
 
 from compact_model import CompactConfig, CompactTransformer
-from compute import Replay, Shape, flops_per_token, param_count, seed_split, training_flops, unit_order
+from compute import Replay, Shape, flops_per_token, param_count, seed_split, training_flops, unit_flops, unit_order
 from plastic_model import PlasticConfig, PlasticTransformer
 from plasticity import LifecycleState, StructuralController
 
@@ -91,5 +91,18 @@ print(f"test5: integrated {tf['realisable']} vs per-step sum {manual}; fraction 
 assert tf["realisable"] == manual
 assert tf["dense"] == 3 * flops_per_token(s.dense(), s)["total"] * tps * 40
 print("test5: PASS (piecewise sum equals the per-step sum)")
+
+# ---- test 6: unit_flops adds up to flops_per_token, and matches the counter ----
+uf = unit_flops(s)
+base = flops_per_token([], s)["total"]
+assert flops_per_token(layers, s)["total"] == base + uf["head"] * 8 + uf["ffn_group"] * 11
+small = CompactTransformer(CompactConfig(vocab_size=cfg.vocab_size, max_position_embeddings=T, d_model=cfg.d_model,
+                                            layers=[{"original_index": 0, "heads": 2, "head_dim": s.head_dim, "ffn_dim": s.group_size, "skip_from": []}]))
+bigger = CompactTransformer(CompactConfig(vocab_size=cfg.vocab_size, max_position_embeddings=T, d_model=cfg.d_model,
+                                            layers=[{"original_index": 0, "heads": 3, "head_dim": s.head_dim, "ffn_dim": 2 * s.group_size, "skip_from": []}]))
+delta = measured_flops_per_token(bigger) - measured_flops_per_token(small)
+print(f"test6: unit_flops={uf}; counter delta for +1 head +1 group={delta}")
+assert delta == uf["head"] + uf["ffn_group"], (delta, uf)
+print("test6: PASS (unit_flops matches flops_per_token and the FLOP counter)")
 
 print("\nALL TESTS PASSED")
