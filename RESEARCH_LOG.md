@@ -3198,3 +3198,82 @@ Findings:
   step 8500, so late units had little time to train; and births favoured
   heads over FFN groups (previous entry). Attempt 10 (`--birth_score_norm
   flops`) tests the second cause.
+
+## 2026-10-19 — Attempts 10 and 11a: cost-normalised births, WSD schedule, signed birth telemetry
+
+An external review of the attempt-9 result made three points. We act on two now.
+
+1. **Late births get almost no LR.** Under cosine, LR / peak at step 8500 is
+   0.061. The LR left from step 8500 to 10000 is about 30 peak-LR-equivalent
+   steps, of about 5000 in the whole run. Attempt 9 had births until step 8500.
+2. **The birth score ignores the sign of dL/dg.** `record_step` keeps an EMA
+   of |dL/dg|. A unit whose gradient says "opening me raises the loss" can
+   still rank high. This selects for sensitivity, not for expected benefit.
+3. **AdamW state of a newborn slice is cold** (zero moments, but the shared
+   tensor's step count is high), and a gradient multiplier does not scale an
+   Adam update. This matters for a per-unit LR boost (attempt 11b). Not done
+   yet.
+
+Code (defaults keep attempts 1-9 and the dense controls reproducible):
+
+- `train.make_scheduler`, `--lr_schedule {cosine,wsd}`, `--lr_decay_start`,
+  `--warmup_steps`. 'wsd' = warmup, peak LR until the decay start, then
+  cosine to 0 at max_steps. `train.py` and `train_phase2.py` share it, so a
+  dense control can use the same schedule. `tests/schedule_test.py`: cosine
+  is identical to `get_cosine_schedule_with_warmup` at all 10000 steps. The
+  LR budget is 5000 peak-LR-equivalent steps for cosine and 8250 for WSD with
+  decay from step 7000.
+- `--structure_freeze_step`: no birth or death whose ramp would end after
+  this step. The 5% LR freezes do not fire under WSD before the decay.
+- Telemetry only, no change to the ranking: `signed_gradient_ema` per dormant
+  unit; each birth event logs `abs_gradient_ema`, `signed_gradient_ema`,
+  `sign_consistency` (signed / abs, -1 = always "open me"), `lr_fraction` and
+  `lr_budget_remaining` (peak-LR-equivalent steps left). Each growth-log
+  record has `birth_sign_summary`: per kind and for the top 20 candidates,
+  the share with a negative sign and the median consistency. Tests 44 and 45
+  in `phase2_controller_test.py`.
+
+Runs (all three on one RTX PRO 6000; A100s were out of stock):
+
+| run | change | compare with |
+|---|---|---|
+| attempt 10 | attempt-9 settings + `--birth_score_norm flops` | attempt 9 (30.61) |
+| attempt 11a | attempt 10 + WSD, decay from 7000 + structure freeze at 7000 | attempt 10, and the WSD dense control |
+| dense d512 / 9 layers, WSD | the best dense control, same WSD schedule | attempt 11a |
+
+Decay start 7000: 30% of the run decays. A unit born at the last allowed
+check (6750) gets 250 steps of ramp at peak LR, then the full decay
+(about 1500 peak-LR-equivalent steps). The search phase is 1500 steps
+shorter than attempt 9's (births until 8500). One value only, not tuned.
+
+Check before a result is claimed: cost-normalised births change the mix of
+heads and FFN groups, so the final FLOPs of attempts 10 and 11a can move away
+from 0.425. Run `structure_eval.py` on both. If either ends far from 0.42 of
+dense FLOPs, the dense controls no longer match it.
+
+Pod restart and resume. At about step 2300 (21:50 BST) the host restarted
+the pod's container. All three runs stopped with no traceback. The disk was
+intact.
+
+- The dense run resumed from its step-9000 checkpoint (`train.py
+  --resume_from`, with the optimizer state). After the resume, the batch
+  order differs from an unbroken run, so its last 1000 steps are not an
+  exact copy.
+- `train_phase2.py` had no resume, so attempts 10 and 11a started again from
+  step 0. At step 1500 the new runs have the same val loss and the same
+  events as the runs before the restart, so the runs are deterministic.
+- An error in my relaunch script truncated the stdout log of attempt 10
+  near step 1600. The checkpoints keep all its records (metrics, events,
+  growth log), so no result is lost.
+- New: `train_phase2.py --resume_from <output_dir>`. Each checkpoint now
+  writes a rolling `training_state.pt` with an atomic replace. It holds the
+  model, optimizer, scheduler, grad scaler, Lagrange multiplier, controller
+  state (`StructuralController.state_dict`: unit telemetry, events, death
+  streaks, RNG), data position (`BatchIterator(start=...)`), RNG states and
+  logs. A resume with a changed config stops. `tests/resume_test.py`: a run
+  that stops at step 27 and resumes from step 20 ends bit-identical to an
+  unbroken run (weights, buffers, events, growth log, metrics). The test
+  fails if the controller state or the data position is not restored.
+- The relaunched attempts 10 and 11a run the old code, so they cannot
+  resume. A restart to get the new code would cost 26 minutes of work, so
+  they continue as they are.

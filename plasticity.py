@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import math
 import random
 import statistics
@@ -23,6 +24,10 @@ class UnitTelemetry:
     unit_id: tuple
     state: LifecycleState = LifecycleState.DORMANT
     gradient_ema: float = 0.0
+    # Dormant units only: EMA of the signed probe gradient dL/dg. Negative =
+    # opening the unit lowers the loss (to first order). Telemetry only: the
+    # birth score uses gradient_ema, the EMA of |dL/dg|.
+    signed_gradient_ema: float = 0.0
     contribution_ema: float = 0.0
     importance_ema: float = 0.0
     age: int = 0
@@ -193,6 +198,7 @@ class StructuralController:
         self._last_max_death_streak: int = 0
         self._last_gate_spread: dict = {}
         self._last_importance_spread: dict = {}
+        self._last_sign_summary: dict = {}
         self.events: list[dict] = []
         self._death_streak: dict[tuple, int] = {}
         self._register_units()
@@ -300,6 +306,7 @@ class StructuralController:
                 g = self._probe_grad(uid)
                 if g is not None and math.isfinite(g):
                     t.gradient_ema = self.ema_decay * t.gradient_ema + (1 - self.ema_decay) * abs(g)
+                    t.signed_gradient_ema = self.ema_decay * t.signed_gradient_ema + (1 - self.ema_decay) * g
             elif t.state != LifecycleState.DEAD:
                 param, idx = self._logit_param(uid)
                 grad = param.grad
@@ -432,12 +439,33 @@ class StructuralController:
             self.events.append({"step": step, "unit": uid, "event": "death", "score": death_score})
         return deaths
 
+    @staticmethod
+    def _sign_consistency(t: UnitTelemetry) -> Optional[float]:
+        """signed / abs EMA of the probe gradient, in [-1, 1]. -1 = the
+        gradient always says "open me", +1 = always "keep me shut", near 0 =
+        the sign changes from batch to batch."""
+        return t.signed_gradient_ema / t.gradient_ema if t.gradient_ema > 0 else None
+
+    def _sign_summary(self, ranked: list) -> dict:
+        """Signed birth-signal totals for the growth log, per kind and for
+        the top 20 candidates of the ranking (telemetry only)."""
+        def totals(uids):
+            c = [x for x in (self._sign_consistency(self.units[u]) for u in uids) if x is not None]
+            if not c:
+                return {"n": 0}
+            return {"n": len(c), "negative_fraction": sum(x < 0 for x in c) / len(c),
+                    "median_consistency": statistics.median(c)}
+        by_kind: dict = defaultdict(list)
+        for uid in ranked:
+            by_kind[uid[0]].append(uid)
+        return {"top20": totals(ranked[:20]), **{k: totals(v) for k, v in by_kind.items()}}
+
     def _promote_pass(self) -> None:
         for t in self.units.values():
             if t.state == LifecycleState.PROTECTED and t.steps_since_birth >= self.minimum_age:
                 t.state = LifecycleState.MATURE
 
-    def _birth_pass(self, step: int, mode: str, frozen: bool = False) -> tuple[list, float]:
+    def _birth_pass(self, step: int, mode: str, frozen: bool = False, birth_info: Optional[dict] = None) -> tuple[list, float]:
         plateau = self._plateau_score()
         dormant = [uid for uid, t in self.units.items() if t.state == LifecycleState.DORMANT and not self._in_inactive_layer(uid)]
 
@@ -483,12 +511,14 @@ class StructuralController:
             self._last_max_birth_score_by_kind = by_kind
             self._last_nan_candidates = nan_candidates
             all_scores.sort(key=lambda x: -x[0])
+            self._last_sign_summary = self._sign_summary([uid for _, uid in all_scores])
             # Relative, not absolute: the top birth_limit candidates by
             # score, excluding only genuinely zero-signal ones -- see
             # birth_score_floor's docstring in __init__ for why this
             # replaced a fixed threshold.
             chosen = [(b, uid) for b, uid in all_scores[: self.birth_limit] if b > self.birth_score_floor]
         elif mode == "random":
+            self._last_sign_summary = self._sign_summary(dormant)
             picks = self._rng.sample(dormant, min(self.birth_limit, len(dormant)))
             chosen = [(None, uid) for uid in picks]
         else:
@@ -515,7 +545,9 @@ class StructuralController:
                         ct.steps_since_birth = 0
                         self._death_streak[child] = 0
             births.append(uid)
-            self.events.append({"step": step, "unit": uid, "event": "birth", "score": score})
+            self.events.append({"step": step, "unit": uid, "event": "birth", "score": score,
+                                "abs_gradient_ema": t.gradient_ema, "signed_gradient_ema": t.signed_gradient_ema,
+                                "sign_consistency": self._sign_consistency(t), **(birth_info or {})})
         return births, plateau
 
     def ramps_fit(self, steps_remaining: int) -> bool:
@@ -528,24 +560,35 @@ class StructuralController:
         this is False."""
         return steps_remaining >= max(self.birth_ramp_steps, self.death_ramp_steps)
 
-    def update(self, step: int, mode: str = "heuristic", lr_fraction: Optional[float] = None) -> dict:
+    def update(self, step: int, mode: str = "heuristic", lr_fraction: Optional[float] = None,
+               lr_budget_remaining: Optional[float] = None, structure_frozen: bool = False) -> dict:
         """Call every growth_interval steps from the training loop. `mode` is
         'heuristic' (the real B_i-ranked controller) or 'random' (same
         timing/budget, uniform-random candidate selection) -- proposal §11's
         two growth conditions. The third required condition, "no growth", is
         simply never calling update() at all. `lr_fraction` is the current
-        LR / peak LR; None means unknown, and nothing is frozen."""
-        deaths_frozen = lr_fraction is not None and lr_fraction < self.death_freeze_lr_fraction
-        births_frozen = lr_fraction is not None and lr_fraction < self.birth_freeze_lr_fraction
+        LR / peak LR; None means unknown, and nothing is frozen.
+
+        `lr_budget_remaining` (telemetry only) is the sum of LR / peak LR over
+        the steps left: the peak-LR-equivalent steps a unit born now can still
+        train for. It goes into each birth event. `structure_frozen` stops
+        births and deaths whatever the LR (the step freeze of the 'wsd'
+        schedule, RESEARCH_LOG.md 2026-10-19). Diagnostics still update."""
+        deaths_frozen = structure_frozen or (lr_fraction is not None and lr_fraction < self.death_freeze_lr_fraction)
+        births_frozen = structure_frozen or (lr_fraction is not None and lr_fraction < self.birth_freeze_lr_fraction)
         deaths = self._death_pass(step, frozen=deaths_frozen)
         self._promote_pass()
-        births, plateau = self._birth_pass(step, mode, frozen=births_frozen)
+        birth_info = {k: v for k, v in (("lr_fraction", lr_fraction), ("lr_budget_remaining", lr_budget_remaining)) if v is not None}
+        births, plateau = self._birth_pass(step, mode, frozen=births_frozen, birth_info=birth_info)
         return {
             "step": step,
             "births": births,
             "deaths": deaths,
             "deaths_frozen": deaths_frozen,
             "births_frozen": births_frozen,
+            "structure_frozen": structure_frozen,
+            "lr_budget_remaining": lr_budget_remaining,
+            "birth_sign_summary": self._last_sign_summary,
             "plateau": plateau,
             "max_dormant_birth_score": self._last_max_birth_score,
             "max_birth_score_by_kind": self._last_max_birth_score_by_kind,
@@ -572,6 +615,24 @@ class StructuralController:
 
     def events_json(self) -> list:
         return [{**e, "unit": list(e["unit"])} for e in self.events]
+
+    # What the controller changes as it trains. The constructor arguments are
+    # not in it: a resume builds the controller with the same arguments first.
+    _STATE_FIELDS = ("units", "events", "birth_limit")
+
+    def state_dict(self) -> dict:
+        state = {k: v for k, v in vars(self).items()
+                 if k in self._STATE_FIELDS or (k.startswith("_") and k != "_rng")}
+        state = copy.deepcopy(state)
+        state["_rng"] = self._rng.getstate()
+        return state
+
+    def load_state_dict(self, state: dict) -> None:
+        if set(state["units"]) != set(self.units):
+            raise ValueError("the saved controller has different units than this model")
+        state = copy.deepcopy(state)
+        self._rng.setstate(state.pop("_rng"))
+        vars(self).update(state)
 
 
 __all__ = ["LifecycleState", "UnitTelemetry", "StructuralController"]

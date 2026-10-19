@@ -200,7 +200,9 @@ print("test5: PASS (random mode respects birth_limit, only selects from dormant 
 # ---- test 6: events_json is well-formed and serializable ----
 events = controller.events_json()
 json.dumps(events)  # raises if not serializable
-assert all(set(e.keys()) == {"step", "unit", "event", "score"} for e in events)
+assert all({"step", "unit", "event", "score"} <= set(e.keys()) for e in events)
+assert all({"abs_gradient_ema", "signed_gradient_ema", "sign_consistency"} <= set(e.keys()) for e in events if e["event"] == "birth")
+assert all(set(e.keys()) == {"step", "unit", "event", "score"} for e in events if e["event"] == "death")
 assert all(isinstance(e["unit"], list) and len(e["unit"]) == 3 for e in events)
 print(f"test6: PASS ({len(events)} events, all well-formed and JSON-serializable)")
 
@@ -886,5 +888,46 @@ for bad in [{"head": 0.0}, {"head": -1.0}, {"head": float("nan")}]:
     except ValueError:
         pass
 print("test43: PASS (birth_cost divides head/FFN scores, layers keep divisor 1, growth log has per-kind scores)")
+
+# ---- test 44: signed birth telemetry (no change to the ranking) ----
+c44 = cost_ctl(None)
+for t in c44.units.values():
+    t.gradient_ema = t.signed_gradient_ema = 0.0
+model44 = c44.model
+for prm in model44.probe_parameters():
+    prm.grad = torch.zeros_like(prm)
+model44.head_probe.grad[0, 0] = -2.0
+model44.group_probe.grad[0, 0] = 0.5
+c44.record_step()
+h44, f44 = c44.units[("head", 0, 0)], c44.units[("ffn_group", 0, 0)]
+k = 1 - c44.ema_decay
+assert math.isclose(h44.signed_gradient_ema, -2.0 * k) and math.isclose(h44.gradient_ema, 2.0 * k), (h44.signed_gradient_ema, h44.gradient_ema)
+assert math.isclose(f44.signed_gradient_ema, 0.5 * k) and c44._sign_consistency(f44) == 1.0
+assert c44._sign_consistency(c44.units[("layer", 3, 0)]) is None, "no signal yet: no consistency"
+c44b = cost_ctl(None)
+c44b.units[("head", 0, 0)].signed_gradient_ema = -c44b.units[("head", 0, 0)].gradient_ema
+c44b.units[("layer", 3, 0)].signed_gradient_ema = 0.5 * c44b.units[("layer", 3, 0)].gradient_ema
+log44 = c44b.update(step=10, mode="heuristic", lr_fraction=0.5, lr_budget_remaining=123.0)
+ev44 = c44b.events[-1]
+print(f"test44: births={log44['births']} event={ev44} summary={log44['birth_sign_summary']}")
+assert log44["births"] == raw43, "telemetry does not change which unit is born"
+assert ev44["sign_consistency"] == -1.0 and ev44["lr_fraction"] == 0.5 and ev44["lr_budget_remaining"] == 123.0
+assert ev44["abs_gradient_ema"] == c44b.units[("head", 0, 0)].gradient_ema
+top44 = log44["birth_sign_summary"]["top20"]
+assert top44["n"] == 3 and math.isclose(top44["negative_fraction"], 1 / 3), top44
+assert log44["birth_sign_summary"]["head"]["negative_fraction"] == 1.0
+json.dumps(c44b.events_json()); json.dumps(log44)
+assert "lr_fraction" not in cost_ctl(None).update(step=10, mode="heuristic") and "lr_fraction" not in c43c.events[-1]
+print("test44: PASS (signed probe EMA and sign consistency logged; births unchanged)")
+
+# ---- test 45: structure_frozen stops births and deaths whatever the LR ----
+c45 = cost_ctl(None)
+n45 = len(c45.events)
+log45 = c45.update(step=10, mode="heuristic", lr_fraction=1.0, structure_frozen=True)
+assert log45["births"] == [] and log45["deaths"] == [] and len(c45.events) == n45
+assert log45["births_frozen"] and log45["deaths_frozen"] and log45["structure_frozen"]
+assert log45["max_dormant_birth_score"] > 0, "scores still update while frozen"
+assert c45.update(step=20, mode="heuristic", lr_fraction=1.0)["births"] == raw43, "the unit is born once the freeze is off"
+print("test45: PASS (structure_frozen blocks births and deaths at full LR)")
 
 print("\nALL TESTS PASSED")

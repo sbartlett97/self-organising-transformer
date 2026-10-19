@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -10,13 +11,13 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from transformers import AutoTokenizer, get_cosine_schedule_with_warmup, set_seed
+from transformers import AutoTokenizer, set_seed
 
 import hub_utils
 from plastic_model import PlasticConfig, PlasticTransformer
 from compute import Shape, unit_flops
 from plasticity import StructuralController
-from train import BatchIterator, evaluate_loss, load_tokens, pick_device, TrainConfig
+from train import BatchIterator, add_schedule_args, evaluate_loss, load_tokens, make_scheduler, pick_device, TrainConfig
 
 
 @dataclass
@@ -37,6 +38,9 @@ class Phase2Config(TrainConfig):
     death_freeze_lr_fraction: float = 0.05
     birth_freeze_lr_fraction: float = 0.05
     birth_score_norm: str = "none"  # 'none' | 'flops': divide head/FFN birth scores by FLOPs relative to one FFN group
+    # No birth or death whose ramp would end after this step. None = no step freeze.
+    # Use it with --lr_schedule wsd and the same value as --lr_decay_start, so the decay trains a fixed structure.
+    structure_freeze_step: int | None = None
     output_dir: str = "./outputs/phase2"
 
 
@@ -86,6 +90,37 @@ def save_checkpoint(model, tokenizer, cfg: Phase2Config, controller: StructuralC
         # everything else.
         json.dump(growth_log, f, indent=2)
     return path
+
+
+# Config fields a resume may change. Any other difference makes the resume stop.
+RESUME_FREE_FIELDS = {"resume_from", "device", "use_trackio", "trackio_space_id", "push_to_hub", "hub_private", "hub_model_id"}
+
+
+def resume_path(resume_from: str) -> Path:
+    """--resume_from is a training_state.pt, or the output_dir that holds one."""
+    path = Path(resume_from)
+    return path / "training_state.pt" if path.is_dir() else path
+
+
+def save_training_state(out_dir: Path, state: dict) -> None:
+    """One rolling training_state.pt at out_dir: all a resume needs to continue
+    the run exactly. A crash during the write leaves the previous file intact."""
+    tmp = out_dir / "training_state.pt.tmp"
+    torch.save(state, tmp)
+    os.replace(tmp, out_dir / "training_state.pt")
+
+
+def rng_states() -> dict:
+    return {"python": random.getstate(), "numpy": np.random.get_state(), "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None}
+
+
+def set_rng_states(states: dict) -> None:
+    random.setstate(states["python"])
+    np.random.set_state(states["numpy"])
+    torch.set_rng_state(states["torch"])
+    if states["cuda"] is not None and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all(states["cuda"])
 
 
 def train(cfg: Phase2Config):
@@ -139,16 +174,41 @@ def train(cfg: Phase2Config):
         [{"params": main_params},
          {"params": model.probe_parameters(), "lr": 0.0, "weight_decay": 0.0}],
         lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
-    scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
+    scheduler = make_scheduler(optimizer, cfg)
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
+    # lr_budget[s] = sum of LR / peak LR over training steps s+1..max_steps (step n runs at
+    # lr_lambda(n-1)): the peak-LR-equivalent steps a unit born at the check of step s can train for.
+    lr_budget = [0.0] * (cfg.max_steps + 1)
+    for n in reversed(range(cfg.max_steps)):
+        lr_budget[n] = lr_budget[n + 1] + scheduler.lr_lambdas[0](n)
 
     lagrange = torch.tensor(0.0, device=device)
     history = []
     growth_log = []
     global_step = 0
-    train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=cfg.seed))
+    # The data position: the seed of the current epoch order, and the batches used from it.
+    iter_seed, iter_used = cfg.seed, 0
+    if cfg.resume_from:
+        path = resume_path(cfg.resume_from)
+        state = torch.load(path, map_location=device, weights_only=False)
+        changed = {k for k, v in asdict(cfg).items() if k not in RESUME_FREE_FIELDS and state["cfg"].get(k) != v}
+        if changed:
+            raise ValueError(f"--resume_from: config differs from the saved run in {sorted(changed)}")
+        model.load_state_dict(state["model"])
+        controller.load_state_dict(state["controller"])
+        # Load the optimizer after make_scheduler: its param groups carry the LR of the saved step.
+        optimizer.load_state_dict(state["optimizer"])
+        scheduler.load_state_dict(state["scheduler"])
+        scaler.load_state_dict(state["scaler"])
+        lagrange.fill_(state["lagrange"])
+        history, growth_log = state["history"], state["growth_log"]
+        global_step, iter_seed, iter_used = state["global_step"], state["iter_seed"], state["iter_used"]
+        set_rng_states(state["rng"])
+        del state
+        print(f"Resumed from {path} at step {global_step}")
+    train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=iter_seed, start=iter_used))
 
-    pbar = tqdm(total=cfg.max_steps, desc="train", unit="step")
+    pbar = tqdm(total=cfg.max_steps, desc="train", unit="step", initial=global_step)
     while global_step < cfg.max_steps:
         optimizer.zero_grad(set_to_none=True)
         accum_task = 0.0
@@ -157,8 +217,10 @@ def train(cfg: Phase2Config):
             try:
                 batch = next(train_iter)
             except StopIteration:
-                train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=cfg.seed + global_step + 1))
+                iter_seed, iter_used = cfg.seed + global_step + 1, 0
+                train_iter = iter(BatchIterator(train_data, cfg.batch_size, seed=iter_seed))
                 batch = next(train_iter)
+            iter_used += 1
             batch = batch.to(device)
             with torch.autocast(device_type=device.type, dtype=torch.float16 if device.type == "cuda" else torch.bfloat16, enabled=(device.type in {"cuda", "cpu"})):
                 out = model(batch, labels=batch)
@@ -210,8 +272,12 @@ def train(cfg: Phase2Config):
                 # entries in RESEARCH_LOG.md for why this was added.
                 progress = min(1.0, global_step / cfg.max_steps)
                 controller.birth_limit = round(cfg.birth_limit + (cfg.birth_limit_end - cfg.birth_limit) * progress)
+            frozen = (cfg.structure_freeze_step is not None
+                      and global_step + max(cfg.birth_ramp_steps, cfg.death_ramp_steps) > cfg.structure_freeze_step)
             event = controller.update(global_step, mode=cfg.birth_mode,
-                                      lr_fraction=scheduler.get_last_lr()[0] / cfg.learning_rate)
+                                      lr_fraction=scheduler.get_last_lr()[0] / cfg.learning_rate,
+                                      lr_budget_remaining=lr_budget[global_step],
+                                      structure_frozen=frozen)
             event["birth_limit_used"] = controller.birth_limit
             pbar.write(json.dumps({"step": global_step, "plasticity_event": event}))
             growth_log.append(event)
@@ -257,6 +323,16 @@ def train(cfg: Phase2Config):
         if global_step % cfg.save_every == 0:
             save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, growth_log)
 
+        if global_step % cfg.eval_every == 0 or global_step % cfg.save_every == 0:
+            save_training_state(out_dir, {
+                "cfg": asdict(cfg), "global_step": global_step,
+                "model": model.state_dict(), "controller": controller.state_dict(),
+                "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
+                "scaler": scaler.state_dict(), "lagrange": float(lagrange.item()),
+                "history": history, "growth_log": growth_log,
+                "iter_seed": iter_seed, "iter_used": iter_used, "rng": rng_states(),
+            })
+
     pbar.close()
     final_path = save_checkpoint(model, tokenizer, cfg, controller, out_dir, global_step, history, growth_log, is_final=True)
     print("\nDISCOVERED ARCHITECTURE")
@@ -295,7 +371,9 @@ def parse_args() -> Phase2Config:
     p.add_argument("--death_freeze_lr_fraction", type=float, default=0.05, help="No death once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--birth_freeze_lr_fraction", type=float, default=0.05, help="No birth once LR / peak LR falls below this. 0 = never freeze.")
     p.add_argument("--birth_score_norm", choices=["none", "flops"], default="none", help="'flops' divides each head and FFN-group birth score by the unit's FLOPs relative to one FFN group, so the shared ranking compares score per unit of compute. Layers are not changed. 'none' = raw scores (attempts 1-9).")
+    p.add_argument("--structure_freeze_step", type=int, default=None, help="No birth or death whose ramp would end after this step. Use with --lr_schedule wsd and the same value as --lr_decay_start. None = no step freeze.")
     p.add_argument("--output_dir", default="./outputs/phase2")
+    p.add_argument("--resume_from", default=None, help="A training_state.pt, or the output_dir that holds one. The run continues from that step, bit-identical to a run with no stop. Every other flag must match the saved run.")
     p.add_argument("--dataset_name", default="roneneldan/TinyStories")
     p.add_argument("--dataset_config", default=None)
     p.add_argument("--max_train_docs", type=int, default=None, help="Cap on train-split documents to tokenize, for fast diagnostic runs")
@@ -307,6 +385,7 @@ def parse_args() -> Phase2Config:
     p.add_argument("--eval_every", type=int, default=500)
     p.add_argument("--save_every", type=int, default=1000)
     p.add_argument("--learning_rate", type=float, default=3e-4)
+    add_schedule_args(p)
     p.add_argument("--arch_reg", type=float, default=0.015)
     p.add_argument("--target_cost", type=float, default=0.14)
     p.add_argument("--lagrangian_lr", type=float, default=0.01)

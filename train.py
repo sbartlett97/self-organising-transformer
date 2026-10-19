@@ -20,6 +20,31 @@ import hub_utils
 from model import SOTConfig, SelfOrganizingTransformer
 
 
+def make_scheduler(optimizer, cfg: "TrainConfig"):
+    """The LR schedule of cfg.lr_schedule. Both are LambdaLR, so
+    scheduler.lr_lambdas[0](step) is LR / peak LR at any step.
+
+    'wsd' (warmup, stable, decay) keeps the peak LR while Phase 2 changes its
+    structure, and decays only after it stops (RESEARCH_LOG.md 2026-10-19).
+    Under cosine, attempt 9 had births until step 8500, at 6% of peak LR."""
+    if cfg.lr_schedule == "cosine":
+        return get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
+    if cfg.lr_schedule != "wsd":
+        raise ValueError(f"unknown lr_schedule {cfg.lr_schedule!r} (expected 'cosine' or 'wsd')")
+    start = cfg.lr_decay_start
+    if start is None or not cfg.warmup_steps <= start < cfg.max_steps:
+        raise ValueError(f"wsd needs warmup_steps <= lr_decay_start < max_steps, got {start}")
+
+    def lr_lambda(step: int) -> float:
+        if step < cfg.warmup_steps:
+            return step / max(1, cfg.warmup_steps)
+        if step < start:
+            return 1.0
+        return max(0.0, 0.5 * (1.0 + math.cos(math.pi * (step - start) / (cfg.max_steps - start))))
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+
 @dataclass
 class TrainConfig:
     model_type: str = "sot"
@@ -42,6 +67,10 @@ class TrainConfig:
     learning_rate: float = 3e-4
     weight_decay: float = 0.1
     warmup_steps: int = 500
+    # 'cosine': warmup, then cosine decay to 0 (attempts 1-9, every dense control so far).
+    # 'wsd': warmup, peak LR until lr_decay_start, then cosine decay to 0 by max_steps.
+    lr_schedule: str = "cosine"
+    lr_decay_start: int | None = None
     max_steps: int = 10000
     eval_every: int = 500
     save_every: int = 1000
@@ -82,15 +111,17 @@ class PackedTokens:
 
 
 class BatchIterator:
-    def __init__(self, packed: PackedTokens, batch_size: int, seed: int = 42):
+    def __init__(self, packed: PackedTokens, batch_size: int, seed: int = 42, start: int = 0):
         self.packed = packed
         self.batch_size = batch_size
         self.rng = random.Random(seed)
+        # Batches to skip: a resume continues the same epoch order.
+        self.start = start
 
     def __iter__(self):
         order = list(range(len(self.packed)))
         self.rng.shuffle(order)
-        for i in range(0, len(order), self.batch_size):
+        for i in range(self.start * self.batch_size, len(order), self.batch_size):
             ids = order[i : i + self.batch_size]
             if len(ids) < self.batch_size:
                 continue
@@ -244,7 +275,7 @@ def train(cfg: TrainConfig):
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate, weight_decay=cfg.weight_decay, betas=(0.9, 0.95))
     if "optimizer_state_dict" in training_state:
         optimizer.load_state_dict(training_state["optimizer_state_dict"])
-    scheduler = get_cosine_schedule_with_warmup(optimizer, cfg.warmup_steps, cfg.max_steps)
+    scheduler = make_scheduler(optimizer, cfg)
     for _ in range(global_step):
         scheduler.step()
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
@@ -335,6 +366,12 @@ def train(cfg: TrainConfig):
     hub_utils.trackio_finish()
 
 
+def add_schedule_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--warmup_steps", type=int, default=500)
+    p.add_argument("--lr_schedule", choices=["cosine", "wsd"], default="cosine", help="'cosine': warmup then cosine decay to 0. 'wsd': warmup, peak LR until --lr_decay_start, then cosine decay to 0.")
+    p.add_argument("--lr_decay_start", type=int, default=None, help="wsd only: the step where the decay starts")
+
+
 def parse_args() -> TrainConfig:
     p = argparse.ArgumentParser()
     p.add_argument("--model_type", choices=["sot", "dense"], default="sot")
@@ -350,6 +387,7 @@ def parse_args() -> TrainConfig:
     p.add_argument("--eval_every", type=int, default=500)
     p.add_argument("--save_every", type=int, default=1000)
     p.add_argument("--learning_rate", type=float, default=3e-4)
+    add_schedule_args(p)
     p.add_argument("--arch_reg", type=float, default=0.015)
     p.add_argument("--target_cost", type=float, default=0.14)
     p.add_argument("--lagrangian_lr", type=float, default=0.01)
