@@ -243,6 +243,11 @@ In order:
    structure. The d 384 models are at chance on every task, so these
    benchmarks tell us nothing at that scale.
 
+The literature review (2026-10-20 entry) found no paper where a static
+LM topology, learned during training, beats a tuned dense model at
+matched FLOPs. It ranks other directions by evidence. Per-token compute
+(Mixture-of-Depths, MoE) is first.
+
 ## Contents of the dated entries
 
 - 2026-09-28 — Initial audit, pipeline fixes, and target_cost diagnosis
@@ -285,6 +290,7 @@ In order:
 - 2026-10-16 — Dense controls at matched compute: both beat attempt 9
 - 2026-10-19 — Attempts 10 and 11a: cost-normalised births, WSD schedule, signed birth telemetry
 - 2026-10-20 — Attempts 10 and 11a results: no gain over dense, structure set by the seed draw
+- 2026-10-20 — Literature review: comparable work and alternatives
 
 ---
 
@@ -3421,3 +3427,130 @@ above).
 Files: `results/phase2_v10_flopsnorm/`, `results/phase2_v11a_wsd7000/`,
 `results/dense_c425_d512l9_wsd7000/`, `results/compute/v10_structure_eval.json`,
 `results/compute/v11a_structure_eval.json`.
+
+## 2026-10-20 — Literature review: comparable work and alternatives
+
+We searched the literature in three areas. The question: does other work
+explain our results, and which changes to the method have evidence of a
+gain over dense training at matched compute? Three subagents ran the
+search with web search. Each paper has a mark:
+
+- **[V]**: the figure was checked against the arXiv abstract or paper in
+  this search.
+- **[M]**: the figure comes from memory. Check it before you cite it.
+
+### Area 1: growth of a network during training
+
+| paper | method | result against dense or from-scratch | relevance |
+|---|---|---|---|
+| Net2Net, Chen et al. 2015, arXiv 1511.05641 [M] | widen or deepen a trained net, function kept | trains faster than random init | new units need not start random |
+| NeST, Dai et al. 2017, arXiv 1711.02017 [M] | grow connections by gradient, prune by magnitude | compression on LeNet/AlexNet only | closest to our birth/death loop; small scale |
+| Splitting descent, Liu, Wu et al. 2019, arXiv 1910.02366; Firefly, Wu et al. 2020, arXiv 2102.08574 [M] | split or add neurons by a second-order criterion | compact nets; no LM baseline at matched FLOPs | a signal other than first-order dL/dg |
+| GradMax, Evci et al. 2022, arXiv 2201.05125 [V] | new neurons with zero outgoing weights, incoming weights set to maximise gradient norm | **loses to the big baseline** (CIFAR-10 91.1 vs 92.9, ImageNet 68.6 vs 70.8); beats random growth by only 0.1-1.7 points | gradient-picked growth adds little over random growth |
+| NORTH\*, Maile et al. 2022, arXiv 2202.08539 [M] | grow when activations become orthogonal | small scale | a trigger that does not use gradient sign |
+| StackBERT, Gong et al. 2019, ICML [M] | double depth by copying trained layers | about 25% faster BERT training | fixed schedule, copied units |
+| Staged training, Shen et al. 2022, arXiv 2203.06211 [V] | growth operators keep loss and training dynamics (optimizer state, LR) | up to 22% compute saving against a strong from-scratch GPT | new units need matched optimizer state and LR |
+| bert2BERT, Chen et al. 2022, arXiv 2110.07143 [V]; LiGO, Wang et al. 2023, arXiv 2303.00980 [V] | grow from a smaller pretrained model | 45-50% saving; the small model's cost is not counted | accounting caveat |
+| MSG, Yao et al. 2024, arXiv 2305.02869 [V] | new units start under a mask of 0 that ramps to 1; fixed schedule | 1.8x (BERT-base) and 2.2x (BERT-large) speedup, same downstream scores | our zero-valued probe plus birth ramp is close to MSG |
+| G_stack, Du et al. 2024, arXiv 2405.15319 [V] | depthwise stacking of a small trained model | 7B reaches the 300B-token loss with 194B tokens (54.6% speedup) | strongest LM growth result; birth by copy, not by signal |
+| HyperCloning, Samragh et al. 2024, arXiv 2409.12903 [V] | width cloning, function kept | faster training than random init; small model not counted | same as bert2BERT |
+| MIDAS, Saunshi et al. 2024, arXiv 2409.19044 [V] | gradual stacking of middle layers | up to 40% faster, perplexity same or slightly worse | gains are in time to target loss |
+| Bu 2025, arXiv 2511.04981 [abstract only] | theory for new-layer init, LR and timing | claims about 80% saving on GPT-2 | not checked beyond the abstract |
+| Kaddour et al. 2023, arXiv 2307.06440 [V] | audit of efficient-training methods | stacking and layer-drop gains **vanish** against a dense baseline with a fully decayed LR | our WSD dense control is this kind of baseline |
+
+Finding: every growth method that wins on LMs uses a fixed schedule and
+copies trained units. No paper shows a gradient-picked structured birth
+rule that beats matched-compute dense on an LM.
+
+### Area 2: structured pruning and sparse training
+
+| paper | method | result against dense or from-scratch | relevance |
+|---|---|---|---|
+| L0 gates, Louizos et al. 2018, arXiv 1712.01312 [M] | hard-concrete L0 penalty on gates | small CNN/MLP; no matched dense control | origin of our Phase 1 gates; hard-concrete gives exact zeros |
+| Voita et al. 2019, arXiv 1905.09418 [M] | L0 gates on NMT heads | 38 of 48 heads pruned for about -0.15 BLEU | heads are redundant; not a win over a small dense model |
+| CoFi, Xia et al. 2022, arXiv 2204.00408 [M] | L0 masks on layers, heads, FFN dims, Lagrangian target, distillation | more than 10x speedup at about 90% of accuracy on GLUE | close to our Phase 1; needs a dense teacher |
+| Movement pruning, Sanh et al. 2020, arXiv 2005.07683 [M] | score -W·dL/dW during fine-tuning | strong at high sparsity in fine-tuning | first-order Taylor score, as in our importance |
+| Sheared LLaMA, Xia et al. 2023, arXiv 2310.06694 [V] | Lagrangian structured mask to a target shape, then continued pretraining | 1.3B/2.7B beat open models of the same size; "3% of compute" excludes the 2T-token parent | target shape is fixed, not learned; parent counts as free |
+| Minitron, Muralidharan et al. 2024, arXiv 2407.14679 [V]; Sreenivas et al. 2024, arXiv 2408.11796 [V] | activation importance, width/depth pruning, logit distillation | up to 40x fewer tokens than from scratch; parent counts as free | width pruning beat depth pruning [M] |
+| LLM-Pruner, Ma et al. 2023, arXiv 2305.11627 [M] | gradient importance on dependency groups, LoRA heal | about 94% of zero-shot accuracy at 20% pruning | no from-scratch control |
+| ShortGPT, Men et al. 2024, arXiv 2403.03853 [M]; Gromov et al. 2024, arXiv 2403.17887 [V] | delete whole layers by layer similarity | QA holds until about half the layers go; perplexity degrades sooner [M] | depth is redundant; agrees with our controller's focus on layers |
+| Xu et al. 2026, arXiv 2606.14150 [abstract only] | prune Llama-3.1-8B at 0.5-0.8 with six methods | with the same total tokens, from-scratch matches or beats coarse structured pruning | the most direct test of our question |
+| Liu et al. 2019, arXiv 1810.05270 [V] | retrain pruned architectures from scratch | from scratch matches or beats inherited weights | the value of structured pruning is architecture search |
+| RigL, Evci et al. 2020, arXiv 1911.11134 [V]; SET, Mocanu et al. 2018 [M] | drop by magnitude, regrow by gradient (RigL) or at random (SET) | RigL matches dense ResNet-50 at 80% sparsity with longer training; numbers [M] | only setting where gradient regrowth beats matched-FLOP dense; unstructured |
+| Top-KAST, Jayakumar et al. 2020, arXiv 2106.03517 [V] | sparse forward and backward during training | real training saving; LM numbers not checked | dormant units must be free to win on training compute |
+| SRigL, Lasby et al. 2023, arXiv 2305.02299 [V]; Chase, Yin et al. 2023, arXiv 2305.19454 [V] | structured DST | 1.7x GPU throughput on ResNet-50, no accuracy loss | no LM pretraining win over dense |
+| Frantar et al. 2023, arXiv 2309.08520 [V] | sparse scaling laws | optimal sparsity grows with training data | sparsity wins only far past Chinchilla-optimal [M] |
+
+Finding: no paper shows coarse structured pruning or structured DST that
+beats a tuned dense model trained from scratch when the compute count
+includes the large model. Pruning wins when the parent is free.
+
+### Area 3: other framings
+
+| paper | method | result against matched-compute dense | relevance |
+|---|---|---|---|
+| DARTS, Liu et al. 2018, arXiv 1806.09055 [M] | softmax relaxation over ops, argmax | the template for our gated supernet | — |
+| Zela et al. 2020, arXiv 1909.09656 [V] | analysis of DARTS failure | degenerate architectures while val loss falls; tracks Hessian curvature | supernet loss and discrete quality come apart (our attempt 8: 26.7 vs 132) |
+| Wang et al. 2021, arXiv 2108.04392 [V] | selection by perturbation | the size of an architecture parameter is not the contribution of its op | the same finding as our 2026-10-09 ablation |
+| Li & Talwalkar 2019, arXiv 1902.07638 [V]; Yang et al. 2020, arXiv 1912.12522 [V] | random-search baselines | many NAS methods do not beat random architectures | random baselines are strong |
+| Frankle et al. 2021, arXiv 2009.08576 [M] | pruning at init | a random shuffle of the mask inside a layer keeps accuracy; only layer ratios matter | explains why 91% of our units are the seed draw |
+| MatFormer, Devvrit et al. 2023, arXiv 2310.07707 [V]; Flextron, Cai et al. 2024, arXiv 2406.10260 [V]; Gemma 3n (2025) [V] | nested FFN widths trained together | each extracted size matches or beats a separately trained model of that size | a defensible "one run, many sizes" claim |
+| Once-for-All, HAT, AutoFormer [M] | weight-sharing supernet, then search | HAT: up to 3x speedup at matched BLEU on given hardware | separate search stage |
+| Switch, Fedus et al. 2021, arXiv 2101.03961 [M]; DeepSeekMoE, Dai et al. 2024, arXiv 2401.06066 [M] | per-token MoE | about 7x pretraining speedup (Switch); 16B matches LLaMA2-7B at about 40% compute | our FFN groups map onto experts |
+| Mixture-of-Depths, Raposo et al. 2024, arXiv 2404.02258 [V] | top-k router per block lets a fraction of tokens through | lower loss than the isoFLOP-optimal dense model, 60M-3B; size of the gain (about 1.5%) [M] | our layer gates become per-token routers |
+| Mixture-of-Recursions, Bae et al. 2025, arXiv 2507.10524 [V] | shared recursive layers, per-token depth router | lower ppl than vanilla at equal training FLOPs, 135M-1.7B | per-token depth at our scale |
+| LayerSkip, Elhoushi et al. 2024, arXiv 2404.16710 [V] | layer dropout, early exit, self-speculative decoding | 1.82-2.16x inference speedup | inference only |
+| Kaplan et al. 2020, arXiv 2001.08361 [V] | shape scaling | at fixed params, (6, 4288) is within 3% of (48, 1600) | the whole shape effect is about the size of our gap |
+| Alabdulmohsin et al. 2023, arXiv 2305.13035 [V]; MobileLLM, Liu et al. 2024, arXiv 2402.14905 [V]; Gemstones, McLeish et al. 2025, arXiv 2502.06857 [V] | shape-optimised models | large gains only against badly shaped baselines; shape prescriptions depend on the setup | small headroom against a tuned shape |
+| muP, Yang et al. 2022, arXiv 2203.03466 [M]; depth-muP, arXiv 2310.02244 [M] | hyperparameter transfer across width and depth | — | without it, shape comparisons mix shape with LR tuning |
+
+### What the literature says about our results
+
+1. **The headroom is small.** At fixed parameters or FLOPs, reasonable
+   shapes differ by about 1-3% in loss (Kaplan). Our gap to the matched
+   dense control (27.41 vs 26.51, 3.4%) is the same size as the whole
+   shape effect. A controller must find the best shape at almost zero
+   overhead to show a gain.
+2. **Per-unit choices do not matter; layer ratios do.** This agrees with
+   our finding that about 91% of units are the seed draw and that the
+   controller mainly picks layers (Frankle 2021, Liu 2019).
+3. **Gradient-picked birth adds little.** GradMax beats random growth by
+   0.1-1.7 points and still loses to the big baseline. This agrees with
+   our birth signal at noise level.
+4. **Gate size is not importance.** Wang 2021 found this in DARTS. We
+   found it on 2026-10-09.
+5. **Our control is fair.** Kaddour 2023 shows that efficient-training
+   gains vanish against a dense model with a fully decayed LR. Our WSD
+   dense control (26.51) is that baseline.
+6. **We found no counter-example.** The search found no paper where a
+   static LM topology, learned during training, beats a tuned dense model
+   at matched FLOPs. This is an absence in the search, not a proof.
+
+### Directions, ranked by evidence
+
+1. **Compute chosen per token** (Mixture-of-Depths, Mixture-of-Recursions,
+   fine-grained MoE in the FFN). Strongest evidence against isoFLOP dense,
+   with results down to 60M-135M. Our layer gates become MoD routers, and
+   our FFN groups become experts. The gain is smaller at about 100M params.
+2. **Growth on a fixed schedule with copied units** (G_stack, MIDAS, MSG,
+   staged training). Moderate evidence. Change random newborn units to
+   copies of trained units. Keep their optimizer state. Report tokens to
+   a target loss, not only final ppl. Kaddour's caveat applies.
+3. **Nested elastic training** (MatFormer). This does not beat the full
+   dense model. It gives many sizes from one run, each as good as a
+   separately trained model. This is a different claim from the README
+   hypothesis.
+4. **Fixes inside the current method**: free dormant units (Top-KAST
+   style), births that keep the function (MSG mask ramp with copied
+   units), importance by perturbation. Weak evidence. These are necessary
+   for a win on training compute, but the literature says they are not
+   enough.
+
+Directions 1 and 3 change the hypothesis. They test whether a model can
+learn how much compute each token gets, or whether one run can make many
+good sizes. They do not test one learned static topology. Treat them as
+a new phase, with the WSD dense control (26.51) as the baseline.
+
+Not checked: every [M] figure above; the details of Bu 2025 and Xu et al.
+2026 beyond their abstracts; whether the 54.6% of G_stack counts the cost
+of the base model.
