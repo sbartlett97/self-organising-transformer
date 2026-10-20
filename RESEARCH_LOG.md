@@ -164,6 +164,11 @@ Findings:
 - **Dense models at matched compute beat attempt 9 (2026-10-16).** Dense
   d 768 / 4 layers gets 30.18 and dense d 512 / 9 layers gets 28.98, both at
   0.42 of dense FLOPs. Learned structure does not help yet.
+- **Attempts 10 and 11a (2026-10-20) do not change this.** Cost-normalised
+  births (attempt 10) get 30.51, the same as attempt 9. A WSD schedule with
+  a structure freeze (attempt 11a) gets 27.41, but dense d 512 / 9 layers on
+  the same schedule gets 26.51. About 91% of the final heads and FFN groups
+  come from the random seed draw; the controller mainly picks layers.
 
 ### Bugs that changed results
 
@@ -188,21 +193,29 @@ In order:
 2. **A dense control at matched compute.** Done (2026-10-16): dense
    d 768 / 4 layers 30.18, dense d 512 / 9 layers 28.98, both at 0.42 of
    dense FLOPs. Both beat attempt 9 (30.61).
-3. **Attempt 10: attempt 9 plus `--birth_score_norm flops`.** It tests if
-   the head-over-FFN birth bias causes part of the gap. A Phase 2 run must
-   beat 28.98 to show that learned structure helps.
-4. **Fresh retrain of the attempt-9 structure.** This separates a good
+3. **Attempts 10 and 11a.** Done (2026-10-20): 30.51 (cosine) and 27.41
+   (WSD). Dense d 512 / 9 layers on WSD gets 26.51. A Phase 2 run on WSD
+   must beat 26.51 to show that learned structure helps.
+4. **Find out if the controller can change the structure at all.**
+   About 91% of the final heads and FFN groups are the units of the random
+   seed draw (2026-10-20). Two tests: (a) a run with `--birth_mode random`
+   on the attempt-11a settings, (b) the same settings on a second seed
+   split. If (a) matches 27.41, the birth ranking adds nothing. Attempts
+   11b (per-unit Adam age and LR boost) and 11c (signed ranking) wait for
+   these. The signed birth signal is at noise level, so 11c has little to
+   use.
+5. **Fresh retrain of the attempt-9 structure.** This separates a good
    structure from good inherited weights, as in Phase 1.
-5. **Physical removal during training.** Dead units now have no effect,
+6. **Physical removal during training.** Dead units now have no effect,
    so they can leave the tensors. Dormant units still run because the
    probes need their outputs. The next step is a cheaper birth signal
    (probe a sample of dormant units, or rebuild tensors at each growth
    check). Only then does training compute fall below 1.0 of dense.
-6. **Seeds.** Repeat the best Phase 2 configuration on seeds 123 and 7.
-7. **Fix the ablation helpers.** `ablation_importance.set_logit` turns a
+7. **Seeds.** Repeat the best Phase 2 configuration on seeds 123 and 7.
+8. **Fix the ablation helpers.** `ablation_importance.set_logit` turns a
    unit off through its logit. On new checkpoints it must set the scale
    to 0.
-7. **Benchmarks.** Run lm-eval on the Phase 2 models of the present
+9. **Benchmarks.** Run lm-eval on the Phase 2 models of the present
    structure. The d 384 models are at chance on every task, so these
    benchmarks tell us nothing at that scale.
 
@@ -242,6 +255,12 @@ In order:
 - 2026-10-14 (continued) — Attempt 8: no structure change in the LR tail
 - 2026-10-14 (continued) — Compute accounting: the cost proxy is wrong, and dormant units are not off
 - 2026-10-15 — Dormant and dead units: exact zero effect, zero gradient
+- 2026-10-16 — Attempt 9 launched; probes on old checkpoints
+- 2026-10-16 — Attempt 9 result: the first valid present-structure number
+- 2026-10-16 — Why attempt 9 grew few FFN groups; cost-normalised birth score
+- 2026-10-16 — Dense controls at matched compute: both beat attempt 9
+- 2026-10-19 — Attempts 10 and 11a: cost-normalised births, WSD schedule, signed birth telemetry
+- 2026-10-20 — Attempts 10 and 11a results: no gain over dense, structure set by the seed draw
 
 ---
 
@@ -3277,3 +3296,77 @@ intact.
 - The relaunched attempts 10 and 11a run the old code, so they cannot
   resume. A restart to get the new code would cost 26 minutes of work, so
   they continue as they are.
+
+## 2026-10-20 — Attempts 10 and 11a results: no gain over dense, structure set by the seed draw
+
+Val ppl is the training-time val ppl in `metrics.json` (the fixed val
+batches of `evaluate_loss`), the same method as attempt 9 and the dense
+controls. FLOPs are forward FLOPs/token of the final structure, as a
+fraction of dense 768 (`structure_eval.py`). For both runs the present
+structure alone and the supernet give the same loss, so inactive units
+have zero effect. One seed (42).
+
+| run | schedule | val ppl | final FLOPs | params | training FLOPs |
+|---|---|---:|---:|---:|---:|
+| attempt 9 | cosine | 30.61 | 0.425 | 0.432 | 0.444 |
+| attempt 10 (flops norm) | cosine | 30.51 | 0.423 | 0.430 | 0.430 |
+| dense d 512 / 9 layers | cosine | 28.98 | 0.421 | 0.418 | 0.421 |
+| attempt 11a (flops norm, freeze at 7000) | WSD, decay from 7000 | 27.41 | 0.430 | 0.436 | 0.433 |
+| dense d 512 / 9 layers | WSD, decay from 7000 | **26.51** | 0.421 | 0.418 | 0.421 |
+| dense d 768 / 12 layers (Phase 1) | cosine | 24.30 | 1.0 | 1.0 | 1.0 |
+
+Training FLOPs: `compute.training_flops` with 16 x 8 x 256 tokens per step.
+It counts the realisable structure at each step. The supernet still
+executes its full dense shape, because the probes need the dormant outputs.
+
+![LR schedule figure](docs/figures/phase2_wsd_val_ppl.png)
+
+Results:
+
+1. **Cost-normalised births change the birth mix, not the result.**
+   Attempt 10 has 81 FFN and 2 head births (attempt 9: 31 and 52), but
+   44 of its 60 deaths are FFN groups. Its final structure has 32 heads and
+   367 FFN groups (attempt 9: 36 and 357). Val ppl changes by 0.10, too small
+   to separate from seed noise with one seed. The head-over-FFN bias did not cause the gap.
+2. **WSD helps both, and dense keeps the lead.** Attempt 11a is 3.10 ppl
+   better than attempt 10. The WSD schedule gives the dense control 2.47
+   ppl. The gap to the matched dense control is 0.90 ppl (attempt 10:
+   1.53), and attempt 11a has slightly more FLOPs and params. This is not
+   a closed gap. Attempt 11a also changes the freeze and ends its search
+   at step 6750, not 8500, so its extra 0.63 ppl cannot be credited to one
+   change, and one seed cannot separate it from noise.
+3. **The random seed draw sets most of the structure.** All three runs
+   end with the same 8 layers (0-5, 8, 10): 9 layer births and 4 layer
+   deaths in each. Layer birth scores are not cost-normalised, so the
+   flops norm did not change them. In the present layers, 90.5-92.6% of the
+   heads and FFN groups are units of the seed draw. A layer birth brings
+   its pre-seeded units with it. The controller adds 29-38 units and
+   deletes 2-5 seed units:
+
+   | run | head + FFN units present | from the seed draw | added | seed units deleted |
+   |---|---:|---:|---:|---:|
+   | attempt 9 | 393 | 364 (92.6%) | 29 | 2 |
+   | attempt 10 | 399 | 362 (90.7%) | 37 | 4 |
+   | attempt 11a | 399 | 361 (90.5%) | 38 | 5 |
+
+   Layers 3, 4, 5, 8 and 10 have the same FFN-group counts in all three
+   runs. The learned part of the topology is mainly the choice of layers.
+4. **The signed birth signal is noise.** Sign consistency (signed EMA /
+   abs EMA of dL/dg) at birth has a median |c| of 0.059 (attempt 10) and
+   0.055 (attempt 11a). No birth has |c| > 0.5. For zero-mean Gaussian
+   noise and EMA decay 0.98, |c| is about 0.10. 41 of 92 births in attempt
+   10 have a negative sign ("open me"); 29 of 79 in attempt 11a. The
+   ranking by |g| picks units with large gradient noise, not units that
+   the loss pushes open. Ranking by sign (attempt 11c) has little to use.
+5. **The freeze gave every birth a real LR budget.** In attempt 10, 29 of
+   92 births had fewer than 1000 peak-LR-equivalent steps left (min 30). In
+   attempt 11a the minimum is 1750 and the median is 5500.
+
+Cost: one RTX PRO 6000 ($2.49/hr) for about 4.3 h for all three runs,
+about $10.80, plus about $2 of pods that were deleted before use (no
+stock, no PyPI access). The Phase 2 runs restarted once (see the entry
+above).
+
+Files: `results/phase2_v10_flopsnorm/`, `results/phase2_v11a_wsd7000/`,
+`results/dense_c425_d512l9_wsd7000/`, `results/compute/v10_structure_eval.json`,
+`results/compute/v11a_structure_eval.json`.

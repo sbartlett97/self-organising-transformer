@@ -48,12 +48,20 @@ us nothing at this scale.
   `metrics.json`, `config.json`, `train_config.json`, `architecture.json`
   and `SOURCE_CHECKPOINT`. Their val ppl uses the same val batches as
   attempt 9.
+- `phase2_v10_flopsnorm/`, `phase2_v11a_wsd7000/`: attempts 10 and 11a
+  (2026-10-20). Same files as attempt 9. Birth events also hold the signed
+  telemetry (`signed_gradient_ema`, `sign_consistency`,
+  `lr_budget_remaining`), and each growth-log record has
+  `birth_sign_summary`.
+- `dense_c425_d512l9_wsd7000/`: the dense d 512 / 9-layer control on the
+  WSD schedule of attempt 11a. It resumed once from step 9000 (see
+  `RESEARCH_LOG.md`, 2026-10-19).
 - `phase2_v7_lrfreeze/tail_birth_ablation.py`: the ablation of the heads
   born in the LR tail.
 
 ## Compute accounting (`compute/`)
 
-- `v7_structure_eval.json`, `v8_structure_eval.json`, `v9_structure_eval.json`:
+- `v7_structure_eval.json` ... `v11a_structure_eval.json`:
   output of `structure_eval.py`. Val ppl as trained and with the present
   structure only, plus FLOPs and parameters. For attempt 9 the two values
   are the same (30.34), because its inactive units have zero effect.

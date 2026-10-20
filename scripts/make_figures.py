@@ -238,6 +238,40 @@ def fig_phase2_present() -> None:
     save(fig, "phase2_present_val_ppl.png")
 
 
+def fig_phase2_wsd() -> None:
+    """Attempts 10 (cosine) and 11a (WSD, decay and structure freeze from step
+    7000) against the dense 512 x 9 control on each schedule. Same val batches
+    for every curve."""
+    lo, hi = 24, 50
+    fig, ax = plt.subplots(figsize=SIZE)
+    curves = [("phase2_v11a_wsd7000", "Attempt 11a, WSD (0.430 FLOPs)", SERIES[0], "-"),
+              ("dense_c425_d512l9_wsd7000", "Dense 512 x 9, WSD (0.421 FLOPs)", SERIES[1], "-"),
+              ("phase2_v10_flopsnorm", "Attempt 10, cosine (0.423 FLOPs)", SERIES[0], ":"),
+              ("dense_c425_d512l9", "Dense 512 x 9, cosine (0.421 FLOPs)", SERIES[1], ":")]
+    ends = []
+    for run, label, color, style in curves:
+        x, y = zip(*[(st, v) for st, v in zip(*val_curve(run)) if v <= hi])  # points above the axis are left out
+        ax.plot(x, y, color=color, linestyle=style, label=label, marker="o", markersize=3)
+        ends.append((x[-1], y[-1]))
+    label_y = None
+    for ex, ey in sorted(ends, key=lambda e: -e[1]):
+        label_y = ey if label_y is None else min(ey, label_y - 0.7)
+        ax.annotate(f"{ey:.2f}", (ex, label_y), xytext=(6, 0), textcoords="offset points",
+                    va="center", fontsize=9, color=INK_2)
+    ax.axvline(7000, color=NEUTRAL, linewidth=1, linestyle="--")
+    ax.annotate("WSD decay and structure freeze start", (7000, hi - 0.8), xytext=(6, 0), textcoords="offset points",
+                ha="left", fontsize=8, color=INK_2)
+    ax.set_ylim(lo, hi)
+    ax.set_xlim(0, V8_MAX_STEPS + 900)
+    ax.set_xlabel("Training step")
+    ax.set_ylabel("Val perplexity")
+    ax.set_title("LR schedule: learned structure against dense (WikiText-103)")
+    fig.text(0.01, -0.04, "Training-time val ppl, the same fixed val batches for every curve. One seed (42). FLOPs: forward FLOPs/token "
+             f"of the final model, as a fraction of dense 768.\nPoints above {hi} are not shown.", fontsize=8, color=INK_2)
+    ax.legend(loc="lower left", fontsize=9)
+    save(fig, "phase2_wsd_val_ppl.png")
+
+
 def fig_phase1_ppl() -> None:
     conditions = [("dense", "Dense"), ("dense_8l", "Dense 8 layers"), ("dense_half_ffn", "Dense half FFN"),
                   ("sot", "SOT (gated)"), ("discovered_retrained", "Discovered, retrained")]
@@ -306,6 +340,7 @@ if __name__ == "__main__":
     assert len(unit_order(V8_SHAPE)) == 12 + 144 + 1536
     fig_phase2_val_ppl()
     fig_phase2_present()
+    fig_phase2_wsd()
     for run in PHASE2:
         fig_phase2_structure(run)
         fig_phase2_final_structure(run)
