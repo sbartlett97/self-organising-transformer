@@ -3,7 +3,7 @@
 This file is the full record of the Self-Organising Transformer
 experiment. It has two parts:
 
-1. **Summary** (this part, rewritten on 2026-10-16). It states what we
+1. **Summary** (this part, rewritten on 2026-10-16, updated 2026-10-20). It states what we
    know now, which numbers are valid, and what comes next. Read it first.
 2. **Dated entries**, in time order. They are the record as it was
    written at the time. Later entries correct earlier ones. Where an early
@@ -102,9 +102,11 @@ Training starts from a seed structure (33% of units MATURE, the rest
 DORMANT). Every 250 steps a controller gives birth to the best dormant
 units and kills mature units that fall behind their kind. Lifecycle:
 DORMANT -> PROTECTED -> MATURE -> DEAD. All runs below are WikiText-103,
-12L / d 768, seed 42, 10,000 steps. The val ppl is training-time val ppl
-of the **supernet** (see "How to read the numbers"). The Phase 1 dense
-768 reference on the same method is 24.30.
+12L / d 768, seed 42, 10,000 steps. The val ppl is training-time val ppl.
+For attempts 1-8 it is the val ppl of the **supernet** (see "How to read
+the numbers"). From attempt 9 on, inactive units have zero effect, so it
+is the val ppl of the **present structure**. The Phase 1 dense 768
+reference on the same method is 24.30.
 
 | attempt | Hub repo suffix | main change | births | deaths | val ppl, step 10000 |
 |---|---|---|---:|---:|---:|
@@ -117,6 +119,19 @@ of the **supernet** (see "How to read the numbers"). The Phase 1 dense
 | 7 | `-v7-lrfreeze` | no deaths below 5% of peak LR | 97 | 23 | 30.66 |
 | 8 | `-v8-tailfreeze` | no births either below 5% of peak LR | 92 | 23 | 26.98 |
 | 9 | `-v9-zeroeffect` | inactive units have zero effect; **present-structure val ppl** | 92 | 60 | **30.61** |
+| 10 | `-v10-flopsnorm` | head and FFN birth scores divided by FLOPs | 92 | 60 | 30.51 |
+| 11a | `-v11a-wsd7000` | attempt 10 + WSD schedule, decay and structure freeze from step 7000 | 79 | 46 | 27.41 |
+
+Dense controls at the FLOPs of attempt 9 (`train.py --model_type dense`,
+same data, steps and val batches):
+
+| dense control | schedule | FLOPs | params | val ppl |
+|---|---|---:|---:|---:|
+| d 768 / 4 layers | cosine | 0.424 | 0.428 | 30.18 |
+| d 512 / 9 layers | cosine | 0.421 | 0.418 | 28.98 |
+| d 512 / 9 layers | WSD, decay from 7000 | 0.421 | 0.418 | **26.51** |
+
+Attempts 9, 10 and 11a are at 0.425, 0.423 and 0.430 of dense FLOPs.
 
 (Attempt 1 births: its `events.json` has 68. The 2026-10-08 entry says
 59, which is the TinyStories figure.)
@@ -169,6 +184,13 @@ Findings:
   a structure freeze (attempt 11a) gets 27.41, but dense d 512 / 9 layers on
   the same schedule gets 26.51. About 91% of the final heads and FFN groups
   come from the random seed draw; the controller mainly picks layers.
+- **The birth signal has no consistent sign (2026-10-20).** At birth, the
+  signed EMA of dL/dg is about 6% of the abs EMA. Zero-mean noise gives
+  about 10%. The birth ranking by |dL/dg| picks units with large gradient
+  noise, not units that the loss pushes open.
+- **Under cosine, late births get almost no LR.** Births at step 8500 have
+  about 30 peak-LR-equivalent steps left. With WSD and a freeze at step
+  7000, every birth of attempt 11a had at least 1750.
 
 ### Bugs that changed results
 
@@ -203,7 +225,9 @@ In order:
    split. If (a) matches 27.41, the birth ranking adds nothing. Attempts
    11b (per-unit Adam age and LR boost) and 11c (signed ranking) wait for
    these. The signed birth signal is at noise level, so 11c has little to
-   use.
+   use. Also deferred from the 2026-10-19 review: a function-preserving
+   (Net2Net) start for newborn units, cost normalisation of layer birth
+   scores, and cost-aware death.
 5. **Fresh retrain of the attempt-9 structure.** This separates a good
    structure from good inherited weights, as in Phase 1.
 6. **Physical removal during training.** Dead units now have no effect,
@@ -3233,6 +3257,22 @@ An external review of the attempt-9 result made three points. We act on two now.
    Adam update. This matters for a per-unit LR boost (attempt 11b). Not done
    yet.
 
+Not done now, from the same review: a function-preserving (Net2Net) start
+for newborn units, cost normalisation of layer birth scores (only heads
+and FFN groups are normalised), cost-aware death, attempt 11b (per-unit
+Adam age and LR boost) and attempt 11c (rank births by the signed signal).
+We first want to know if the late-birth LR budget explains the gap.
+
+A related proposal, before the review: per-layer LR scaling. Older layers
+get a lower LR late in the run, and new layers get a higher LR that then
+decays faster. It is the same idea as attempt 11b at layer level. Two
+facts limit it: a gradient multiplier does not scale an AdamW update
+(the update is normalised), and a newborn slice shares its tensor (and
+its Adam step count) with old units. So it needs per-parameter-group LRs
+or a per-unit update scale, not a gradient scale. WSD (attempt 11a) is
+the simpler first test of the same question: does more LR for late units
+help?
+
 Code (defaults keep attempts 1-9 and the dense controls reproducible):
 
 - `train.make_scheduler`, `--lr_schedule {cosine,wsd}`, `--lr_decay_start`,
@@ -3264,6 +3304,17 @@ Decay start 7000: 30% of the run decays. A unit born at the last allowed
 check (6750) gets 250 steps of ramp at peak LR, then the full decay
 (about 1500 peak-LR-equivalent steps). The search phase is 1500 steps
 shorter than attempt 9's (births until 8500). One value only, not tuned.
+
+Pod setup notes:
+- A100 SXM, H100 and L40S were out of stock. An RTX PRO 6000 (96 GB)
+  needs `minCudaVersion` 13.2 to schedule. Its real price was $2.49/hr,
+  not the listed $1.69.
+- Two RTX PRO 6000 pods had no access to PyPI. We downloaded the Linux
+  cp312 wheels locally (versions of the local venv), uploaded them to the
+  private Hub dataset `sbartlett97/sot-pod-wheels` and installed them with
+  `pip install --no-index --find-links`.
+- All three runs fit on one GPU (29 GB, GPU at 100%). The two Phase 2
+  runs took 1.84 s/step while the dense run ran, and 0.87 s/step after.
 
 Check before a result is claimed: cost-normalised births change the mix of
 heads and FFN groups, so the final FLOPs of attempts 10 and 11a can move away

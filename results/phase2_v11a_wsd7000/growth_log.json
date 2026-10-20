@@ -1,0 +1,4078 @@
+[
+  {
+    "step": 250,
+    "births": [
+      [
+        "layer",
+        3,
+        0
+      ],
+      [
+        "layer",
+        0,
+        0
+      ],
+      [
+        "layer",
+        4,
+        0
+      ],
+      [
+        "layer",
+        2,
+        0
+      ]
+    ],
+    "deaths": [],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 8187.75,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.07822347582511005
+      },
+      "layer": {
+        "n": 9,
+        "negative_fraction": 0.3333333333333333,
+        "median_consistency": 0.10384733863980543
+      },
+      "head": {
+        "n": 23,
+        "negative_fraction": 0.2608695652173913,
+        "median_consistency": 0.03650236588268741
+      },
+      "ffn_group": {
+        "n": 277,
+        "negative_fraction": 0.4368231046931408,
+        "median_consistency": 0.046896001881167215
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.002050480125406964,
+    "max_birth_score_by_kind": {
+      "layer": 0.002050480125406964,
+      "head": 0.00030253143661628336,
+      "ffn_group": 0.0001765995937745107
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 0,
+    "death_eligible_pool": 0,
+    "max_death_streak": 0,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.27048709988594055,
+        "median": 0.2706064283847809,
+        "max": 0.2715015113353729
+      },
+      "head": {
+        "min": 0.269462913274765,
+        "median": 0.269603967666626,
+        "max": 0.2697586715221405
+      },
+      "ffn_group": {
+        "min": 0.27030858397483826,
+        "median": 0.2709921896457672,
+        "max": 0.2717394232749939
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.010974871813346793,
+        "median": 0.015360626730044676,
+        "max": 0.017764543019650112
+      },
+      "head": {
+        "min": 0.0011888960027921698,
+        "median": 0.0017667677722140252,
+        "max": 0.0031402412332260463
+      },
+      "ffn_group": {
+        "min": 0.00019637765757789423,
+        "median": 0.00041569237040291716,
+        "max": 0.001334442766946384
+      }
+    },
+    "in_inactive_layers": 700,
+    "ramping": 4,
+    "dying": 0,
+    "state_counts": {
+      "protected": 199,
+      "dormant": 1143,
+      "mature": 350
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 500,
+    "births": [
+      [
+        "layer",
+        1,
+        0
+      ],
+      [
+        "layer",
+        6,
+        0
+      ],
+      [
+        "layer",
+        7,
+        0
+      ],
+      [
+        "ffn_group",
+        0,
+        84
+      ]
+    ],
+    "deaths": [],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 8000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.015682096335297307
+      },
+      "layer": {
+        "n": 5,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.03574220140004104
+      },
+      "ffn_group": {
+        "n": 613,
+        "negative_fraction": 0.4796084828711256,
+        "median_consistency": 0.004825324025930158
+      },
+      "head": {
+        "n": 52,
+        "negative_fraction": 0.5961538461538461,
+        "median_consistency": -0.0037823170255364058
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0037444899721872553,
+    "max_birth_score_by_kind": {
+      "head": 0.0005907746443621089,
+      "ffn_group": 0.0008021144939098603,
+      "layer": 0.0037444899721872553
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 7,
+    "death_eligible_pool": 123,
+    "max_death_streak": 1,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.27405792474746704,
+        "median": 0.2799355983734131,
+        "max": 0.28059816360473633
+      },
+      "head": {
+        "min": 0.2715160548686981,
+        "median": 0.2728251814842224,
+        "max": 0.27388525009155273
+      },
+      "ffn_group": {
+        "min": 0.2721056044101715,
+        "median": 0.27624276280403137,
+        "max": 0.279169499874115
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.013307136035727923,
+        "median": 0.01883363162423214,
+        "max": 0.025914618501478012
+      },
+      "head": {
+        "min": 0.0010460519083108236,
+        "median": 0.00391833713255996,
+        "max": 0.006547254070742435
+      },
+      "ffn_group": {
+        "min": 0.00040442756012577677,
+        "median": 0.0007442959928474062,
+        "max": 0.0025027754420991833
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 4,
+    "dying": 0,
+    "state_counts": {
+      "protected": 342,
+      "dormant": 1139,
+      "mature": 211
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 750,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        102
+      ],
+      [
+        "ffn_group",
+        0,
+        16
+      ],
+      [
+        "ffn_group",
+        0,
+        8
+      ],
+      [
+        "ffn_group",
+        0,
+        85
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        10,
+        6
+      ],
+      [
+        "head",
+        10,
+        3
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 7750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.005865442753533998
+      },
+      "ffn_group": {
+        "n": 868,
+        "negative_fraction": 0.4930875576036866,
+        "median_consistency": 0.001952537758987312
+      },
+      "head": {
+        "n": 77,
+        "negative_fraction": 0.4935064935064935,
+        "median_consistency": 0.0019876821399718077
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 1.0,
+        "median_consistency": -0.018425694793640104
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0005135724315451906,
+    "max_birth_score_by_kind": {
+      "head": 0.0003589060162315875,
+      "ffn_group": 0.0005135724315451906,
+      "layer": 0.00020246192685035032
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 3,
+    "death_eligible_pool": 123,
+    "max_death_streak": 2,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.281134694814682,
+        "median": 0.29416707158088684,
+        "max": 0.295869916677475
+      },
+      "head": {
+        "min": 0.27392926812171936,
+        "median": 0.2785581946372986,
+        "max": 0.28393593430519104
+      },
+      "ffn_group": {
+        "min": 0.27520331740379333,
+        "median": 0.2849467992782593,
+        "max": 0.2894923985004425
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.01116606696178683,
+        "median": 0.019088392194770976,
+        "max": 0.03205652176043592
+      },
+      "head": {
+        "min": 0.0010361325950026601,
+        "median": 0.002175799923240646,
+        "max": 0.004683833577191696
+      },
+      "ffn_group": {
+        "min": 0.0004339751837669471,
+        "median": 0.0007085193114418373,
+        "max": 0.001155752694396426
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 4,
+    "dying": 2,
+    "state_counts": {
+      "mature": 408,
+      "dormant": 1135,
+      "protected": 147,
+      "dead": 2
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 1000,
+    "births": [
+      [
+        "ffn_group",
+        2,
+        55
+      ],
+      [
+        "ffn_group",
+        0,
+        97
+      ],
+      [
+        "ffn_group",
+        2,
+        98
+      ],
+      [
+        "ffn_group",
+        0,
+        127
+      ]
+    ],
+    "deaths": [],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 7500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.3,
+        "median_consistency": 0.028537176697883485
+      },
+      "ffn_group": {
+        "n": 864,
+        "negative_fraction": 0.49074074074074076,
+        "median_consistency": 0.001551637095102689
+      },
+      "head": {
+        "n": 77,
+        "negative_fraction": 0.5194805194805194,
+        "median_consistency": -0.010738426594909416
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.02995565347784909
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00036147725642700807,
+    "max_birth_score_by_kind": {
+      "head": 0.0002898587109701928,
+      "ffn_group": 0.00036147725642700807,
+      "layer": 0.00016221096219378478
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 3,
+    "death_eligible_pool": 320,
+    "max_death_streak": 1,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.25189805030822754,
+        "median": 0.2876352369785309,
+        "max": 0.3080677390098572
+      },
+      "head": {
+        "min": 0.26519760489463806,
+        "median": 0.2805176079273224,
+        "max": 0.2985781729221344
+      },
+      "ffn_group": {
+        "min": 0.2596859037876129,
+        "median": 0.28036773204803467,
+        "max": 0.29716840386390686
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003941475881822213,
+        "median": 0.006863559711862952,
+        "max": 0.013621000924643871
+      },
+      "head": {
+        "min": 0.000836540599239982,
+        "median": 0.001142119743972384,
+        "max": 0.0032747704594611837
+      },
+      "ffn_group": {
+        "min": 0.00010504191721072419,
+        "median": 0.00019016114880342428,
+        "max": 0.001175184733162081
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 4,
+    "dying": 0,
+    "state_counts": {
+      "mature": 551,
+      "dormant": 1131,
+      "protected": 8,
+      "dead": 2
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 1250,
+    "births": [
+      [
+        "ffn_group",
+        2,
+        27
+      ],
+      [
+        "ffn_group",
+        2,
+        108
+      ],
+      [
+        "ffn_group",
+        1,
+        3
+      ],
+      [
+        "ffn_group",
+        0,
+        104
+      ]
+    ],
+    "deaths": [],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 7250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.01755865988385752
+      },
+      "ffn_group": {
+        "n": 860,
+        "negative_fraction": 0.5046511627906977,
+        "median_consistency": -0.0007904308052521508
+      },
+      "head": {
+        "n": 77,
+        "negative_fraction": 0.5064935064935064,
+        "median_consistency": -0.0011413875418396556
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 0.5,
+        "median_consistency": 0.05880372513724695
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0004243370457303208,
+    "max_birth_score_by_kind": {
+      "head": 0.0003152803892429251,
+      "ffn_group": 0.0004243370457303208,
+      "layer": 0.00021157089276357705
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 96,
+    "death_eligible_pool": 463,
+    "max_death_streak": 1,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2453872412443161,
+        "median": 0.2934655398130417,
+        "max": 0.3181142807006836
+      },
+      "head": {
+        "min": 0.2562295198440552,
+        "median": 0.27708879113197327,
+        "max": 0.3082225024700165
+      },
+      "ffn_group": {
+        "min": 0.2532760202884674,
+        "median": 0.2845655530691147,
+        "max": 0.302797794342041
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.00233704772415944,
+        "median": 0.004778485952398524,
+        "max": 0.011250136632033845
+      },
+      "head": {
+        "min": 0.0002582204122928461,
+        "median": 0.001060932127768435,
+        "max": 0.0025469676725491303
+      },
+      "ffn_group": {
+        "min": 7.046853471272687e-05,
+        "median": 0.00018484902654479203,
+        "max": 0.0009330451885872975
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 4,
+    "dying": 0,
+    "state_counts": {
+      "mature": 555,
+      "dormant": 1127,
+      "protected": 8,
+      "dead": 2
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 1500,
+    "births": [
+      [
+        "ffn_group",
+        2,
+        22
+      ],
+      [
+        "ffn_group",
+        2,
+        59
+      ],
+      [
+        "ffn_group",
+        2,
+        67
+      ],
+      [
+        "ffn_group",
+        2,
+        65
+      ]
+    ],
+    "deaths": [
+      [
+        "layer",
+        6,
+        0
+      ],
+      [
+        "layer",
+        7,
+        0
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 7000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.01397879490680987
+      },
+      "ffn_group": {
+        "n": 681,
+        "negative_fraction": 0.49045521292217326,
+        "median_consistency": 0.0038898129014606933
+      },
+      "head": {
+        "n": 60,
+        "negative_fraction": 0.5,
+        "median_consistency": 0.003398339450308016
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.04175050670324179
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0003640270310773953,
+    "max_birth_score_by_kind": {
+      "head": 0.00023847134469577908,
+      "ffn_group": 0.0003640270310773953,
+      "layer": 0.00016883966597895972
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 77,
+    "death_eligible_pool": 467,
+    "max_death_streak": 2,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.24101026356220245,
+        "median": 0.3045743405818939,
+        "max": 0.3272462785243988
+      },
+      "head": {
+        "min": 0.2543690502643585,
+        "median": 0.27858150005340576,
+        "max": 0.3161061108112335
+      },
+      "ffn_group": {
+        "min": 0.24740007519721985,
+        "median": 0.28899724781513214,
+        "max": 0.3073934316635132
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.002129155169004668,
+        "median": 0.004523461794043675,
+        "max": 0.008788930951576741
+      },
+      "head": {
+        "min": 0.0002536220621116293,
+        "median": 0.0009592791296396361,
+        "max": 0.0028986128718536254
+      },
+      "ffn_group": {
+        "min": 7.298310046700993e-05,
+        "median": 0.0001952750191732878,
+        "max": 0.000739329502944974
+      }
+    },
+    "in_inactive_layers": 560,
+    "ramping": 4,
+    "dying": 2,
+    "state_counts": {
+      "mature": 557,
+      "dormant": 1123,
+      "protected": 8,
+      "dead": 4
+    },
+    "birth_limit_used": 4
+  },
+  {
+    "step": 1750,
+    "births": [
+      [
+        "ffn_group",
+        2,
+        54
+      ],
+      [
+        "ffn_group",
+        2,
+        109
+      ],
+      [
+        "ffn_group",
+        0,
+        47
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        5,
+        10
+      ],
+      [
+        "ffn_group",
+        0,
+        85
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 6750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.012624954236196733
+      },
+      "ffn_group": {
+        "n": 677,
+        "negative_fraction": 0.5007385524372231,
+        "median_consistency": -0.0001705230897445839
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 1.0,
+        "median_consistency": -0.2050204813278003
+      },
+      "head": {
+        "n": 60,
+        "negative_fraction": 0.6,
+        "median_consistency": -0.013792783688909314
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0003369067773992836,
+    "max_birth_score_by_kind": {
+      "head": 0.00022300513613413657,
+      "ffn_group": 0.0003369067773992836,
+      "layer": 0.0002752517001340306
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 69,
+    "death_eligible_pool": 381,
+    "max_death_streak": 3,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.237459197640419,
+        "median": 0.30966220796108246,
+        "max": 0.3281799256801605
+      },
+      "head": {
+        "min": 0.2522445321083069,
+        "median": 0.285876601934433,
+        "max": 0.32124486565589905
+      },
+      "ffn_group": {
+        "min": 0.24375338852405548,
+        "median": 0.28630685806274414,
+        "max": 0.30730488896369934
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003537664105773472,
+        "median": 0.004152299049036634,
+        "max": 0.010262561084313568
+      },
+      "head": {
+        "min": 0.0005487978559199692,
+        "median": 0.0011194411652144863,
+        "max": 0.0031056181543056005
+      },
+      "ffn_group": {
+        "min": 5.173409666118614e-05,
+        "median": 0.00023584700951176913,
+        "max": 0.0007713230615270576
+      }
+    },
+    "in_inactive_layers": 560,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 559,
+      "dormant": 1120,
+      "protected": 7,
+      "dead": 6
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 2000,
+    "births": [
+      [
+        "layer",
+        11,
+        0
+      ],
+      [
+        "ffn_group",
+        0,
+        17
+      ],
+      [
+        "ffn_group",
+        2,
+        39
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        2,
+        55
+      ],
+      [
+        "ffn_group",
+        2,
+        98
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 6500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.013290281320212642
+      },
+      "layer": {
+        "n": 2,
+        "negative_fraction": 1.0,
+        "median_consistency": -0.0399669594261053
+      },
+      "ffn_group": {
+        "n": 674,
+        "negative_fraction": 0.5192878338278932,
+        "median_consistency": -0.005739161420677426
+      },
+      "head": {
+        "n": 60,
+        "negative_fraction": 0.5333333333333333,
+        "median_consistency": -0.003629310369493966
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0003225973098834351,
+    "max_birth_score_by_kind": {
+      "head": 0.00025275944354992674,
+      "ffn_group": 0.0002955472531243389,
+      "layer": 0.0003225973098834351
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 70,
+    "death_eligible_pool": 383,
+    "max_death_streak": 4,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.23500624299049377,
+        "median": 0.31558857858181,
+        "max": 0.33618974685668945
+      },
+      "head": {
+        "min": 0.2506360411643982,
+        "median": 0.2862260937690735,
+        "max": 0.3254210352897644
+      },
+      "ffn_group": {
+        "min": 0.24201251566410065,
+        "median": 0.28811976313591003,
+        "max": 0.30811309814453125
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0036851017300161748,
+        "median": 0.004654111950032458,
+        "max": 0.009811423715592784
+      },
+      "head": {
+        "min": 0.0006640363206964974,
+        "median": 0.0011804293863964075,
+        "max": 0.0028242687467698777
+      },
+      "ffn_group": {
+        "min": 4.291113351469511e-05,
+        "median": 0.00024567531600715306,
+        "max": 0.0009034834803173909
+      }
+    },
+    "in_inactive_layers": 420,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 517,
+      "dormant": 1117,
+      "protected": 50,
+      "dead": 8
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 2250,
+    "births": [
+      [
+        "ffn_group",
+        1,
+        112
+      ],
+      [
+        "ffn_group",
+        0,
+        50
+      ],
+      [
+        "ffn_group",
+        2,
+        32
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        2,
+        27
+      ],
+      [
+        "ffn_group",
+        1,
+        3
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 6250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.65,
+        "median_consistency": -0.03880269565348575
+      },
+      "ffn_group": {
+        "n": 762,
+        "negative_fraction": 0.510498687664042,
+        "median_consistency": -0.004157119622112232
+      },
+      "layer": {
+        "n": 1,
+        "negative_fraction": 0.0,
+        "median_consistency": 0.15906878780803524
+      },
+      "head": {
+        "n": 66,
+        "negative_fraction": 0.42424242424242425,
+        "median_consistency": 0.009015816503599743
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0003023813978163235,
+    "max_birth_score_by_kind": {
+      "head": 0.00022144591471155443,
+      "ffn_group": 0.0003023813978163235,
+      "layer": 0.00024854381086578695
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 59,
+    "death_eligible_pool": 385,
+    "max_death_streak": 5,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.23190349340438843,
+        "median": 0.31940969824790955,
+        "max": 0.34003913402557373
+      },
+      "head": {
+        "min": 0.2493729591369629,
+        "median": 0.288562536239624,
+        "max": 0.32791316509246826
+      },
+      "ffn_group": {
+        "min": 0.2390473634004593,
+        "median": 0.2896774560213089,
+        "max": 0.31057485938072205
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003972529832964087,
+        "median": 0.004928467791836451,
+        "max": 0.01005410786935497
+      },
+      "head": {
+        "min": 0.0007318396963238677,
+        "median": 0.001212537891239113,
+        "max": 0.003222887266572724
+      },
+      "ffn_group": {
+        "min": 4.359226742075742e-05,
+        "median": 0.0002500995668978818,
+        "max": 0.0009252251511244616
+      }
+    },
+    "in_inactive_layers": 420,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 518,
+      "dormant": 1114,
+      "protected": 50,
+      "dead": 10
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 2500,
+    "births": [
+      [
+        "ffn_group",
+        1,
+        66
+      ],
+      [
+        "ffn_group",
+        0,
+        89
+      ],
+      [
+        "layer",
+        9,
+        0
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        2,
+        65
+      ],
+      [
+        "ffn_group",
+        2,
+        22
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 6000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.6,
+        "median_consistency": -0.010295822420445314
+      },
+      "ffn_group": {
+        "n": 759,
+        "negative_fraction": 0.4901185770750988,
+        "median_consistency": 0.0027722788238011427
+      },
+      "layer": {
+        "n": 1,
+        "negative_fraction": 0.0,
+        "median_consistency": 0.1975426543692527
+      },
+      "head": {
+        "n": 66,
+        "negative_fraction": 0.4696969696969697,
+        "median_consistency": 0.005858066316735219
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0002821743009287966,
+    "max_birth_score_by_kind": {
+      "head": 0.0002396807090298541,
+      "ffn_group": 0.0002821743009287966,
+      "layer": 0.00026344762930675345
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 65,
+    "death_eligible_pool": 386,
+    "max_death_streak": 6,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.22896842658519745,
+        "median": 0.3218832165002823,
+        "max": 0.3469567596912384
+      },
+      "head": {
+        "min": 0.24805426597595215,
+        "median": 0.289911150932312,
+        "max": 0.3347833454608917
+      },
+      "ffn_group": {
+        "min": 0.2381891906261444,
+        "median": 0.29079246520996094,
+        "max": 0.3123883605003357
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.004174616167261804,
+        "median": 0.005287015369140463,
+        "max": 0.009712846056384472
+      },
+      "head": {
+        "min": 0.000767817466722352,
+        "median": 0.0012358245052223411,
+        "max": 0.003724946284591777
+      },
+      "ffn_group": {
+        "min": 4.4616739877144524e-05,
+        "median": 0.00025271012771453427,
+        "max": 0.0008412057809108007
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 519,
+      "dormant": 1111,
+      "protected": 50,
+      "dead": 12
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 2750,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        26
+      ],
+      [
+        "ffn_group",
+        2,
+        116
+      ],
+      [
+        "ffn_group",
+        2,
+        35
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        2,
+        109
+      ],
+      [
+        "ffn_group",
+        2,
+        59
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 5750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.009160207154883832
+      },
+      "ffn_group": {
+        "n": 845,
+        "negative_fraction": 0.5053254437869823,
+        "median_consistency": -0.000800087695495056
+      },
+      "head": {
+        "n": 74,
+        "negative_fraction": 0.6081081081081081,
+        "median_consistency": -0.009971157960723245
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0002487543670309491,
+    "max_birth_score_by_kind": {
+      "head": 0.00019877370477581655,
+      "ffn_group": 0.0002487543670309491
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 98,
+    "death_eligible_pool": 431,
+    "max_death_streak": 7,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.22590704262256622,
+        "median": 0.31511467695236206,
+        "max": 0.36078280210494995
+      },
+      "head": {
+        "min": 0.24693432450294495,
+        "median": 0.28763651847839355,
+        "max": 0.3487526774406433
+      },
+      "ffn_group": {
+        "min": 0.2344573438167572,
+        "median": 0.2859337329864502,
+        "max": 0.3163565993309021
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0024036019656735247,
+        "median": 0.00506639638656268,
+        "max": 0.012269617511901148
+      },
+      "head": {
+        "min": 0.0001322404675545239,
+        "median": 0.0011375661746041673,
+        "max": 0.004641274394039386
+      },
+      "ffn_group": {
+        "min": 3.712397874284942e-05,
+        "median": 0.00025451046023326627,
+        "max": 0.0010183317296153167
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 520,
+      "dormant": 1108,
+      "protected": 50,
+      "dead": 14
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 3000,
+    "births": [
+      [
+        "ffn_group",
+        1,
+        54
+      ],
+      [
+        "ffn_group",
+        2,
+        1
+      ],
+      [
+        "ffn_group",
+        1,
+        97
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        11,
+        4
+      ],
+      [
+        "head",
+        11,
+        10
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 5500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.009008921236660763
+      },
+      "ffn_group": {
+        "n": 842,
+        "negative_fraction": 0.47980997624703087,
+        "median_consistency": 0.004097907566578438
+      },
+      "head": {
+        "n": 74,
+        "negative_fraction": 0.5540540540540541,
+        "median_consistency": -0.007394866998302355
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0002520033138454112,
+    "max_birth_score_by_kind": {
+      "head": 0.00019924445587329975,
+      "ffn_group": 0.0002520033138454112
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 103,
+    "death_eligible_pool": 432,
+    "max_death_streak": 8,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.22305728495121002,
+        "median": 0.3131657540798187,
+        "max": 0.37419167160987854
+      },
+      "head": {
+        "min": 0.24608926475048065,
+        "median": 0.2906395494937897,
+        "max": 0.364255428314209
+      },
+      "ffn_group": {
+        "min": 0.23100464046001434,
+        "median": 0.2928225100040436,
+        "max": 0.3199242055416107
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0028374442015993936,
+        "median": 0.004891262325774475,
+        "max": 0.010214039493980014
+      },
+      "head": {
+        "min": 0.00018570713247853356,
+        "median": 0.0010404538409511555,
+        "max": 0.004093045171783509
+      },
+      "ffn_group": {
+        "min": 4.356293745941794e-05,
+        "median": 0.0002549486039670674,
+        "max": 0.000939953218463205
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 565,
+      "dormant": 1105,
+      "protected": 6,
+      "dead": 16
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 3250,
+    "births": [
+      [
+        "ffn_group",
+        1,
+        40
+      ],
+      [
+        "ffn_group",
+        0,
+        5
+      ],
+      [
+        "ffn_group",
+        1,
+        108
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        11,
+        2
+      ],
+      [
+        "head",
+        11,
+        0
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 5250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.009413025541519626
+      },
+      "ffn_group": {
+        "n": 839,
+        "negative_fraction": 0.5005959475566151,
+        "median_consistency": -0.0005331354620149049
+      },
+      "head": {
+        "n": 74,
+        "negative_fraction": 0.4189189189189189,
+        "median_consistency": 0.015860039907796927
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00023630768700553238,
+    "max_birth_score_by_kind": {
+      "head": 0.0001934656034223443,
+      "ffn_group": 0.00023630768700553238
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 126,
+    "death_eligible_pool": 477,
+    "max_death_streak": 9,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.22045201063156128,
+        "median": 0.31403252482414246,
+        "max": 0.38611409068107605
+      },
+      "head": {
+        "min": 0.2428039163351059,
+        "median": 0.29418808221817017,
+        "max": 0.3789089024066925
+      },
+      "ffn_group": {
+        "min": 0.22924278676509857,
+        "median": 0.29217270016670227,
+        "max": 0.3227674663066864
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0006764541291706145,
+        "median": 0.00461298930864288,
+        "max": 0.009995600386779649
+      },
+      "head": {
+        "min": 4.106024990210159e-05,
+        "median": 0.0010510668566440584,
+        "max": 0.004128946413609446
+      },
+      "ffn_group": {
+        "min": 2.626983542599138e-05,
+        "median": 0.0002412821175584919,
+        "max": 0.0010438774290646591
+      }
+    },
+    "in_inactive_layers": 280,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 566,
+      "dormant": 1102,
+      "protected": 6,
+      "dead": 18
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 3500,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        42
+      ],
+      [
+        "ffn_group",
+        0,
+        40
+      ],
+      [
+        "ffn_group",
+        2,
+        95
+      ]
+    ],
+    "deaths": [
+      [
+        "layer",
+        9,
+        0
+      ],
+      [
+        "head",
+        11,
+        11
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 5000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.010824714185458956
+      },
+      "ffn_group": {
+        "n": 748,
+        "negative_fraction": 0.4959893048128342,
+        "median_consistency": 0.0014940028044797002
+      },
+      "head": {
+        "n": 66,
+        "negative_fraction": 0.48484848484848486,
+        "median_consistency": 0.0018823091284813612
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00023089523933660062,
+    "max_birth_score_by_kind": {
+      "head": 0.00019492120645354504,
+      "ffn_group": 0.00023089523933660062
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 141,
+    "death_eligible_pool": 478,
+    "max_death_streak": 10,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2178553193807602,
+        "median": 0.3208738714456558,
+        "max": 0.39704424142837524
+      },
+      "head": {
+        "min": 0.24257537722587585,
+        "median": 0.29185208678245544,
+        "max": 0.3923223316669464
+      },
+      "ffn_group": {
+        "min": 0.22596591711044312,
+        "median": 0.29251596331596375,
+        "max": 0.32535284757614136
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.00104690028342641,
+        "median": 0.004605048490529848,
+        "max": 0.009574075609102315
+      },
+      "head": {
+        "min": 4.8230761860899384e-05,
+        "median": 0.0011107507418441466,
+        "max": 0.0036361578631688395
+      },
+      "ffn_group": {
+        "min": 3.8213923102282325e-05,
+        "median": 0.0002484152034388548,
+        "max": 0.0010102860395335561
+      }
+    },
+    "in_inactive_layers": 420,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 567,
+      "dormant": 1099,
+      "protected": 6,
+      "dead": 20
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 3750,
+    "births": [
+      [
+        "ffn_group",
+        1,
+        119
+      ],
+      [
+        "ffn_group",
+        0,
+        19
+      ],
+      [
+        "ffn_group",
+        0,
+        99
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        1,
+        112
+      ],
+      [
+        "ffn_group",
+        2,
+        116
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 4750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.0036829855406926865
+      },
+      "ffn_group": {
+        "n": 745,
+        "negative_fraction": 0.5073825503355704,
+        "median_consistency": -0.0034784087379502275
+      },
+      "head": {
+        "n": 66,
+        "negative_fraction": 0.4696969696969697,
+        "median_consistency": 0.004456262286511
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0002106023202264358,
+    "max_birth_score_by_kind": {
+      "head": 0.00018816404342193033,
+      "ffn_group": 0.0002106023202264358
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 99,
+    "death_eligible_pool": 435,
+    "max_death_streak": 11,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.21641582250595093,
+        "median": 0.34315866231918335,
+        "max": 0.4062979519367218
+      },
+      "head": {
+        "min": 0.24497702717781067,
+        "median": 0.29887719452381134,
+        "max": 0.40272441506385803
+      },
+      "ffn_group": {
+        "min": 0.22248736023902893,
+        "median": 0.29723060131073,
+        "max": 0.3248118460178375
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.001899649199348754,
+        "median": 0.0047488756360560104,
+        "max": 0.008205094141775999
+      },
+      "head": {
+        "min": 0.0006606138087871763,
+        "median": 0.001196533459015668,
+        "max": 0.003301445192736671
+      },
+      "ffn_group": {
+        "min": 3.531015410399131e-05,
+        "median": 0.00026178146044933333,
+        "max": 0.0010384859576523637
+      }
+    },
+    "in_inactive_layers": 420,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 568,
+      "dormant": 1096,
+      "protected": 6,
+      "dead": 22
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 4000,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        92
+      ],
+      [
+        "head",
+        0,
+        10
+      ],
+      [
+        "ffn_group",
+        1,
+        61
+      ]
+    ],
+    "deaths": [
+      [
+        "layer",
+        11,
+        0
+      ],
+      [
+        "ffn_group",
+        1,
+        66
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 4500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.6,
+        "median_consistency": -0.03119894469700622
+      },
+      "ffn_group": {
+        "n": 652,
+        "negative_fraction": 0.5061349693251533,
+        "median_consistency": -0.0024665950197851737
+      },
+      "head": {
+        "n": 60,
+        "negative_fraction": 0.5166666666666667,
+        "median_consistency": -0.0023191178144371053
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00020263957841256322,
+    "max_birth_score_by_kind": {
+      "head": 0.0001993219172556896,
+      "ffn_group": 0.00020263957841256322
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 84,
+    "death_eligible_pool": 436,
+    "max_death_streak": 12,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2148817926645279,
+        "median": 0.34436556696891785,
+        "max": 0.4139375388622284
+      },
+      "head": {
+        "min": 0.24508655071258545,
+        "median": 0.2996469885110855,
+        "max": 0.4122990369796753
+      },
+      "ffn_group": {
+        "min": 0.22057916224002838,
+        "median": 0.29871976375579834,
+        "max": 0.325178861618042
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.002161479905628254,
+        "median": 0.004974134552648191,
+        "max": 0.0073960932934479
+      },
+      "head": {
+        "min": 0.0006283745095294902,
+        "median": 0.0011745187857512764,
+        "max": 0.0031063486912941236
+      },
+      "ffn_group": {
+        "min": 3.180317223831965e-05,
+        "median": 0.0002583608627838593,
+        "max": 0.0010173839918024051
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 569,
+      "dormant": 1093,
+      "protected": 6,
+      "dead": 24
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 4250,
+    "births": [
+      [
+        "head",
+        2,
+        11
+      ],
+      [
+        "ffn_group",
+        0,
+        124
+      ],
+      [
+        "ffn_group",
+        1,
+        73
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        1,
+        54
+      ],
+      [
+        "ffn_group",
+        2,
+        1
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 4250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.018017129757084124
+      },
+      "head": {
+        "n": 59,
+        "negative_fraction": 0.4915254237288136,
+        "median_consistency": 0.0009338838811942148
+      },
+      "ffn_group": {
+        "n": 650,
+        "negative_fraction": 0.49846153846153846,
+        "median_consistency": 0.0012787409650790163
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0002036968472816474,
+    "max_birth_score_by_kind": {
+      "head": 0.0002036968472816474,
+      "ffn_group": 0.00019157275031559849
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 73,
+    "death_eligible_pool": 398,
+    "max_death_streak": 13,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2131480723619461,
+        "median": 0.3256743848323822,
+        "max": 0.4201991856098175
+      },
+      "head": {
+        "min": 0.2451835572719574,
+        "median": 0.29939019680023193,
+        "max": 0.42084553837776184
+      },
+      "ffn_group": {
+        "min": 0.2210254669189453,
+        "median": 0.29506105184555054,
+        "max": 0.3259602189064026
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0036054633130750196,
+        "median": 0.005325934681952447,
+        "max": 0.008016445170869671
+      },
+      "head": {
+        "min": 0.0006557341932009183,
+        "median": 0.00124539710395535,
+        "max": 0.0036556213257686785
+      },
+      "ffn_group": {
+        "min": 3.4281415750888475e-05,
+        "median": 0.0002844505548288417,
+        "max": 0.0009204381867687774
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 570,
+      "dormant": 1090,
+      "protected": 6,
+      "dead": 26
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 4500,
+    "births": [
+      [
+        "ffn_group",
+        2,
+        104
+      ],
+      [
+        "ffn_group",
+        1,
+        91
+      ],
+      [
+        "head",
+        2,
+        8
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        1,
+        108
+      ],
+      [
+        "ffn_group",
+        1,
+        40
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 4000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.35,
+        "median_consistency": 0.011528515397205261
+      },
+      "ffn_group": {
+        "n": 648,
+        "negative_fraction": 0.49382716049382713,
+        "median_consistency": 0.0011234991195899179
+      },
+      "head": {
+        "n": 58,
+        "negative_fraction": 0.4827586206896552,
+        "median_consistency": 0.0017940523138309998
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00018994642944054974,
+    "max_birth_score_by_kind": {
+      "head": 0.00018670132124982115,
+      "ffn_group": 0.00018994642944054974
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 74,
+    "death_eligible_pool": 399,
+    "max_death_streak": 14,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.21085117757320404,
+        "median": 0.3259437382221222,
+        "max": 0.42802998423576355
+      },
+      "head": {
+        "min": 0.2452191561460495,
+        "median": 0.30078551173210144,
+        "max": 0.4294866621494293
+      },
+      "ffn_group": {
+        "min": 0.21798208355903625,
+        "median": 0.29627525806427,
+        "max": 0.3280791938304901
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.004570346305770398,
+        "median": 0.005234676849642957,
+        "max": 0.010083838433652998
+      },
+      "head": {
+        "min": 0.0005950885066748008,
+        "median": 0.0012063609398311119,
+        "max": 0.00331247523793981
+      },
+      "ffn_group": {
+        "min": 3.417180078124778e-05,
+        "median": 0.0002771454027463013,
+        "max": 0.0008481314732510913
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 571,
+      "dormant": 1087,
+      "dead": 28,
+      "protected": 6
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 4750,
+    "births": [
+      [
+        "head",
+        3,
+        7
+      ],
+      [
+        "head",
+        2,
+        2
+      ],
+      [
+        "ffn_group",
+        1,
+        42
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        0,
+        6
+      ],
+      [
+        "head",
+        0,
+        11
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 3750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.35,
+        "median_consistency": 0.04085079560784076
+      },
+      "head": {
+        "n": 57,
+        "negative_fraction": 0.47368421052631576,
+        "median_consistency": 0.01023234748724516
+      },
+      "ffn_group": {
+        "n": 646,
+        "negative_fraction": 0.5015479876160991,
+        "median_consistency": -8.839528292869415e-05
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00017597683039885097,
+    "max_birth_score_by_kind": {
+      "head": 0.00017597683039885097,
+      "ffn_group": 0.00017459243056435175
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 74,
+    "death_eligible_pool": 400,
+    "max_death_streak": 15,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2087903767824173,
+        "median": 0.32626302540302277,
+        "max": 0.4345928132534027
+      },
+      "head": {
+        "min": 0.23334385454654694,
+        "median": 0.3006595969200134,
+        "max": 0.4370083510875702
+      },
+      "ffn_group": {
+        "min": 0.2135963886976242,
+        "median": 0.29765136539936066,
+        "max": 0.330275297164917
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.00367180449825371,
+        "median": 0.005800904447817327,
+        "max": 0.012990327890332587
+      },
+      "head": {
+        "min": 0.00034995689417519164,
+        "median": 0.0013502987774111604,
+        "max": 0.0032784469881469687
+      },
+      "ffn_group": {
+        "min": 3.142262625373874e-05,
+        "median": 0.0002825015021997861,
+        "max": 0.0012717758244204778
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 3,
+    "dying": 2,
+    "state_counts": {
+      "mature": 572,
+      "dormant": 1084,
+      "dead": 30,
+      "protected": 6
+    },
+    "birth_limit_used": 3
+  },
+  {
+    "step": 5000,
+    "births": [
+      [
+        "head",
+        2,
+        9
+      ],
+      [
+        "ffn_group",
+        1,
+        17
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        0,
+        10
+      ],
+      [
+        "ffn_group",
+        1,
+        97
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 3500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.6,
+        "median_consistency": -0.011988166878558054
+      },
+      "head": {
+        "n": 55,
+        "negative_fraction": 0.43636363636363634,
+        "median_consistency": 0.0115233322906091
+      },
+      "ffn_group": {
+        "n": 645,
+        "negative_fraction": 0.5023255813953489,
+        "median_consistency": -0.0011987160022378836
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00019788181726432656,
+    "max_birth_score_by_kind": {
+      "head": 0.00019788181726432656,
+      "ffn_group": 0.0001731006189786828
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 71,
+    "death_eligible_pool": 401,
+    "max_death_streak": 16,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.21094770729541779,
+        "median": 0.3258523941040039,
+        "max": 0.4412921965122223
+      },
+      "head": {
+        "min": 0.22262080013751984,
+        "median": 0.30364343523979187,
+        "max": 0.4451735019683838
+      },
+      "ffn_group": {
+        "min": 0.2102038860321045,
+        "median": 0.29841189086437225,
+        "max": 0.33234211802482605
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0038651300625768283,
+        "median": 0.005363504233567155,
+        "max": 0.010431932372535776
+      },
+      "head": {
+        "min": 0.0002588313510797645,
+        "median": 0.0012669541634610557,
+        "max": 0.003495228464828792
+      },
+      "ffn_group": {
+        "min": 3.189294640500008e-05,
+        "median": 0.0002831994833329252,
+        "max": 0.0009969917361566062
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 573,
+      "dormant": 1082,
+      "dead": 32,
+      "protected": 5
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 5250,
+    "births": [
+      [
+        "head",
+        3,
+        4
+      ],
+      [
+        "head",
+        1,
+        11
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        2,
+        11
+      ],
+      [
+        "ffn_group",
+        1,
+        119
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 3250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": -9.156101152248217e-06
+      },
+      "head": {
+        "n": 54,
+        "negative_fraction": 0.46296296296296297,
+        "median_consistency": 0.009643333125669111
+      },
+      "ffn_group": {
+        "n": 644,
+        "negative_fraction": 0.4549689440993789,
+        "median_consistency": 0.010237902038313953
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00019164839616886555,
+    "max_birth_score_by_kind": {
+      "head": 0.00019164839616886555,
+      "ffn_group": 0.0001571388529737161
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 70,
+    "death_eligible_pool": 402,
+    "max_death_streak": 17,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.21061688661575317,
+        "median": 0.3258208632469177,
+        "max": 0.4470215439796448
+      },
+      "head": {
+        "min": 0.22240887582302094,
+        "median": 0.30479589104652405,
+        "max": 0.4520029127597809
+      },
+      "ffn_group": {
+        "min": 0.20990489423274994,
+        "median": 0.29959625005722046,
+        "max": 0.3341672718524933
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0039026106146486514,
+        "median": 0.005106311599854472,
+        "max": 0.011623771217368233
+      },
+      "head": {
+        "min": 0.00021100551315293727,
+        "median": 0.0012415803831622354,
+        "max": 0.0029920124584323676
+      },
+      "ffn_group": {
+        "min": 3.0175572298494732e-05,
+        "median": 0.0002849982641153262,
+        "max": 0.0012329417455766525
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1080,
+      "dead": 34,
+      "protected": 4
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 5500,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        59
+      ],
+      [
+        "ffn_group",
+        0,
+        79
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        2,
+        8
+      ],
+      [
+        "ffn_group",
+        2,
+        104
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 3000.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.009615636263713829
+      },
+      "ffn_group": {
+        "n": 644,
+        "negative_fraction": 0.47360248447204967,
+        "median_consistency": 0.006374586700296386
+      },
+      "head": {
+        "n": 52,
+        "negative_fraction": 0.5384615384615384,
+        "median_consistency": -0.0039908534489339524
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00016259038008957258,
+    "max_birth_score_by_kind": {
+      "head": 0.00015372083253208734,
+      "ffn_group": 0.00016259038008957258
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 73,
+    "death_eligible_pool": 403,
+    "max_death_streak": 18,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20947585999965668,
+        "median": 0.3258409947156906,
+        "max": 0.4526222348213196
+      },
+      "head": {
+        "min": 0.22207589447498322,
+        "median": 0.30409614741802216,
+        "max": 0.45882412791252136
+      },
+      "ffn_group": {
+        "min": 0.2067238688468933,
+        "median": 0.30097606778144836,
+        "max": 0.3359036445617676
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.00401786284784979,
+        "median": 0.004829520888941422,
+        "max": 0.010465260455454487
+      },
+      "head": {
+        "min": 0.0002177522410399182,
+        "median": 0.0011160919056944663,
+        "max": 0.0030555736645646904
+      },
+      "ffn_group": {
+        "min": 2.9434370799786244e-05,
+        "median": 0.00028474888968825425,
+        "max": 0.0010740686605554587
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1078,
+      "dead": 36,
+      "protected": 4
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 5750,
+    "births": [
+      [
+        "ffn_group",
+        0,
+        44
+      ],
+      [
+        "ffn_group",
+        0,
+        83
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        3,
+        7
+      ],
+      [
+        "head",
+        2,
+        2
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 2750.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": 0.004583177321325441
+      },
+      "ffn_group": {
+        "n": 642,
+        "negative_fraction": 0.5109034267912772,
+        "median_consistency": -0.0013061525998603676
+      },
+      "head": {
+        "n": 52,
+        "negative_fraction": 0.5576923076923077,
+        "median_consistency": -0.004544479990063535
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00016147277109767317,
+    "max_birth_score_by_kind": {
+      "head": 0.00015075971395481203,
+      "ffn_group": 0.00016147277109767317
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 74,
+    "death_eligible_pool": 403,
+    "max_death_streak": 19,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.208293616771698,
+        "median": 0.3257530778646469,
+        "max": 0.45747703313827515
+      },
+      "head": {
+        "min": 0.22238142788410187,
+        "median": 0.30500949919223785,
+        "max": 0.46430039405822754
+      },
+      "ffn_group": {
+        "min": 0.20345370471477509,
+        "median": 0.301914781332016,
+        "max": 0.33781829476356506
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003786539867166999,
+        "median": 0.004915144461978608,
+        "max": 0.010641494852724281
+      },
+      "head": {
+        "min": 0.00019337753649463233,
+        "median": 0.0012566630969923353,
+        "max": 0.0027368326198387778
+      },
+      "ffn_group": {
+        "min": 2.5877185943373918e-05,
+        "median": 0.00028682723527577897,
+        "max": 0.0013145717413774656
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1076,
+      "dead": 38,
+      "protected": 4
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 6000,
+    "births": [
+      [
+        "head",
+        2,
+        1
+      ],
+      [
+        "ffn_group",
+        0,
+        109
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        2,
+        9
+      ],
+      [
+        "ffn_group",
+        1,
+        73
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 2500.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.023500389578514837
+      },
+      "head": {
+        "n": 52,
+        "negative_fraction": 0.5576923076923077,
+        "median_consistency": -0.019930299127939134
+      },
+      "ffn_group": {
+        "n": 640,
+        "negative_fraction": 0.5515625,
+        "median_consistency": -0.011827930958659437
+      }
+    },
+    "plateau": 0.26154983967269807,
+    "max_dormant_birth_score": 0.012776895290817922,
+    "max_birth_score_by_kind": {
+      "head": 0.012776895290817922,
+      "ffn_group": 0.01165090845997814
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 66,
+    "death_eligible_pool": 403,
+    "max_death_streak": 20,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20661915838718414,
+        "median": 0.3259226828813553,
+        "max": 0.46193167567253113
+      },
+      "head": {
+        "min": 0.22224189341068268,
+        "median": 0.3053905665874481,
+        "max": 0.4695417881011963
+      },
+      "ffn_group": {
+        "min": 0.20111460983753204,
+        "median": 0.3036360740661621,
+        "max": 0.33937737345695496
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0032654912325100144,
+        "median": 0.005225082791278271,
+        "max": 0.012633881731089808
+      },
+      "head": {
+        "min": 0.00021221311339292474,
+        "median": 0.0012283825529968723,
+        "max": 0.0031327534029111873
+      },
+      "ffn_group": {
+        "min": 2.514746510621589e-05,
+        "median": 0.00028753397870511334,
+        "max": 0.0013984435953373502
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1074,
+      "dead": 40,
+      "protected": 4
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 6250,
+    "births": [
+      [
+        "head",
+        3,
+        5
+      ],
+      [
+        "head",
+        2,
+        3
+      ]
+    ],
+    "deaths": [
+      [
+        "head",
+        3,
+        4
+      ],
+      [
+        "head",
+        1,
+        11
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 2250.5,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.65,
+        "median_consistency": -0.039720689568608504
+      },
+      "head": {
+        "n": 51,
+        "negative_fraction": 0.5490196078431373,
+        "median_consistency": -0.014776570586865642
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.49139280125195617,
+        "median_consistency": 0.0014986047380308612
+      }
+    },
+    "plateau": 0.36156125456555577,
+    "max_dormant_birth_score": 0.01759668980934919,
+    "max_birth_score_by_kind": {
+      "head": 0.01759668980934919,
+      "ffn_group": 0.015930459092952244
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 68,
+    "death_eligible_pool": 403,
+    "max_death_streak": 21,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2053329199552536,
+        "median": 0.32609419524669647,
+        "max": 0.4659042954444885
+      },
+      "head": {
+        "min": 0.2222372442483902,
+        "median": 0.30824148654937744,
+        "max": 0.47495898604393005
+      },
+      "ffn_group": {
+        "min": 0.20004242658615112,
+        "median": 0.3046586662530899,
+        "max": 0.34138810634613037
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.00419450064623645,
+        "median": 0.005116561625802623,
+        "max": 0.00949625647712848
+      },
+      "head": {
+        "min": 0.0002059852704473121,
+        "median": 0.001260764457726193,
+        "max": 0.002885247990792937
+      },
+      "ffn_group": {
+        "min": 2.1609277254863554e-05,
+        "median": 0.00028630129033487787,
+        "max": 0.0013026020219747054
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1072,
+      "dead": 42,
+      "protected": 4
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 6500,
+    "births": [
+      [
+        "head",
+        3,
+        10
+      ],
+      [
+        "head",
+        0,
+        4
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        1,
+        61
+      ],
+      [
+        "ffn_group",
+        1,
+        91
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 2000.4999999999998,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.01882871589455324
+      },
+      "head": {
+        "n": 49,
+        "negative_fraction": 0.5510204081632653,
+        "median_consistency": -0.007492872068105963
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.486697965571205,
+        "median_consistency": 0.004924959378052049
+      }
+    },
+    "plateau": 0.3847635105809135,
+    "max_dormant_birth_score": 0.018704223165273457,
+    "max_birth_score_by_kind": {
+      "head": 0.018704223165273457,
+      "ffn_group": 0.0167037028274198
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 71,
+    "death_eligible_pool": 403,
+    "max_death_streak": 22,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2040511667728424,
+        "median": 0.3261784464120865,
+        "max": 0.469671368598938
+      },
+      "head": {
+        "min": 0.23947276175022125,
+        "median": 0.31243836879730225,
+        "max": 0.47929835319519043
+      },
+      "ffn_group": {
+        "min": 0.19717583060264587,
+        "median": 0.3057681620121002,
+        "max": 0.3434021770954132
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003906811354646301,
+        "median": 0.005194742820864568,
+        "max": 0.012729346334189722
+      },
+      "head": {
+        "min": 0.0005725963973630706,
+        "median": 0.001290713638805638,
+        "max": 0.00275872871199693
+      },
+      "ffn_group": {
+        "min": 2.2056189293112804e-05,
+        "median": 0.00028562245168482347,
+        "max": 0.0016306926104416788
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1070,
+      "protected": 4,
+      "dead": 44
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 6750,
+    "births": [
+      [
+        "head",
+        4,
+        10
+      ],
+      [
+        "head",
+        4,
+        3
+      ]
+    ],
+    "deaths": [
+      [
+        "ffn_group",
+        1,
+        42
+      ],
+      [
+        "ffn_group",
+        1,
+        17
+      ]
+    ],
+    "deaths_frozen": false,
+    "births_frozen": false,
+    "structure_frozen": false,
+    "lr_budget_remaining": 1750.4999999999998,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.35,
+        "median_consistency": 0.01962203668881575
+      },
+      "head": {
+        "n": 47,
+        "negative_fraction": 0.3829787234042553,
+        "median_consistency": 0.02560029687500813
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.49765258215962443,
+        "median_consistency": 0.0005175936526898087
+      }
+    },
+    "plateau": 0.38009732851257105,
+    "max_dormant_birth_score": 0.01847609818052467,
+    "max_birth_score_by_kind": {
+      "head": 0.01847609818052467,
+      "ffn_group": 0.016491052020609544
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 65,
+    "death_eligible_pool": 403,
+    "max_death_streak": 23,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2026561200618744,
+        "median": 0.3258539289236069,
+        "max": 0.4730605185031891
+      },
+      "head": {
+        "min": 0.23315118253231049,
+        "median": 0.31192974746227264,
+        "max": 0.484048992395401
+      },
+      "ffn_group": {
+        "min": 0.19690687954425812,
+        "median": 0.30744314193725586,
+        "max": 0.34566181898117065
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003915764887161592,
+        "median": 0.004616194045539694,
+        "max": 0.011059112331695369
+      },
+      "head": {
+        "min": 0.00024557830159380623,
+        "median": 0.0013427637767590866,
+        "max": 0.0030802204337710354
+      },
+      "ffn_group": {
+        "min": 2.1811969986949382e-05,
+        "median": 0.0002912575809164394,
+        "max": 0.0014041060260565584
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 2,
+    "dying": 2,
+    "state_counts": {
+      "mature": 574,
+      "dormant": 1068,
+      "protected": 4,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 7000,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 1500.4999999999998,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.01039043849144893
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5777777777777777,
+        "median_consistency": -0.027971332319335754
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.5039123630672926,
+        "median_consistency": -0.00048625336356146584
+      }
+    },
+    "plateau": 0.37834523522015795,
+    "max_dormant_birth_score": 0.01838537082193427,
+    "max_birth_score_by_kind": {
+      "head": 0.01838537082193427,
+      "ffn_group": 0.016511706367652344
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 68,
+    "death_eligible_pool": 403,
+    "max_death_streak": 24,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2012895792722702,
+        "median": 0.3256755620241165,
+        "max": 0.4767010807991028
+      },
+      "head": {
+        "min": 0.2222684770822525,
+        "median": 0.3082466721534729,
+        "max": 0.488054484128952
+      },
+      "ffn_group": {
+        "min": 0.19486616551876068,
+        "median": 0.3092500865459442,
+        "max": 0.3477625846862793
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0035548481030470503,
+        "median": 0.004993490602755618,
+        "max": 0.010611630786118712
+      },
+      "head": {
+        "min": 0.00020184707824775415,
+        "median": 0.0011823734506185403,
+        "max": 0.0027846375811088598
+      },
+      "ffn_group": {
+        "min": 2.587697918283842e-05,
+        "median": 0.0002889660614610673,
+        "max": 0.0013838642304032929
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 576,
+      "dormant": 1068,
+      "dead": 46,
+      "protected": 2
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 7250,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 1251.914501566512,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.010885564146122375
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.6888888888888889,
+        "median_consistency": -0.032425813681626114
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.5039123630672926,
+        "median_consistency": -0.0022941633919559743
+      }
+    },
+    "plateau": 0.3772320146251964,
+    "max_dormant_birth_score": 0.018357444419442166,
+    "max_birth_score_by_kind": {
+      "head": 0.018357444419442166,
+      "ffn_group": 0.014255815474485537
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 68,
+    "death_eligible_pool": 405,
+    "max_death_streak": 25,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20047692954540253,
+        "median": 0.3255627006292343,
+        "max": 0.4800891876220703
+      },
+      "head": {
+        "min": 0.21196924149990082,
+        "median": 0.3022395819425583,
+        "max": 0.49239397048950195
+      },
+      "ffn_group": {
+        "min": 0.19446666538715363,
+        "median": 0.3107298016548157,
+        "max": 0.34983015060424805
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0037524132426755594,
+        "median": 0.005391146357293355,
+        "max": 0.009171575158524556
+      },
+      "head": {
+        "min": 0.00017255893271611673,
+        "median": 0.0012133758800744673,
+        "max": 0.00267886484059422
+      },
+      "ffn_group": {
+        "min": 2.7175612866042407e-05,
+        "median": 0.0002901156155253704,
+        "max": 0.0011573701022219126
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 7500,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 1011.7341135297198,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.75,
+        "median_consistency": -0.02192638548733774
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.6666666666666666,
+        "median_consistency": -0.0197608589616863
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.48982785602503914,
+        "median_consistency": 0.0023994038666926456
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0001389973995583675,
+    "max_birth_score_by_kind": {
+      "head": 0.0001389973995583675,
+      "ffn_group": 0.0001330987449687973
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 70,
+    "death_eligible_pool": 407,
+    "max_death_streak": 26,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2011655867099762,
+        "median": 0.3257027715444565,
+        "max": 0.4839581251144409
+      },
+      "head": {
+        "min": 0.20274071395397186,
+        "median": 0.299278125166893,
+        "max": 0.4969278872013092
+      },
+      "ffn_group": {
+        "min": 0.19663387537002563,
+        "median": 0.31233707070350647,
+        "max": 0.3524857461452484
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0032773628308769075,
+        "median": 0.005373632157661682,
+        "max": 0.009431190456377124
+      },
+      "head": {
+        "min": 0.00014172953549001618,
+        "median": 0.0011441389699000902,
+        "max": 0.0032327538805389253
+      },
+      "ffn_group": {
+        "min": 2.5999995463229747e-05,
+        "median": 0.00029803840075573695,
+        "max": 0.0014359344038465715
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 7750,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 787.8081889897363,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.01635052462766291
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5555555555555556,
+        "median_consistency": -0.012379477513192915
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.49139280125195617,
+        "median_consistency": 0.004335928747216052
+      }
+    },
+    "plateau": 0.05808021081667458,
+    "max_dormant_birth_score": 0.0029480231507249535,
+    "max_birth_score_by_kind": {
+      "head": 0.0029480231507249535,
+      "ffn_group": 0.0024735754900380184
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 65,
+    "death_eligible_pool": 407,
+    "max_death_streak": 27,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20185689628124237,
+        "median": 0.32598520815372467,
+        "max": 0.48629820346832275
+      },
+      "head": {
+        "min": 0.19455450773239136,
+        "median": 0.30080533027648926,
+        "max": 0.5007608532905579
+      },
+      "ffn_group": {
+        "min": 0.1996900588274002,
+        "median": 0.31387582421302795,
+        "max": 0.35437971353530884
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003949766008286576,
+        "median": 0.004811904292678675,
+        "max": 0.008486577708576802
+      },
+      "head": {
+        "min": 0.00012434054708340442,
+        "median": 0.0012056098471148141,
+        "max": 0.0027427658931097306
+      },
+      "ffn_group": {
+        "min": 2.2548508792700596e-05,
+        "median": 0.0002952752742704411,
+        "max": 0.0011527672601020778
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 8000,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 586.8783662211428,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.65,
+        "median_consistency": -0.019117284956704086
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5555555555555556,
+        "median_consistency": -0.010287984246153504
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.5023474178403756,
+        "median_consistency": -0.0002948111437854316
+      }
+    },
+    "plateau": 0.018469568419060667,
+    "max_dormant_birth_score": 0.0010334601275004223,
+    "max_birth_score_by_kind": {
+      "head": 0.0010334601275004223,
+      "ffn_group": 0.0008794184371813771
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 62,
+    "death_eligible_pool": 407,
+    "max_death_streak": 28,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2023947387933731,
+        "median": 0.3265410512685776,
+        "max": 0.4894274175167084
+      },
+      "head": {
+        "min": 0.18784818053245544,
+        "median": 0.30163994431495667,
+        "max": 0.5046246647834778
+      },
+      "ffn_group": {
+        "min": 0.20175956189632416,
+        "median": 0.3153521418571472,
+        "max": 0.3558579981327057
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0036101301181777536,
+        "median": 0.0049661707776861765,
+        "max": 0.010408489218835115
+      },
+      "head": {
+        "min": 0.00010225520692694993,
+        "median": 0.0012046190373535804,
+        "max": 0.0028605854622595454
+      },
+      "ffn_group": {
+        "min": 2.1891174096847874e-05,
+        "median": 0.00029850319256130743,
+        "max": 0.0015114262765816076
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 8250,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 414.1191371656557,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.55,
+        "median_consistency": -0.0037281332975419032
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5333333333333333,
+        "median_consistency": -0.004094225194302472
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.460093896713615,
+        "median_consistency": 0.008560072981653679
+      }
+    },
+    "plateau": 0.05526137476625037,
+    "max_dormant_birth_score": 0.002807448269505042,
+    "max_birth_score_by_kind": {
+      "head": 0.002807448269505042,
+      "ffn_group": 0.0024932265211222533
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 60,
+    "death_eligible_pool": 407,
+    "max_death_streak": 29,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2030768245458603,
+        "median": 0.3270959407091141,
+        "max": 0.49167564511299133
+      },
+      "head": {
+        "min": 0.18245045840740204,
+        "median": 0.3022124618291855,
+        "max": 0.5075387954711914
+      },
+      "ffn_group": {
+        "min": 0.20147176086902618,
+        "median": 0.31633689999580383,
+        "max": 0.35736843943595886
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0032302746255058953,
+        "median": 0.0046903033618040015,
+        "max": 0.009154492719921288
+      },
+      "head": {
+        "min": 8.322959195942972e-05,
+        "median": 0.0010721120140650242,
+        "max": 0.002669841956544186
+      },
+      "ffn_group": {
+        "min": 2.2154488380892932e-05,
+        "median": 0.00029586900060850433,
+        "max": 0.0009713089419583642
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 2
+  },
+  {
+    "step": 8500,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 272.7852143575462,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.002529650823067958
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.4222222222222222,
+        "median_consistency": 0.012572282290061198
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.5289514866979655,
+        "median_consistency": -0.010484128513003411
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0001379995296334757,
+    "max_birth_score_by_kind": {
+      "head": 0.0001379995296334757,
+      "ffn_group": 0.00011992795856255693
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 66,
+    "death_eligible_pool": 407,
+    "max_death_streak": 30,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2038927525281906,
+        "median": 0.327919065952301,
+        "max": 0.4936928153038025
+      },
+      "head": {
+        "min": 0.17855757474899292,
+        "median": 0.30253876745700836,
+        "max": 0.5106040239334106
+      },
+      "ffn_group": {
+        "min": 0.20264950394630432,
+        "median": 0.31742072105407715,
+        "max": 0.35875606536865234
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003445082621885607,
+        "median": 0.004720282110514463,
+        "max": 0.009064181522732381
+      },
+      "head": {
+        "min": 6.097497914871143e-05,
+        "median": 0.0010446917964217768,
+        "max": 0.0027239476014111006
+      },
+      "ffn_group": {
+        "min": 2.517035440922216e-05,
+        "median": 0.0003004376959141282,
+        "max": 0.0008558150389278932
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  },
+  {
+    "step": 8750,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 163.98972764310423,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.25,
+        "median_consistency": 0.027275278210706452
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5333333333333333,
+        "median_consistency": -0.026440714897051954
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.49139280125195617,
+        "median_consistency": 0.003175049930909762
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00013963468733654299,
+    "max_birth_score_by_kind": {
+      "head": 0.00013963468733654299,
+      "ffn_group": 0.0001232729692997347
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 57,
+    "death_eligible_pool": 407,
+    "max_death_streak": 31,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20471982657909393,
+        "median": 0.3286396414041519,
+        "max": 0.49570339918136597
+      },
+      "head": {
+        "min": 0.1761905401945114,
+        "median": 0.3025133013725281,
+        "max": 0.5126224160194397
+      },
+      "ffn_group": {
+        "min": 0.20362882316112518,
+        "median": 0.3181838393211365,
+        "max": 0.3596825897693634
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003492856325799981,
+        "median": 0.0045912235865657805,
+        "max": 0.007538679182411835
+      },
+      "head": {
+        "min": 5.524507259333269e-05,
+        "median": 0.001027516989298084,
+        "max": 0.0025995283642192123
+      },
+      "ffn_group": {
+        "min": 2.3562895776437878e-05,
+        "median": 0.000299748338187279,
+        "max": 0.0011354602199224481
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  },
+  {
+    "step": 9000,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 86.62836622114348,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.45,
+        "median_consistency": 0.010438311340890356
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.4,
+        "median_consistency": 0.017374275443559992
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.5352112676056338,
+        "median_consistency": -0.012679424345117603
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00012747045143118104,
+    "max_birth_score_by_kind": {
+      "head": 0.00012747045143118104,
+      "ffn_group": 0.00012382828006749305
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 61,
+    "death_eligible_pool": 407,
+    "max_death_streak": 32,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.2056676745414734,
+        "median": 0.32920943200588226,
+        "max": 0.4975018799304962
+      },
+      "head": {
+        "min": 0.17506299912929535,
+        "median": 0.30255211889743805,
+        "max": 0.5146723985671997
+      },
+      "ffn_group": {
+        "min": 0.20519603788852692,
+        "median": 0.31854772567749023,
+        "max": 0.3602944314479828
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0032488745540017704,
+        "median": 0.004498546275173479,
+        "max": 0.006343795986447482
+      },
+      "head": {
+        "min": 4.085551744830468e-05,
+        "median": 0.0010228830679239456,
+        "max": 0.0026242210968857706
+      },
+      "ffn_group": {
+        "min": 2.4224719230420216e-05,
+        "median": 0.00029752534970923264,
+        "max": 0.0009245641494623789
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  },
+  {
+    "step": 9250,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 37.454635599142925,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.011853220396091255
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5333333333333333,
+        "median_consistency": -0.007341947632355175
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.4679186228482003,
+        "median_consistency": 0.007155722698376415
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.0001377644735976453,
+    "max_birth_score_by_kind": {
+      "head": 0.0001377644735976453,
+      "ffn_group": 0.00011978613917578931
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 57,
+    "death_eligible_pool": 407,
+    "max_death_streak": 33,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20643775165081024,
+        "median": 0.3297348916530609,
+        "max": 0.4984522759914398
+      },
+      "head": {
+        "min": 0.1748320609331131,
+        "median": 0.30274130403995514,
+        "max": 0.5159276723861694
+      },
+      "ffn_group": {
+        "min": 0.2063516229391098,
+        "median": 0.3190658688545227,
+        "max": 0.360687792301178
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.0035485574726306403,
+        "median": 0.004004650370248179,
+        "max": 0.0063800442485673365
+      },
+      "head": {
+        "min": 4.0177823721817743e-05,
+        "median": 0.0009546425954349785,
+        "max": 0.002367895513374682
+      },
+      "ffn_group": {
+        "min": 2.5651519880688533e-05,
+        "median": 0.00029128758108548246,
+        "max": 0.0009271923231674364
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  },
+  {
+    "step": 9500,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 11.301100827826946,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.6,
+        "median_consistency": -0.03307525888424069
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.5555555555555556,
+        "median_consistency": -0.0199176143837984
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.513302034428795,
+        "median_consistency": -0.0035359784800230642
+      }
+    },
+    "plateau": 0.0,
+    "max_dormant_birth_score": 0.00014504686856691625,
+    "max_birth_score_by_kind": {
+      "head": 0.00014504686856691625,
+      "ffn_group": 0.00012165662045187411
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 58,
+    "death_eligible_pool": 407,
+    "max_death_streak": 34,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20683611929416656,
+        "median": 0.330044761300087,
+        "max": 0.4992425739765167
+      },
+      "head": {
+        "min": 0.1751328855752945,
+        "median": 0.30280525982379913,
+        "max": 0.5165229439735413
+      },
+      "ffn_group": {
+        "min": 0.2070118486881256,
+        "median": 0.31947579979896545,
+        "max": 0.36100760102272034
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003407480100126054,
+        "median": 0.004123369085819454,
+        "max": 0.007091702661501017
+      },
+      "head": {
+        "min": 4.2168189878173196e-05,
+        "median": 0.0008827794313934178,
+        "max": 0.002135369102221114
+      },
+      "ffn_group": {
+        "min": 2.849262509021135e-05,
+        "median": 0.0002905441931497034,
+        "max": 0.0008108835933652792
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  },
+  {
+    "step": 9750,
+    "births": [],
+    "deaths": [],
+    "deaths_frozen": true,
+    "births_frozen": true,
+    "structure_frozen": true,
+    "lr_budget_remaining": 1.4315386533680485,
+    "birth_sign_summary": {
+      "top20": {
+        "n": 20,
+        "negative_fraction": 0.5,
+        "median_consistency": -0.008256410182413514
+      },
+      "head": {
+        "n": 45,
+        "negative_fraction": 0.4666666666666667,
+        "median_consistency": 0.015183808975661826
+      },
+      "ffn_group": {
+        "n": 639,
+        "negative_fraction": 0.4507042253521127,
+        "median_consistency": 0.013860783613061065
+      }
+    },
+    "plateau": 0.35117796233265297,
+    "max_dormant_birth_score": 0.017061988953262754,
+    "max_birth_score_by_kind": {
+      "head": 0.017061988953262754,
+      "ffn_group": 0.015737094456275053
+    },
+    "birth_cost": {
+      "head": 4.148148148148148,
+      "ffn_group": 1.0
+    },
+    "birth_score_floor": 0.0,
+    "nan_candidates": 0,
+    "below_floor_count": 59,
+    "death_eligible_pool": 407,
+    "max_death_streak": 35,
+    "death_criterion": "importance",
+    "gate_spread": {
+      "layer": {
+        "min": 0.20701628923416138,
+        "median": 0.3301645517349243,
+        "max": 0.4995179772377014
+      },
+      "head": {
+        "min": 0.17527338862419128,
+        "median": 0.3027917891740799,
+        "max": 0.5167601108551025
+      },
+      "ffn_group": {
+        "min": 0.20728610455989838,
+        "median": 0.31951504945755005,
+        "max": 0.36105793714523315
+      }
+    },
+    "importance_spread": {
+      "layer": {
+        "min": 0.003376362965989866,
+        "median": 0.0038536371461450405,
+        "max": 0.006001976810104971
+      },
+      "head": {
+        "min": 3.8599606963675996e-05,
+        "median": 0.0008897035942197382,
+        "max": 0.0019813108718105166
+      },
+      "ffn_group": {
+        "min": 2.6956901449353996e-05,
+        "median": 0.0002901736960578173,
+        "max": 0.0009288721795320693
+      }
+    },
+    "in_inactive_layers": 555,
+    "ramping": 0,
+    "dying": 0,
+    "state_counts": {
+      "mature": 578,
+      "dormant": 1068,
+      "dead": 46
+    },
+    "birth_limit_used": 1
+  }
+]

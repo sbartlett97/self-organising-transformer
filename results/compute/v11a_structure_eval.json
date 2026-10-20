@@ -1,0 +1,60 @@
+{
+  "checkpoint": "outputs/phase2_v11a_wsd7000/final",
+  "step": 10000,
+  "eval_tokens": 98304,
+  "units_forced_off": 1285,
+  "trained_supernet": {
+    "loss": 3.299751361211141,
+    "ppl": 27.10589850495301
+  },
+  "present_structure_only": {
+    "loss": 3.299751361211141,
+    "ppl": 27.10589850495301
+  },
+  "structure": [
+    {
+      "index": 0,
+      "heads": 6,
+      "ffn_groups": 70
+    },
+    {
+      "index": 1,
+      "heads": 4,
+      "ffn_groups": 47
+    },
+    {
+      "index": 2,
+      "heads": 7,
+      "ffn_groups": 51
+    },
+    {
+      "index": 3,
+      "heads": 7,
+      "ffn_groups": 40
+    },
+    {
+      "index": 4,
+      "heads": 4,
+      "ffn_groups": 46
+    },
+    {
+      "index": 5,
+      "heads": 3,
+      "ffn_groups": 30
+    },
+    {
+      "index": 8,
+      "heads": 5,
+      "ffn_groups": 46
+    },
+    {
+      "index": 10,
+      "heads": 2,
+      "ffn_groups": 31
+    }
+  ],
+  "flops_per_token": 134551040,
+  "flops_fraction_of_dense": 0.4297048094170587,
+  "params": 66240000,
+  "params_fraction_of_dense": 0.43561926118973304
+}

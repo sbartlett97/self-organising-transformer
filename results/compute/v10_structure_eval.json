@@ -1,0 +1,60 @@
+{
+  "checkpoint": "outputs/phase2_v10_flopsnorm/final",
+  "step": 10000,
+  "eval_tokens": 98304,
+  "units_forced_off": 1285,
+  "trained_supernet": {
+    "loss": 3.4091897358496985,
+    "ppl": 30.240731349283834
+  },
+  "present_structure_only": {
+    "loss": 3.4091897358496985,
+    "ppl": 30.240731349283834
+  },
+  "structure": [
+    {
+      "index": 0,
+      "heads": 6,
+      "ffn_groups": 63
+    },
+    {
+      "index": 1,
+      "heads": 4,
+      "ffn_groups": 57
+    },
+    {
+      "index": 2,
+      "heads": 5,
+      "ffn_groups": 54
+    },
+    {
+      "index": 3,
+      "heads": 5,
+      "ffn_groups": 40
+    },
+    {
+      "index": 4,
+      "heads": 2,
+      "ffn_groups": 46
+    },
+    {
+      "index": 5,
+      "heads": 3,
+      "ffn_groups": 30
+    },
+    {
+      "index": 8,
+      "heads": 5,
+      "ffn_groups": 46
+    },
+    {
+      "index": 10,
+      "heads": 2,
+      "ffn_groups": 31
+    }
+  ],
+  "flops_per_token": 132462080,
+  "flops_fraction_of_dense": 0.4230334662696563,
+  "params": 65392128,
+  "params_fraction_of_dense": 0.43004333464650446
+}

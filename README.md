@@ -8,7 +8,7 @@ model starts over-complete (Phase 1) or small (Phase 2). During language
 model training it decides which layers, attention heads, FFN channel
 groups and skip edges to keep. There is no separate architecture search.
 
-**Status (2026-10-16): no result yet shows a cheaper model at equal
+**Status (2026-10-20): no result yet shows a cheaper model at equal
 quality.** The work so far found the mechanisms that do not work, and
 several bugs that made earlier results look better than they were. The
 full record is in [`RESEARCH_LOG.md`](RESEARCH_LOG.md). Read its summary
@@ -39,7 +39,7 @@ on the gate-weighted cost pushes gates down.
 
 Training starts with 33% of units alive. Every 250 steps a controller
 gives birth to promising dormant units and kills alive units that fall
-behind. Nine full runs on WikiText-103 (d_model 768) fixed the controller
+behind. Eleven full runs on WikiText-103 (d_model 768) fixed the controller
 step by step.
 
 ![Phase 2 supernet val perplexity, attempts 5-8](docs/figures/phase2_val_ppl.png)
@@ -68,9 +68,23 @@ Attempt 9 ends with 8 of 12 layers, 36 heads and 357 FFN groups:
 
 ![Attempt 9 final structure per layer](docs/figures/phase2_final_structure_v9.png)
 
-Heads took most early births because the controller ranked raw scores,
-and a head is about 4x the size of an FFN group. `--birth_score_norm
-flops` now ranks by score per FLOP. See "Where next" in
+Two more runs (2026-10-20) tested two causes of the gap:
+
+- **Attempt 10** ranks head and FFN births by score per FLOP. In attempt
+  9, heads took most births because a head is about 4x the size of an FFN
+  group. Attempt 10 grows mostly FFN groups, but it gets **30.51**, the same
+  as attempt 9.
+- **Attempt 11a** adds a warmup-stable-decay (WSD) LR schedule: peak LR
+  until step 7000, then a decay to 0. Structure changes stop at step 7000,
+  so every newborn unit trains at a high LR. It gets **27.41**, but the
+  dense d 512 / 9-layer model on the same schedule gets **26.51**:
+
+![Learned structure against dense on two LR schedules](docs/figures/phase2_wsd_val_ppl.png)
+
+In all three runs (attempts 9, 10 and 11a), about 91% of the final heads
+and FFN groups come from the random draw at the start. The controller
+mainly picks which layers to keep. The next runs test whether its birth
+ranking adds anything over random births. See "Where next" in
 [`RESEARCH_LOG.md`](RESEARCH_LOG.md).
 
 ### Text samples
@@ -205,6 +219,8 @@ error if a check fails.
 python tests/zero_effect_test.py         # inactive units: zero output, zero gradient
 python tests/phase2_controller_test.py   # birth/death controller
 python tests/compute_test.py             # FLOPs and parameter counts
+python tests/schedule_test.py            # cosine and WSD LR schedules
+python tests/resume_test.py              # Phase 2 resume is bit-identical to an unbroken run
 ```
 
 ### Train
@@ -223,8 +239,7 @@ smoke test, use `--max_steps 50 --eval_every 25 --save_every 25`.
 `./run_experiment.sh` runs the full Phase 1 matrix for one seed: three
 dense baselines, SOT, the compact model and the retrained compact model.
 
-Phase 2 (birth and death), with the settings of attempt 8 and the
-zero-effect code:
+Phase 2 (birth and death), with the settings of attempt 11a:
 
 ```bash
 python train_phase2.py --output_dir outputs/phase2 \
@@ -235,10 +250,19 @@ python train_phase2.py --output_dir outputs/phase2 \
     --death_criterion importance --death_relative_margin 0.6 --death_patience 2 \
     --birth_score_floor 0 --birth_ramp_steps 250 --death_ramp_steps 250 \
     --death_freeze_lr_fraction 0.05 --birth_freeze_lr_fraction 0.05 \
-    --max_steps 10000
+    --birth_score_norm flops --lr_schedule wsd --lr_decay_start 7000 \
+    --structure_freeze_step 7000 --max_steps 10000
 ```
 
-A full run of this command takes about 2.5 hours on one A100 80GB.
+A full run of this command takes about 2.5 hours on one A100 80GB. Leave
+out the last four flags for the settings of attempt 9. `train.py` takes
+the same `--lr_schedule` and `--lr_decay_start` flags, so a dense control
+can use the same schedule.
+
+A Phase 2 run writes `training_state.pt` to its output directory at each
+checkpoint. If the run stops, run the same command again with
+`--resume_from outputs/phase2`. The run continues from the last
+checkpoint, and it ends with the same result as a run with no stop.
 
 ### Evaluate and inspect
 
@@ -273,9 +297,10 @@ in three collections:
 - [SOT phase1 — tinystories](https://huggingface.co/collections/sbartlett97/sot-phase1-tinystories-6ac4cbf24224063cb605659f):
   3 seeds of every Phase 1 condition, d 384.
 - [SOT phase1 — wikitext103](https://huggingface.co/collections/sbartlett97/sot-phase1-wikitext103-6ac4c7087f6073e1aef8d6b4):
-  d 384 at two budgets, and the d 768 dense and SOT baselines.
+  d 384 at two budgets, the d 768 dense and SOT baselines, and the dense
+  controls at the FLOPs of Phase 2.
 - [SOT phase2 — wikitext103](https://huggingface.co/collections/sbartlett97/sot-phase2-wikitext103-6ac76aa938b7496cb8352d03):
-  Phase 2 attempts 4-8, d 768.
+  Phase 2 attempts 4-11a, d 768.
 
 Good models to start with:
 
@@ -288,10 +313,12 @@ Good models to start with:
 | [`sot-phase1-wikitext103-sot-seed42-tc768d013`](https://huggingface.co/sbartlett97/sot-phase1-wikitext103-sot-seed42-tc768d013) | gated supernet, d 768 | 22.00 |
 | [`sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze`](https://huggingface.co/sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v8-tailfreeze) | Phase 2 attempt 8 (supernet) | 26.98 * |
 | [`sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect`](https://huggingface.co/sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v9-zeroeffect) | Phase 2 attempt 9, present structure only (0.425 of dense FLOPs) | 30.61 † |
+| [`sot-phase2-wikitext103-heuristic-seed42-tc768d013-v11a-wsd7000`](https://huggingface.co/sbartlett97/sot-phase2-wikitext103-heuristic-seed42-tc768d013-v11a-wsd7000) | Phase 2 attempt 11a, WSD schedule (0.430 of dense FLOPs) | 27.41 † |
+| [`sot-phase1-wikitext103-dense_c425_d512l9_wsd7000-seed42-tc768d013`](https://huggingface.co/sbartlett97/sot-phase1-wikitext103-dense_c425_d512l9_wsd7000-seed42-tc768d013) | dense d 512 / 9 layers, WSD schedule (0.421 of dense FLOPs) | 26.51 † |
 
 Val ppl is `evaluate.py` perplexity. \* Training-time val ppl of the
 supernet. The dense 768 model gives 24.30 on that method. † Training-time
-val ppl of the present structure.
+val ppl (the present structure for Phase 2).
 
 Every model card states its condition, its training settings, its
 results and any known fault.
@@ -311,7 +338,7 @@ results and any known fault.
 | `compute.py`, `structure_eval.py` | real FLOPs and params; quality of the present structure |
 | `ablation_importance.py` | unit ablation, gate against importance |
 | `hub_utils.py` | Hub upload, model cards, collections, Trackio |
-| `tests/` | zero-effect, controller and compute tests |
+| `tests/` | zero-effect, controller, compute, LR schedule and resume tests |
 | `results/` | raw run outputs (see [`results/README.md`](results/README.md)) |
 | `scripts/make_figures.py` | the figures in this README |
 | `notebooks/` | a Colab notebook for the Phase 1 gate diagnostic |
